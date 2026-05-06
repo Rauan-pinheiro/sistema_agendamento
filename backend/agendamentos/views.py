@@ -1,8 +1,10 @@
-from rest_framework import viewsets, permissions, mixins
+from rest_framework import viewsets, permissions, mixins, generics, status
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
 
 from .models import Empresa, Servico, Agendamento
-from .serializers import EmpresaSerializer, ServicoSerializer, AgendamentoSerializer
+from .serializers import EmpresaSerializer, ServicoSerializer, AgendamentoSerializer, RegistroSerializer
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -113,3 +115,28 @@ class AgendamentoPublicoViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet
 
     def perform_create(self, serializer):
         serializer.save(empresa=self._empresa())
+
+
+# ── Registro de novo prestador ────────────────────────────────────────────────
+
+class RegistroView(generics.CreateAPIView):
+    """
+    Cria User + Empresa numa única operação atômica e retorna os tokens JWT.
+    Rota: POST /api/v1/auth/registro/
+    """
+    serializer_class = RegistroSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user, empresa = serializer.save()
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'access':  str(refresh.access_token),
+            'refresh': str(refresh),
+            'empresa': EmpresaSerializer(empresa).data,
+        }, status=status.HTTP_201_CREATED)
