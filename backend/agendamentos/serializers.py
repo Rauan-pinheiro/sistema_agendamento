@@ -13,7 +13,7 @@ class ServicoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Servico
         fields = ['id', 'empresa', 'nome', 'duracao_min', 'preco', 'criado_em', 'atualizado_em']
-        read_only_fields = ['id', 'criado_em', 'atualizado_em']
+        read_only_fields = ['id', 'empresa', 'criado_em', 'atualizado_em']
 
 
 class AgendamentoSerializer(serializers.ModelSerializer):
@@ -24,10 +24,11 @@ class AgendamentoSerializer(serializers.ModelSerializer):
             'whatsapp_cliente', 'data_hora', 'status',
             'criado_em', 'atualizado_em',
         ]
-        read_only_fields = ['id', 'status', 'criado_em', 'atualizado_em']
+        read_only_fields = ['id', 'empresa', 'status', 'criado_em', 'atualizado_em']
 
     def validate(self, data):
-        empresa = data.get('empresa') or getattr(self.instance, 'empresa', None)
+        # empresa vem do contexto injetado pela view, não do payload
+        empresa = self.context.get('empresa') or getattr(self.instance, 'empresa', None)
         servico = data.get('servico') or getattr(self.instance, 'servico', None)
 
         if servico and empresa and servico.empresa_id != empresa.pk:
