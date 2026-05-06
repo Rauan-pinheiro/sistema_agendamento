@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, mixins, generics, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
@@ -80,6 +81,23 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(empresa=self._empresa())
+
+    @action(detail=True, methods=['patch'], url_path='status')
+    def atualizar_status(self, request, pk=None):
+        """PATCH /api/v1/agendamentos/{id}/status/ — body: {"status": "confirmado"|"cancelado"}"""
+        agendamento = self.get_object()
+        novo_status = request.data.get('status')
+
+        STATUS_PERMITIDOS = ['confirmado', 'cancelado']
+        if novo_status not in STATUS_PERMITIDOS:
+            return Response(
+                {'status': f'Valor inválido. Use: {", ".join(STATUS_PERMITIDOS)}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        agendamento.status = novo_status
+        agendamento.save(update_fields=['status', 'atualizado_em'])
+        return Response(self.get_serializer(agendamento).data)
 
 
 # ── Área pública (sem autenticação) ──────────────────────────────────────────

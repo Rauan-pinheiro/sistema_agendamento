@@ -41,6 +41,7 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 | GET / PUT / PATCH / DELETE | `api/v1/servicos/{id}/` | Gerenciar um serviço |
 | GET / POST | `api/v1/agendamentos/` | Listar (`?status=pendente`) e criar agendamentos |
 | GET / PUT / PATCH / DELETE | `api/v1/agendamentos/{id}/` | Gerenciar um agendamento |
+| PATCH | `api/v1/agendamentos/{id}/status/` | Confirmar ou cancelar um agendamento |
 
 ### Área pública (sem autenticação, via slug)
 | Método | Rota | Descrição |
@@ -64,10 +65,10 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 - [x] API testada e validada: JSON correto, isolamento funcionando, 401 sem autenticação
 - [x] Autenticação JWT com `djangorestframework-simplejwt` — login, uso do token e refresh testados
 - [x] `requirements.txt` gerado com todas as dependências do projeto
+- [x] Endpoint de registro de Empresa + criação automática do User vinculado (`POST /api/v1/auth/registro/`)
+- [x] Alteração de status do Agendamento pelo prestador — `PATCH /api/v1/agendamentos/{id}/status/`
 
 ## 8. Próximos Objetivos
-- [ ] Endpoint de registro de Empresa + criação automática do User vinculado
-- [ ] Alteração de status do Agendamento pelo prestador (`confirmar` / `cancelar`)
 - [ ] Regra de negócio: impedir agendamentos em horários já ocupados
 - [ ] CORS configurado para integração com o frontend React
 - [ ] Paginação nas listagens
