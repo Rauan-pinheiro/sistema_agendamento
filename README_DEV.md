@@ -27,7 +27,13 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 
 ## 5. API REST — Endpoints
 
-### Área privada (requer autenticação)
+### Autenticação JWT
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `api/v1/auth/token/` | Login — retorna `access` (60 min) e `refresh` (7 dias) |
+| POST | `api/v1/auth/token/refresh/` | Renova o `access` token usando o `refresh` |
+
+### Área privada (requer `Authorization: Bearer <token>`)
 | Método | Rota | Descrição |
 |---|---|---|
 | GET / PATCH | `api/v1/empresa/` | Dados da empresa do usuário logado |
@@ -43,7 +49,7 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 | POST | `api/v1/public/{slug}/agendamentos/` | Cliente cria um agendamento |
 
 ## 6. Fluxos de Usuário
-1. **Dashboard do Prestador:** Autenticado. Gerencia serviços, visualiza e atualiza agendamentos.
+1. **Dashboard do Prestador:** Autenticado via JWT. Gerencia serviços, visualiza e atualiza agendamentos.
 2. **Página do Cliente:** Acessada via `slug` sem login. O cliente vê os serviços e solicita um horário.
 
 ## 7. O que foi implementado
@@ -55,11 +61,14 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 - [x] Migration inicial (`0001_initial`) gerada e aplicada
 - [x] Script `seed.py` para popular o banco em desenvolvimento
 - [x] `.gitignore` configurado (ignora `venv`, `__pycache__`, `.env`, `*.sqlite3`, `seed.py`, IDEs)
-- [x] API testada e validada: JSON correto, isolamento funcionando, 403 sem autenticação
+- [x] API testada e validada: JSON correto, isolamento funcionando, 401 sem autenticação
+- [x] Autenticação JWT com `djangorestframework-simplejwt` — login, uso do token e refresh testados
+- [x] `requirements.txt` gerado com todas as dependências do projeto
 
 ## 8. Próximos Objetivos
-- [ ] Autenticação via JWT (djangorestframework-simplejwt)
 - [ ] Endpoint de registro de Empresa + criação automática do User vinculado
+- [ ] Alteração de status do Agendamento pelo prestador (`confirmar` / `cancelar`)
 - [ ] Regra de negócio: impedir agendamentos em horários já ocupados
-- [ ] Integração com Frontend React
+- [ ] CORS configurado para integração com o frontend React
+- [ ] Paginação nas listagens
 - [ ] Deploy no Railway com banco MySQL
