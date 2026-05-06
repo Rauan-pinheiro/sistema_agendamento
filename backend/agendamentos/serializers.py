@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.db import transaction
+from datetime import timedelta
 from .models import Empresa, Servico, Agendamento
 
 
@@ -29,16 +30,46 @@ class AgendamentoSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'empresa', 'status', 'criado_em', 'atualizado_em']
 
     def validate(self, data):
-        # empresa vem do contexto injetado pela view, não do payload
         empresa = self.context.get('empresa') or getattr(self.instance, 'empresa', None)
         servico = data.get('servico') or getattr(self.instance, 'servico', None)
+        data_hora = data.get('data_hora') or getattr(self.instance, 'data_hora', None)
 
         if servico and empresa and servico.empresa_id != empresa.pk:
             raise serializers.ValidationError(
                 {'servico': 'O serviço não pertence à empresa informada.'}
             )
 
+        if data_hora and servico and empresa:
+            self._validar_conflito_horario(empresa, servico, data_hora)
+
         return data
+
+    def _validar_conflito_horario(self, empresa, servico, data_hora):
+        novo_inicio = data_hora
+        novo_fim = data_hora + timedelta(minutes=servico.duracao_min)
+
+        # Busca agendamentos não cancelados da empresa que começam antes do novo terminar
+        candidatos = (
+            Agendamento.objects
+            .filter(empresa=empresa, data_hora__lt=novo_fim)
+            .exclude(status='cancelado')
+            .select_related('servico')
+        )
+
+        # Exclui o próprio agendamento em caso de atualização
+        if self.instance:
+            candidatos = candidatos.exclude(pk=self.instance.pk)
+
+        for ag in candidatos:
+            existente_fim = ag.data_hora + timedelta(minutes=ag.servico.duracao_min)
+            if existente_fim > novo_inicio:
+                raise serializers.ValidationError({
+                    'data_hora': (
+                        f'Horário indisponível. Já existe um agendamento de '
+                        f'{ag.data_hora.strftime("%H:%M")} até '
+                        f'{existente_fim.strftime("%H:%M")}.'
+                    )
+                })
 
 
 class RegistroSerializer(serializers.Serializer):

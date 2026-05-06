@@ -67,9 +67,9 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 - [x] `requirements.txt` gerado com todas as dependências do projeto
 - [x] Endpoint de registro de Empresa + criação automática do User vinculado (`POST /api/v1/auth/registro/`)
 - [x] Alteração de status do Agendamento pelo prestador — `PATCH /api/v1/agendamentos/{id}/status/`
+- [x] Regra de negócio: impedir agendamentos em horários já ocupados (validação de sobreposição no serializer, cobre rotas privada e pública)
 
 ## 8. Próximos Objetivos
-- [ ] Regra de negócio: impedir agendamentos em horários já ocupados
 - [ ] CORS configurado para integração com o frontend React
 - [ ] Paginação nas listagens
 - [ ] Deploy no Railway com banco MySQL
