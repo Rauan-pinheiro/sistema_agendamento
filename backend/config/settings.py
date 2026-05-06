@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     
     # meus apps
     'agendamentos',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
