@@ -1,31 +1,65 @@
 # Projeto: SaaS de Agendamento Multi-Tenant
 
 ## 1. Visão Geral
-Este é um sistema SaaS (Software as a Service) focado em prestadores de serviços (barbearias, clínicas, etc.). O objetivo principal é permitir que cada assinante tenha seu próprio ambiente isolado para gestão de horários, serviços e clientes.
+Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). Cada assinante possui um ambiente isolado para gestão de horários, serviços e clientes, além de uma página pública acessada via slug para receber agendamentos de clientes finais.
 
 ## 2. Arquitetura e Stack
-- **Backend:** Python / Django (Foco em escalabilidade e segurança).
-- **Banco de Dados:** MySQL (Hospedado via Railway).
-- **Frontend:** React (Consumindo API via Django Rest Framework).
-- **Infra:** Deploy principal na plataforma Railway.
-- **Estratégia de Produto:** Web-First (Mobile e Desktop em planos futuros).
+- **Backend:** Python / Django + Django Rest Framework
+- **Banco de Dados:** SQLite (desenvolvimento) → MySQL via Railway (produção)
+- **Frontend:** React (planejado — consumirá a API REST)
+- **Infra:** Deploy na plataforma Railway
+- **Estratégia de Produto:** Web-First (mobile e desktop em planos futuros)
 
 ## 3. Estrutura Multi-Tenant (Isolamento de Dados)
-- O sistema utiliza **Isolamento via Chave Estrangeira** (Shared Database, Isolated Rows).
-- O model `Empresa` é o "Tenant" (inquilino).
-- Quase todos os outros models herdam de `BaseModel`, que contém uma `ForeignKey` obrigatória para `Empresa`.
-- **Links Personalizados:** Cada empresa possui um `slug` para gerar sua própria página pública de agendamentos.
+- Estratégia: **Shared Database, Isolated Rows** (isolamento via chave estrangeira).
+- `Empresa` é o Tenant. Todo model de negócio herda de `BaseModel`, que carrega uma `ForeignKey` obrigatória para `Empresa`.
+- Cada empresa possui um `slug` único que gera sua página pública de agendamentos.
+- O isolamento é aplicado nas views: `get_queryset` sempre filtra por `empresa=request.user.empresa`, garantindo que um prestador nunca acesse dados de outro.
 
-## 4. Models Principais (App: core)
-- **Empresa:** Vinculada a um User (Owner), contém nome, slug e contato.
-- **Servico:** Nome, duração em minutos e preço.
-- **Agendamento:** Relaciona cliente, serviço, data/hora e status (pendente, confirmado, cancelado).
+## 4. Models (App: agendamentos)
 
-## 5. Fluxos de Usuário
-1. **Área do Assinante (Dashboard):** Autenticada, onde o prestador gerencia seu negócio.
-2. **Área do Cliente (Public):** Acessada via `slug`. Permite ao cliente final visualizar serviços de uma empresa específica e solicitar agendamentos sem necessidade de login complexo.
+| Model | Campos principais | Herda de |
+|---|---|---|
+| `Empresa` | `owner` (User), `nome_fantasia`, `slug`, `whatsapp_contato` | `Model` |
+| `BaseModel` | `empresa` (FK), `criado_em`, `atualizado_em` | `Model` (abstract) |
+| `Servico` | `nome`, `duracao_min`, `preco` | `BaseModel` |
+| `Agendamento` | `servico`, `nome_cliente`, `whatsapp_cliente`, `data_hora`, `status` | `BaseModel` |
 
-## 6. Próximos Objetivos de Desenvolvimento
-- [ ] Implementação de API Endpoints (Django Rest Framework).
-- [ ] Lógica de filtragem automática por Tenant (Global Filter/Middleware).
-- [ ] Integração com Frontend React.
+## 5. API REST — Endpoints
+
+### Área privada (requer autenticação)
+| Método | Rota | Descrição |
+|---|---|---|
+| GET / PATCH | `api/v1/empresa/` | Dados da empresa do usuário logado |
+| GET / POST | `api/v1/servicos/` | Listar e criar serviços |
+| GET / PUT / PATCH / DELETE | `api/v1/servicos/{id}/` | Gerenciar um serviço |
+| GET / POST | `api/v1/agendamentos/` | Listar (`?status=pendente`) e criar agendamentos |
+| GET / PUT / PATCH / DELETE | `api/v1/agendamentos/{id}/` | Gerenciar um agendamento |
+
+### Área pública (sem autenticação, via slug)
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `api/v1/public/{slug}/servicos/` | Serviços disponíveis da empresa |
+| POST | `api/v1/public/{slug}/agendamentos/` | Cliente cria um agendamento |
+
+## 6. Fluxos de Usuário
+1. **Dashboard do Prestador:** Autenticado. Gerencia serviços, visualiza e atualiza agendamentos.
+2. **Página do Cliente:** Acessada via `slug` sem login. O cliente vê os serviços e solicita um horário.
+
+## 7. O que foi implementado
+
+- [x] Models `Empresa`, `BaseModel`, `Servico` e `Agendamento` com relacionamentos e campos de auditoria
+- [x] `Serializers` com validação de integridade: o serviço de um agendamento deve pertencer à mesma empresa
+- [x] `ViewSets` com isolamento de Tenant por `get_queryset` e injeção de empresa via `perform_create`
+- [x] Roteamento com `DefaultRouter` (rotas privadas) + `path()` manual (rotas públicas com slug)
+- [x] Migration inicial (`0001_initial`) gerada e aplicada
+- [x] Script `seed.py` para popular o banco em desenvolvimento
+- [x] `.gitignore` configurado (ignora `venv`, `__pycache__`, `.env`, `*.sqlite3`, `seed.py`, IDEs)
+- [x] API testada e validada: JSON correto, isolamento funcionando, 403 sem autenticação
+
+## 8. Próximos Objetivos
+- [ ] Autenticação via JWT (djangorestframework-simplejwt)
+- [ ] Endpoint de registro de Empresa + criação automática do User vinculado
+- [ ] Regra de negócio: impedir agendamentos em horários já ocupados
+- [ ] Integração com Frontend React
+- [ ] Deploy no Railway com banco MySQL
