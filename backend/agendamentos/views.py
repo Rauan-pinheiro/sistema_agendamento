@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
 
 from .models import Empresa, Servico, Agendamento
-from .serializers import EmpresaSerializer, ServicoSerializer, AgendamentoSerializer, RegistroSerializer
+from .serializers import EmpresaSerializer, EmpresaPublicSerializer, ServicoSerializer, AgendamentoSerializer, RegistroSerializer
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Agendamento.objects.filter(
             empresa=self._empresa()
-        ).select_related('servico')
+        ).select_related('servico').order_by('data_hora')
 
         status = self.request.query_params.get('status')
         if status:
@@ -133,6 +133,19 @@ class AgendamentoPublicoViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet
 
     def perform_create(self, serializer):
         serializer.save(empresa=self._empresa())
+
+
+# ── Info pública da empresa (sem autenticação) ────────────────────────────────
+
+class EmpresaPublicaView(generics.RetrieveAPIView):
+    """
+    Retorna dados básicos da empresa pelo slug — sem autenticação.
+    Rota: GET /api/v1/public/<slug>/
+    """
+    serializer_class = EmpresaPublicSerializer
+    permission_classes = [permissions.AllowAny]
+    lookup_field = 'slug'
+    queryset = Empresa.objects.all()
 
 
 # ── Registro de novo prestador ────────────────────────────────────────────────

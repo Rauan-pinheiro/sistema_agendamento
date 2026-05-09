@@ -46,6 +46,7 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 ### Área pública (sem autenticação, via slug)
 | Método | Rota | Descrição |
 |---|---|---|
+| GET | `api/v1/public/{slug}/` | Info da empresa (nome, slug, whatsapp) |
 | GET | `api/v1/public/{slug}/servicos/` | Serviços disponíveis da empresa |
 | POST | `api/v1/public/{slug}/agendamentos/` | Cliente cria um agendamento |
 
@@ -68,6 +69,9 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 - [x] Endpoint de registro de Empresa + criação automática do User vinculado (`POST /api/v1/auth/registro/`)
 - [x] Alteração de status do Agendamento pelo prestador — `PATCH /api/v1/agendamentos/{id}/status/`
 - [x] Regra de negócio: impedir agendamentos em horários já ocupados (validação de sobreposição no serializer, cobre rotas privada e pública)
+- [x] Endpoint público `GET /api/v1/public/{slug}/` — info básica da empresa para cabeçalho da página do cliente
+- [x] Campo `servico_nome` (read-only) no `AgendamentoSerializer` — evita chamadas extras no frontend
+- [x] Ordenação padrão dos agendamentos por `data_hora` ascendente
 
 ## 8. Próximos Objetivos
 - [x] CORS configurado para integração com o frontend React (`django-cors-headers`, origem `http://localhost:5173`)

@@ -12,6 +12,12 @@ class EmpresaSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+class EmpresaPublicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Empresa
+        fields = ['id', 'nome_fantasia', 'slug', 'whatsapp_contato']
+
+
 class ServicoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Servico
@@ -20,14 +26,16 @@ class ServicoSerializer(serializers.ModelSerializer):
 
 
 class AgendamentoSerializer(serializers.ModelSerializer):
+    servico_nome = serializers.CharField(source='servico.nome', read_only=True)
+
     class Meta:
         model = Agendamento
         fields = [
-            'id', 'empresa', 'servico', 'nome_cliente',
+            'id', 'empresa', 'servico', 'servico_nome', 'nome_cliente',
             'whatsapp_cliente', 'data_hora', 'status',
             'criado_em', 'atualizado_em',
         ]
-        read_only_fields = ['id', 'empresa', 'status', 'criado_em', 'atualizado_em']
+        read_only_fields = ['id', 'empresa', 'servico_nome', 'status', 'criado_em', 'atualizado_em']
 
     def validate(self, data):
         empresa = self.context.get('empresa') or getattr(self.instance, 'empresa', None)

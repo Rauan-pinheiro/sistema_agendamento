@@ -5,6 +5,7 @@ from .views import (
     EmpresaViewSet,
     ServicoViewSet,
     AgendamentoViewSet,
+    EmpresaPublicaView,
     ServicoPublicoViewSet,
     AgendamentoPublicoViewSet,
 )
@@ -19,6 +20,11 @@ router.register(r'agendamentos', AgendamentoViewSet, basename='agendamento')
 urlpatterns = [
     path('', include(router.urls)),
 
+    path(
+        'public/<slug:slug>/',
+        EmpresaPublicaView.as_view(),
+        name='public-empresa',
+    ),
     path(
         'public/<slug:slug>/servicos/',
         ServicoPublicoViewSet.as_view({'get': 'list'}),
