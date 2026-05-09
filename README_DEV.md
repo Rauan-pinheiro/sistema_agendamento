@@ -110,6 +110,7 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 - [x] Slots ocupados exibidos desabilitados e riscados; apenas slots com espaço suficiente para o serviço são exibidos
 - [x] Correção das chamadas de API para consumir o envelope paginado (`results`)
 - [x] Sistema de tipos TypeScript completo (`Empresa`, `Servico`, `Agendamento`, `HorarioFuncionamento`, `SlotDisponivel`, `PaginatedResponse<T>`)
+- [x] `AuthContext` resiliente a localStorage corrompido — `parseEmpresa()` protege contra `JSON.parse("undefined")` que derrubava o app inteiro com página em branco
 
 ## 8. Decisões técnicas e armadilhas conhecidas
 
@@ -118,9 +119,9 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 | Paginação global + `EmpresaViewSet` | `DEFAULT_PAGINATION_CLASS` no `settings.py` envolve **todos** os ViewSets no envelope `{ count, results }`. Como `getMinhaEmpresa()` fazia `data[0]` esperando uma lista simples, `empresa.slug` virava `undefined` e o link da sidebar gerava `/undefined` | `EmpresaViewSet` recebe `pagination_class = None` explicitamente, pois um usuário sempre tem exatamente 1 empresa. A regra geral: qualquer endpoint que retorna um único objeto ou uma lista de tamanho fixo deve sobrescrever `pagination_class = None` |
 | Slots disponíveis sem serviço selecionado | O endpoint `horarios-disponiveis` pode ser chamado sem `?servico_id` | Quando sem `servico_id`, usa `intervalo_min` do horário como duração padrão do slot |
 | Fuso horário nos slots | `HorarioFuncionamento` armazena `hora_inicio`/`hora_fim` como `TimeField` (naive). Agendamentos são `DateTimeField` armazenados em UTC | Slots gerados com `timezone.make_aware(..., get_current_timezone())` e a comparação de conflitos é feita entre `aware datetimes`, evitando erros de offset |
+| localStorage corrompido → página em branco | `getMinhaEmpresa()` retornava `undefined` quando a paginação quebrou o `data[0]`. `JSON.stringify(undefined)` grava a string literal `"undefined"` no localStorage. Na próxima inicialização, `JSON.parse("undefined")` lança `SyntaxError` dentro do `AuthProvider`, derrubando o React tree inteiro antes de qualquer rota renderizar | `parseEmpresa()` no `AuthContext` verifica a string `"undefined"`, valida que o objeto tem `slug`, e envolve o parse em `try/catch` — o app nunca trava por estado persistido inválido |
 
 ## 9. Pendente para v1.0 (antes do deploy)
-
 
 - [ ] **Deploy no Railway com banco MySQL** — ajustar `DATABASES` via variável de ambiente, instalar `mysqlclient`, configurar `ALLOWED_HOSTS` e `SECRET_KEY` via env vars, servir arquivos estáticos com `whitenoise`
 - [ ] **Build do frontend** — rodar `npm run build` e configurar o Django para servir os arquivos estáticos ou subir o frontend num serviço separado (Vercel/Netlify)

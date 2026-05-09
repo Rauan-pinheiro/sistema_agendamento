@@ -17,11 +17,23 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function parseEmpresa(raw: string | null): Empresa | null {
+  if (!raw || raw === 'undefined' || raw === 'null') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    // Garante que o objeto tem os campos mínimos esperados
+    if (parsed && typeof parsed.slug === 'string') return parsed as Empresa;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(() => {
     const access = localStorage.getItem('access');
-    const raw = localStorage.getItem('empresa');
-    return { access, empresa: raw ? JSON.parse(raw) : null };
+    const empresa = parseEmpresa(localStorage.getItem('empresa'));
+    return { access, empresa };
   });
 
   async function login(username: string, password: string) {
