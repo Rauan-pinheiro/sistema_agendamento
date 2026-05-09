@@ -39,6 +39,7 @@ class EmpresaViewSet(viewsets.ModelViewSet):
     serializer_class = EmpresaSerializer
     permission_classes = [permissions.IsAuthenticated]
     http_method_names = ['get', 'put', 'patch', 'head', 'options']
+    pagination_class = None
 
     def get_queryset(self):
         return Empresa.objects.filter(owner=self.request.user)
