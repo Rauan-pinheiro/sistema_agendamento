@@ -1,11 +1,20 @@
 from rest_framework import viewsets, permissions, mixins, generics, status
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
 
 from .models import Empresa, Servico, Agendamento
 from .serializers import EmpresaSerializer, EmpresaPublicSerializer, ServicoSerializer, AgendamentoSerializer, RegistroSerializer
+
+
+# ── Paginação ─────────────────────────────────────────────────────────────────
+
+class StandardPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -36,6 +45,7 @@ class ServicoViewSet(viewsets.ModelViewSet):
     """
     serializer_class = ServicoSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def _empresa(self):
         return get_empresa_do_usuario(self.request.user)
@@ -59,6 +69,7 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
     """
     serializer_class = AgendamentoSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def _empresa(self):
         return get_empresa_do_usuario(self.request.user)
@@ -109,6 +120,7 @@ class ServicoPublicoViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """
     serializer_class = ServicoSerializer
     permission_classes = [permissions.AllowAny]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         empresa = get_object_or_404(Empresa, slug=self.kwargs['slug'])

@@ -75,5 +75,20 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 
 ## 8. Próximos Objetivos
 - [x] CORS configurado para integração com o frontend React (`django-cors-headers`, origem `http://localhost:5173`)
-- [ ] Paginação nas listagens
+- [x] Paginação nas listagens (`PageNumberPagination`, page_size=20, suporte a `?page_size=N` e `?page=N`)
 - [ ] Deploy no Railway com banco MySQL
+
+## 9. Melhorias identificadas (v1.1)
+
+### Backend
+- [ ] **Model `HorarioFuncionamento`** — o prestador cadastra dias da semana e faixas de horário (ex: Seg–Sex 08:00–18:00, Sáb 08:00–13:00); campo `intervalo_min` define o "passo" dos slots (ex: 30 min)
+- [ ] **Endpoint `GET /api/v1/public/{slug}/horarios-disponiveis/?data=YYYY-MM-DD`** — calcula e retorna os slots livres de um dia, cruzando os horários de funcionamento com os agendamentos já existentes; o cliente escolhe um slot pronto, eliminando o `datetime-local` livre
+- [ ] **Endpoint `GET /api/v1/horarios/` e `POST/PATCH/DELETE`** — CRUD privado para o prestador gerenciar os horários de funcionamento no dashboard
+- [ ] **Arquivamento automático de agendamentos antigos** — agendamentos com `data_hora` mais antiga que 90 dias e status `confirmado` ou `cancelado` são movidos para status `arquivado` (novo choice); evita acúmulo infinito na listagem ativa; implementar via management command agendado (cron/Railway)
+- [ ] **Controle financeiro — endpoint `GET /api/v1/financeiro/resumo/`** — retorna para o mês corrente: total de agendamentos confirmados, receita bruta (soma de `servico.preco`), ticket médio e breakdown por serviço; sem model extra, calculado via agregação no queryset
+
+### Frontend
+- [ ] **Paleta de cores revisada** — substituir azul intenso (`#2563eb`) por azul bebê (`#60a5fa` / `#bfdbfe`), usar verde calmo (`#4ade80` / `#bbf7d0`) para confirmados e ações positivas, manter branco e cinza claro como base; resultado: visual mais suave e menos pesado
+- [ ] **Seletor de horário por slots** — na página pública, substituir o campo `datetime-local` livre por um fluxo em 2 passos: (1) o cliente escolhe a data num calendário simples, (2) a interface busca os slots disponíveis via API e exibe botões clicáveis com os horários livres
+- [ ] **Página de Horários no dashboard** — formulário para o prestador cadastrar/editar os dias e faixas de atendimento; exibir grade visual semanal dos horários configurados
+- [ ] **Página de Financeiro no dashboard** — cards com resumo do mês (receita total, nº de confirmados, ticket médio) + tabela de breakdown por serviço; dados buscados do novo endpoint de resumo
