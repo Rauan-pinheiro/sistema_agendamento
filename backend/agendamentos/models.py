@@ -47,3 +47,26 @@ class Agendamento(BaseModel):
 
     def __str__(self):
         return f"{self.nome_cliente} - {self.data_hora}"
+
+
+class HorarioFuncionamento(BaseModel):
+    DIA_SEMANA_CHOICES = [
+        (0, 'Segunda-feira'),
+        (1, 'Terça-feira'),
+        (2, 'Quarta-feira'),
+        (3, 'Quinta-feira'),
+        (4, 'Sexta-feira'),
+        (5, 'Sábado'),
+        (6, 'Domingo'),
+    ]
+    dia_semana = models.IntegerField(choices=DIA_SEMANA_CHOICES)
+    hora_inicio = models.TimeField()
+    hora_fim = models.TimeField()
+    intervalo_min = models.PositiveIntegerField(default=30)
+
+    class Meta:
+        ordering = ['dia_semana', 'hora_inicio']
+        unique_together = ['empresa', 'dia_semana']
+
+    def __str__(self):
+        return f"{self.get_dia_semana_display()} ({self.hora_inicio}–{self.hora_fim})"

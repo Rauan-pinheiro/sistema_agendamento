@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.db import transaction
 from datetime import timedelta
-from .models import Empresa, Servico, Agendamento
+from .models import Empresa, Servico, Agendamento, HorarioFuncionamento
 
 
 class EmpresaSerializer(serializers.ModelSerializer):
@@ -78,6 +78,20 @@ class AgendamentoSerializer(serializers.ModelSerializer):
                         f'{existente_fim.strftime("%H:%M")}.'
                     )
                 })
+
+
+class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HorarioFuncionamento
+        fields = ['id', 'empresa', 'dia_semana', 'hora_inicio', 'hora_fim', 'intervalo_min', 'criado_em', 'atualizado_em']
+        read_only_fields = ['id', 'empresa', 'criado_em', 'atualizado_em']
+
+    def validate(self, data):
+        hora_inicio = data.get('hora_inicio') or getattr(self.instance, 'hora_inicio', None)
+        hora_fim = data.get('hora_fim') or getattr(self.instance, 'hora_fim', None)
+        if hora_inicio and hora_fim and hora_inicio >= hora_fim:
+            raise serializers.ValidationError({'hora_fim': 'Hora fim deve ser posterior à hora início.'})
+        return data
 
 
 class RegistroSerializer(serializers.Serializer):

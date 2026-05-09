@@ -1,15 +1,23 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   getEmpresaPublica,
   listServicosPublicos,
   createAgendamentoPublico,
+  getHorariosDisponiveis,
 } from '../../api/public';
-import type { Empresa, Servico } from '../../types';
+import type { Empresa, Servico, SlotDisponivel } from '../../types';
 import { CheckCircle } from 'lucide-react';
+
+const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+
+function hoje(): string {
+  return new Date().toISOString().split('T')[0];
+}
 
 export function PublicPage() {
   const { slug } = useParams<{ slug: string }>();
+
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,12 +26,18 @@ export function PublicPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const [form, setForm] = useState({
-    servico: '',
-    data_hora: '',
-    nome_cliente: '',
-    whatsapp_cliente: '',
-  });
+  // Passo 1 — serviço
+  const [servicoId, setServicoId] = useState<number | null>(null);
+
+  // Passo 2 — data e slots
+  const [dataSelecionada, setDataSelecionada] = useState('');
+  const [slots, setSlots] = useState<SlotDisponivel[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotSelecionado, setSlotSelecionado] = useState('');
+
+  // Passo 3 — dados pessoais
+  const [nomeCliente, setNomeCliente] = useState('');
+  const [whatsappCliente, setWhatsappCliente] = useState('');
 
   useEffect(() => {
     if (!slug) return;
@@ -36,25 +50,48 @@ export function PublicPage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  async function handleSubmit(e: FormEvent) {
+  // Busca slots quando data ou serviço mudam
+  useEffect(() => {
+    if (!slug || !dataSelecionada) {
+      setSlots([]);
+      setSlotSelecionado('');
+      return;
+    }
+    setLoadingSlots(true);
+    setSlotSelecionado('');
+    getHorariosDisponiveis(slug, dataSelecionada, servicoId ?? undefined)
+      .then((r) => setSlots(r.slots))
+      .catch(() => setSlots([]))
+      .finally(() => setLoadingSlots(false));
+  }, [slug, dataSelecionada, servicoId]);
+
+  function handleSelecionarServico(id: number) {
+    setServicoId(id);
+    setDataSelecionada('');
+    setSlots([]);
+    setSlotSelecionado('');
+  }
+
+  async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
+    if (!slotSelecionado) return;
     setFormError('');
     setSubmitting(true);
     try {
       await createAgendamentoPublico(slug!, {
-        servico: Number(form.servico),
-        data_hora: form.data_hora,
-        nome_cliente: form.nome_cliente,
-        whatsapp_cliente: form.whatsapp_cliente,
+        servico: servicoId!,
+        data_hora: slotSelecionado,
+        nome_cliente: nomeCliente,
+        whatsapp_cliente: whatsappCliente,
       });
       setSuccess(true);
     } catch (err: unknown) {
-      const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
-      if (data?.data_hora) {
-        const msg = data.data_hora;
+      const respData = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+      if (respData?.data_hora) {
+        const msg = respData.data_hora;
         setFormError(Array.isArray(msg) ? (msg[0] as string) : String(msg));
-      } else if (data) {
-        setFormError(Object.values(data).flat().join(' '));
+      } else if (respData) {
+        setFormError(Object.values(respData).flat().join(' '));
       } else {
         setFormError('Erro ao criar agendamento. Tente novamente.');
       }
@@ -65,7 +102,13 @@ export function PublicPage() {
 
   function resetForm() {
     setSuccess(false);
-    setForm({ servico: '', data_hora: '', nome_cliente: '', whatsapp_cliente: '' });
+    setServicoId(null);
+    setDataSelecionada('');
+    setSlots([]);
+    setSlotSelecionado('');
+    setNomeCliente('');
+    setWhatsappCliente('');
+    setFormError('');
   }
 
   if (loading) return <div className="public-loading">Carregando...</div>;
@@ -92,6 +135,19 @@ export function PublicPage() {
     );
   }
 
+  const servicoAtual = servicos.find((s) => s.id === servicoId);
+  const diasComSlots = slots.length > 0;
+  const slotsDoDia = slots;
+
+  // Label do dia selecionado para exibição
+  function labelDia(dateStr: string) {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    const diaSemana = DIAS_SEMANA[dt.getDay() === 0 ? 6 : dt.getDay() - 1];
+    return `${diaSemana}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+  }
+
   return (
     <div className="public-page">
       <header className="public-header">
@@ -107,14 +163,15 @@ export function PublicPage() {
       </header>
 
       <div className="public-body">
+        {/* Passo 1 — Escolher serviço */}
         <section className="public-services">
-          <h2>Nossos serviços</h2>
+          <h2>1. Escolha o serviço</h2>
           <div className="service-cards">
             {servicos.map((s) => (
               <div
                 key={s.id}
-                className={`service-card${form.servico === String(s.id) ? ' selected' : ''}`}
-                onClick={() => setForm((f) => ({ ...f, servico: String(s.id) }))}
+                className={`service-card${servicoId === s.id ? ' selected' : ''}`}
+                onClick={() => handleSelecionarServico(s.id)}
               >
                 <p className="service-name">{s.nome}</p>
                 <p className="service-detail">
@@ -125,58 +182,83 @@ export function PublicPage() {
           </div>
         </section>
 
-        <form className="public-form" onSubmit={handleSubmit}>
-          <h2>Fazer agendamento</h2>
-          <div className="form-group">
-            <label>Serviço</label>
-            <select
-              value={form.servico}
-              onChange={(e) => setForm((f) => ({ ...f, servico: e.target.value }))}
-              required
+        {/* Passo 2 — Escolher data e horário */}
+        {servicoId && (
+          <section className="public-slot-picker">
+            <h2>2. Escolha a data</h2>
+            <input
+              type="date"
+              className="slot-date-input"
+              min={hoje()}
+              value={dataSelecionada}
+              onChange={(e) => setDataSelecionada(e.target.value)}
+            />
+
+            {dataSelecionada && (
+              <>
+                <h3 className="slot-day-label">{labelDia(dataSelecionada)}</h3>
+                {loadingSlots ? (
+                  <p className="slot-loading">Carregando horários...</p>
+                ) : !diasComSlots ? (
+                  <p className="slot-empty">Nenhum horário disponível neste dia.</p>
+                ) : (
+                  <div className="slot-grid">
+                    {slotsDoDia.map((slot) => (
+                      <button
+                        key={slot.datetime}
+                        type="button"
+                        className={`slot-btn${!slot.disponivel ? ' slot-btn--ocupado' : ''}${slotSelecionado === slot.datetime ? ' slot-btn--selected' : ''}`}
+                        disabled={!slot.disponivel}
+                        onClick={() => setSlotSelecionado(slot.datetime)}
+                      >
+                        {slot.hora}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
+        {/* Passo 3 — Dados pessoais e confirmação */}
+        {slotSelecionado && (
+          <form className="public-form" onSubmit={handleSubmit}>
+            <h2>3. Seus dados</h2>
+
+            <div className="booking-summary">
+              <span>🪒 {servicoAtual?.nome}</span>
+              <span>📅 {labelDia(dataSelecionada)} às {slots.find(s => s.datetime === slotSelecionado)?.hora}</span>
+            </div>
+
+            <div className="form-group">
+              <label>Seu nome</label>
+              <input
+                value={nomeCliente}
+                onChange={(e) => setNomeCliente(e.target.value)}
+                required
+                placeholder="Como você se chama?"
+              />
+            </div>
+            <div className="form-group">
+              <label>WhatsApp</label>
+              <input
+                value={whatsappCliente}
+                onChange={(e) => setWhatsappCliente(e.target.value)}
+                required
+                placeholder="85999990000"
+              />
+            </div>
+            {formError && <p className="form-error">{formError}</p>}
+            <button
+              type="submit"
+              className="btn btn-primary btn-full"
+              disabled={submitting}
             >
-              <option value="">Selecione um serviço</option>
-              {servicos.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nome} — R$ {Number(s.preco).toFixed(2)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Data e horário</label>
-            <input
-              type="datetime-local"
-              value={form.data_hora}
-              onChange={(e) => setForm((f) => ({ ...f, data_hora: e.target.value }))}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Seu nome</label>
-            <input
-              value={form.nome_cliente}
-              onChange={(e) => setForm((f) => ({ ...f, nome_cliente: e.target.value }))}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>WhatsApp</label>
-            <input
-              value={form.whatsapp_cliente}
-              onChange={(e) => setForm((f) => ({ ...f, whatsapp_cliente: e.target.value }))}
-              required
-              placeholder="85999990000"
-            />
-          </div>
-          {formError && <p className="form-error">{formError}</p>}
-          <button
-            type="submit"
-            className="btn btn-primary btn-full"
-            disabled={submitting || !form.servico}
-          >
-            {submitting ? 'Agendando...' : 'Solicitar agendamento'}
-          </button>
-        </form>
+              {submitting ? 'Agendando...' : 'Solicitar agendamento'}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

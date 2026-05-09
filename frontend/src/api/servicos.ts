@@ -1,11 +1,11 @@
 import api from './client';
-import type { Servico } from '../types';
+import type { Servico, PaginatedResponse } from '../types';
 
 type ServicoPayload = Pick<Servico, 'nome' | 'duracao_min' | 'preco'>;
 
 export async function listServicos(): Promise<Servico[]> {
-  const { data } = await api.get<Servico[]>('/servicos/');
-  return data;
+  const { data } = await api.get<PaginatedResponse<Servico>>('/servicos/');
+  return data.results;
 }
 
 export async function createServico(payload: ServicoPayload): Promise<Servico> {

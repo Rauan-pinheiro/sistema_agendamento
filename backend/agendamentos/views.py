@@ -1,12 +1,18 @@
+from datetime import datetime, timedelta, time as time_type
 from rest_framework import viewsets, permissions, mixins, generics, status
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
-from .models import Empresa, Servico, Agendamento
-from .serializers import EmpresaSerializer, EmpresaPublicSerializer, ServicoSerializer, AgendamentoSerializer, RegistroSerializer
+from .models import Empresa, Servico, Agendamento, HorarioFuncionamento
+from .serializers import (
+    EmpresaSerializer, EmpresaPublicSerializer,
+    ServicoSerializer, AgendamentoSerializer,
+    HorarioFuncionamentoSerializer, RegistroSerializer,
+)
 
 
 # ── Paginação ─────────────────────────────────────────────────────────────────
@@ -111,6 +117,27 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(agendamento).data)
 
 
+# ── Horários de Funcionamento (autenticado) ───────────────────────────────────
+
+class HorarioFuncionamentoViewSet(viewsets.ModelViewSet):
+    """
+    CRUD dos horários de funcionamento por dia da semana.
+    Máximo de 7 registros por empresa (um por dia).
+    """
+    serializer_class = HorarioFuncionamentoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def _empresa(self):
+        return get_empresa_do_usuario(self.request.user)
+
+    def get_queryset(self):
+        return HorarioFuncionamento.objects.filter(empresa=self._empresa())
+
+    def perform_create(self, serializer):
+        serializer.save(empresa=self._empresa())
+
+
 # ── Área pública (sem autenticação) ──────────────────────────────────────────
 
 class ServicoPublicoViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -158,6 +185,88 @@ class EmpresaPublicaView(generics.RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
     lookup_field = 'slug'
     queryset = Empresa.objects.all()
+
+
+# ── Slots disponíveis (público) ───────────────────────────────────────────────
+
+class HorariosDisponiveisView(generics.GenericAPIView):
+    """
+    Retorna os slots livres de um dia para uma empresa.
+    Rota: GET /api/v1/public/<slug>/horarios-disponiveis/?data=YYYY-MM-DD[&servico_id=N]
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, slug):
+        empresa = get_object_or_404(Empresa, slug=slug)
+
+        data_str = request.query_params.get('data')
+        if not data_str:
+            return Response(
+                {'erro': 'Parâmetro ?data=YYYY-MM-DD é obrigatório.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            data = datetime.strptime(data_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {'erro': 'Formato de data inválido. Use YYYY-MM-DD.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        dia_semana = data.weekday()  # Segunda=0, Domingo=6
+        try:
+            horario = HorarioFuncionamento.objects.get(empresa=empresa, dia_semana=dia_semana)
+        except HorarioFuncionamento.DoesNotExist:
+            return Response({'data': data_str, 'slots': []})
+
+        # Duração do slot: usa a duração do serviço se informado, senão o intervalo padrão
+        duracao_min = horario.intervalo_min
+        servico_id = request.query_params.get('servico_id')
+        if servico_id:
+            try:
+                servico = Servico.objects.get(pk=servico_id, empresa=empresa)
+                duracao_min = servico.duracao_min
+            except Servico.DoesNotExist:
+                pass
+
+        local_tz = timezone.get_current_timezone()
+        inicio = timezone.make_aware(datetime.combine(data, horario.hora_inicio), local_tz)
+        fim = timezone.make_aware(datetime.combine(data, horario.hora_fim), local_tz)
+        duracao = timedelta(minutes=duracao_min)
+        passo = timedelta(minutes=horario.intervalo_min)
+
+        # Agendamentos não cancelados do dia
+        dia_inicio = timezone.make_aware(datetime.combine(data, time_type(0, 0)), local_tz)
+        dia_fim = timezone.make_aware(datetime.combine(data, time_type(23, 59, 59)), local_tz)
+        agendamentos = list(
+            Agendamento.objects.filter(
+                empresa=empresa,
+                data_hora__gte=dia_inicio,
+                data_hora__lte=dia_fim,
+            )
+            .exclude(status='cancelado')
+            .select_related('servico')
+        )
+
+        slots = []
+        current = inicio
+        while current + duracao <= fim:
+            slot_fim = current + duracao
+            disponivel = all(
+                not (
+                    current < ag.data_hora + timedelta(minutes=ag.servico.duracao_min)
+                    and slot_fim > ag.data_hora
+                )
+                for ag in agendamentos
+            )
+            slots.append({
+                'hora': current.strftime('%H:%M'),
+                'datetime': current.isoformat(),
+                'disponivel': disponivel,
+            })
+            current += passo
+
+        return Response({'data': data_str, 'slots': slots})
 
 
 # ── Registro de novo prestador ────────────────────────────────────────────────

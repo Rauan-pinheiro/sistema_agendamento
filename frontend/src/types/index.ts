@@ -44,3 +44,27 @@ export interface RegistroPayload {
   slug: string;
   whatsapp_contato: string;
 }
+
+export interface HorarioFuncionamento {
+  id: number;
+  empresa: number;
+  dia_semana: number;
+  hora_inicio: string;
+  hora_fim: string;
+  intervalo_min: number;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface SlotDisponivel {
+  hora: string;
+  datetime: string;
+  disponivel: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}

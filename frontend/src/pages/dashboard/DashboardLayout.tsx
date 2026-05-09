@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Scissors, LogOut, ExternalLink } from 'lucide-react';
+import { Calendar, Scissors, Clock, LogOut, ExternalLink } from 'lucide-react';
 
 export function DashboardLayout() {
   const { empresa, logout } = useAuth();
@@ -44,6 +44,13 @@ export function DashboardLayout() {
           >
             <Scissors size={17} />
             Serviços
+          </NavLink>
+          <NavLink
+            to="/dashboard/horarios"
+            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+          >
+            <Clock size={17} />
+            Horários
           </NavLink>
         </nav>
 
