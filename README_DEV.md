@@ -70,6 +70,6 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 - [x] Regra de negócio: impedir agendamentos em horários já ocupados (validação de sobreposição no serializer, cobre rotas privada e pública)
 
 ## 8. Próximos Objetivos
-- [ ] CORS configurado para integração com o frontend React
+- [x] CORS configurado para integração com o frontend React (`django-cors-headers`, origem `http://localhost:5173`)
 - [ ] Paginação nas listagens
 - [ ] Deploy no Railway com banco MySQL
