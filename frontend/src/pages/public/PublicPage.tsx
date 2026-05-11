@@ -34,6 +34,7 @@ export function PublicPage() {
   const [slots, setSlots] = useState<SlotDisponivel[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotSelecionado, setSlotSelecionado] = useState('');
+  const [diaClosed, setDiaClosed] = useState(false);
 
   // Passo 3 — dados pessoais
   const [nomeCliente, setNomeCliente] = useState('');
@@ -59,9 +60,13 @@ export function PublicPage() {
     }
     setLoadingSlots(true);
     setSlotSelecionado('');
+    setDiaClosed(false);
     getHorariosDisponiveis(slug, dataSelecionada, servicoId ?? undefined)
-      .then((r) => setSlots(r.slots))
-      .catch(() => setSlots([]))
+      .then((r) => {
+        setSlots(r.slots);
+        setDiaClosed(r.fechado ?? false);
+      })
+      .catch(() => { setSlots([]); setDiaClosed(false); })
       .finally(() => setLoadingSlots(false));
   }, [slug, dataSelecionada, servicoId]);
 
@@ -70,6 +75,7 @@ export function PublicPage() {
     setDataSelecionada('');
     setSlots([]);
     setSlotSelecionado('');
+    setDiaClosed(false);
   }
 
   async function handleSubmit(e: { preventDefault(): void }) {
@@ -109,6 +115,7 @@ export function PublicPage() {
     setNomeCliente('');
     setWhatsappCliente('');
     setFormError('');
+    setDiaClosed(false);
   }
 
   if (loading) return <div className="public-loading">Carregando...</div>;
@@ -199,6 +206,8 @@ export function PublicPage() {
                 <h3 className="slot-day-label">{labelDia(dataSelecionada)}</h3>
                 {loadingSlots ? (
                   <p className="slot-loading">Carregando horários...</p>
+                ) : diaClosed ? (
+                  <p className="slot-closed">Não atendemos neste dia. Escolha outra data.</p>
                 ) : !diasComSlots ? (
                   <p className="slot-empty">Nenhum horário disponível neste dia.</p>
                 ) : (

@@ -218,7 +218,7 @@ class HorariosDisponiveisView(generics.GenericAPIView):
         try:
             horario = HorarioFuncionamento.objects.get(empresa=empresa, dia_semana=dia_semana)
         except HorarioFuncionamento.DoesNotExist:
-            return Response({'data': data_str, 'slots': []})
+            return Response({'data': data_str, 'slots': [], 'fechado': True})
 
         # Duração do slot: usa a duração do serviço se informado, senão o intervalo padrão
         duracao_min = horario.intervalo_min

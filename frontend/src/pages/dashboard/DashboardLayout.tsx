@@ -1,47 +1,44 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, Scissors, Clock, LogOut, ExternalLink, Copy, Check } from 'lucide-react';
 
+function CopyLinkButton({ slug }: { slug: string }) {
+  const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleClick() {
+    const url = `${window.location.origin}/${slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      setCopied(true);
+      timeoutRef.current = setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      // falha silenciosa — não manipular o DOM fora do React
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      className={`sidebar-copy-btn${copied ? ' sidebar-copy-btn--copied' : ''}`}
+      onClick={handleClick}
+      title="Copiar link de agendamento"
+    >
+      <Copy className="icon-default" size={11} />
+      <Check className="icon-copied" size={11} />
+      {copied ? 'Copiado!' : 'Copiar link'}
+    </button>
+  );
+}
+
 export function DashboardLayout() {
   const { empresa, logout } = useAuth();
   const navigate = useNavigate();
-  const [copied, setCopied] = useState(false);
 
   function handleLogout() {
     logout();
     navigate('/login');
-  }
-
-  function handleCopyLink() {
-    const url = `${window.location.origin}/${empresa?.slug}`;
-
-    function onCopied() {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(onCopied).catch(() => fallbackCopy(url, onCopied));
-    } else {
-      fallbackCopy(url, onCopied);
-    }
-  }
-
-  function fallbackCopy(text: string, onSuccess: () => void) {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    try {
-      document.execCommand('copy');
-      onSuccess();
-    } finally {
-      document.body.removeChild(ta);
-    }
   }
 
   return (
@@ -59,15 +56,7 @@ export function DashboardLayout() {
             >
               /{empresa?.slug} <ExternalLink size={11} />
             </a>
-            <button
-              type="button"
-              className={`sidebar-copy-btn${copied ? ' sidebar-copy-btn--copied' : ''}`}
-              onClick={handleCopyLink}
-              title="Copiar link de agendamento"
-            >
-              {copied ? <Check size={11} /> : <Copy size={11} />}
-              {copied ? 'Copiado!' : 'Copiar link'}
-            </button>
+            {empresa?.slug && <CopyLinkButton slug={empresa.slug} />}
           </div>
         </div>
 

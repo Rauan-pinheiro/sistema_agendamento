@@ -26,7 +26,7 @@ export async function getHorariosDisponiveis(
   slug: string,
   data: string,
   servico_id?: number,
-): Promise<{ data: string; slots: SlotDisponivel[] }> {
+): Promise<{ data: string; slots: SlotDisponivel[]; fechado?: boolean }> {
   const params: Record<string, string> = { data };
   if (servico_id) params.servico_id = String(servico_id);
   const { data: response } = await publicApi.get(`/public/${slug}/horarios-disponiveis/`, { params });
