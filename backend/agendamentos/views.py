@@ -249,10 +249,14 @@ class HorariosDisponiveisView(generics.GenericAPIView):
             .select_related('servico')
         )
 
+        agora = timezone.now()
         slots = []
         current = inicio
         while current + duracao <= fim:
             slot_fim = current + duracao
+            if current < agora:
+                current += passo
+                continue
             disponivel = all(
                 not (
                     current < ag.data_hora + timedelta(minutes=ag.servico.duracao_min)
