@@ -124,7 +124,8 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 - [x] Correção das chamadas de API para consumir o envelope paginado (`results`)
 - [x] Sistema de tipos TypeScript completo (`Empresa`, `Servico`, `Agendamento`, `HorarioFuncionamento`, `SlotDisponivel`, `PaginatedResponse<T>`)
 - [x] `AuthContext` resiliente a localStorage corrompido — `parseEmpresa()` protege contra `JSON.parse("undefined")` que derrubava o app inteiro com página em branco
-- [x] Botão "Copiar link" na sidebar do dashboard — copia a URL pública de agendamento (`{origin}/{slug}`) para o clipboard com feedback visual "Copiado!" por 2 segundos; usa a Clipboard API nativa
+- [x] Botão "Copiar link" na sidebar do dashboard — copia a URL pública de agendamento (`{origin}/{slug}`) para o clipboard com feedback visual "Copiado!" por 2 segundos; usa a Clipboard API nativa com fallback via `document.execCommand` para ambientes sem HTTPS; `type="button"` explícito para evitar comportamento de submit
+- [x] Cliente axios separado para rotas públicas (`publicApi` em `api/public.ts`) — rotas públicas não devem usar o cliente autenticado; se o token JWT estivesse expirado, o interceptor de 401 do cliente privado chamava `window.location.href = '/login'` e limpava o `localStorage`, derrubando a sessão do dashboard e deixando a página pública em branco
 
 ## 8. Decisões técnicas e armadilhas conhecidas
 
@@ -134,6 +135,8 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 | Slots disponíveis sem serviço selecionado | O endpoint `horarios-disponiveis` pode ser chamado sem `?servico_id` | Quando sem `servico_id`, usa `intervalo_min` do horário como duração padrão do slot |
 | Fuso horário nos slots | `HorarioFuncionamento` armazena `hora_inicio`/`hora_fim` como `TimeField` (naive). Agendamentos são `DateTimeField` armazenados em UTC | Slots gerados com `timezone.make_aware(..., get_current_timezone())` e a comparação de conflitos é feita entre `aware datetimes`, evitando erros de offset |
 | localStorage corrompido → página em branco | `getMinhaEmpresa()` retornava `undefined` quando a paginação quebrou o `data[0]`. `JSON.stringify(undefined)` grava a string literal `"undefined"` no localStorage. Na próxima inicialização, `JSON.parse("undefined")` lança `SyntaxError` dentro do `AuthProvider`, derrubando o React tree inteiro antes de qualquer rota renderizar | `parseEmpresa()` no `AuthContext` verifica a string `"undefined"`, valida que o objeto tem `slug`, e envolve o parse em `try/catch` — o app nunca trava por estado persistido inválido |
+| Rotas públicas usando cliente autenticado | `api/public.ts` importava o mesmo `api` do `client.ts`, que injeta `Authorization: Bearer` em toda requisição e, em caso de 401 (token expirado), executa `window.location.href = '/login'` + `localStorage.clear()`. Ao abrir a página pública com token expirado, o interceptor derrubava a sessão inteira e a página ficava em branco | Criado `publicApi` — instância axios limpa (`axios.create`) sem interceptors de auth em `api/public.ts`; o cliente privado (`client.ts`) permanece inalterado e exclusivo para rotas autenticadas |
+| Clipboard API indisponível em HTTP | `navigator.clipboard` é `undefined` fora de HTTPS ou localhost. Chamar `.writeText()` diretamente lançava `TypeError` não tratado no handler do botão, sem nenhum feedback ao usuário | `handleCopyLink` verifica `navigator.clipboard` antes de usar; se ausente ou se a promise rejeitar (permissão negada), executa `fallbackCopy` via `document.execCommand('copy')` com textarea oculto |
 
 ## 9. Pendente para v1.0 (antes do deploy)
 
