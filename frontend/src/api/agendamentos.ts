@@ -12,3 +12,7 @@ export async function updateStatus(id: number, status: AgendamentoStatus): Promi
   const { data } = await api.patch<Agendamento>(`/agendamentos/${id}/status/`, { status });
   return data;
 }
+
+export async function deleteAgendamento(id: number): Promise<void> {
+  await api.delete(`/agendamentos/${id}/`);
+}

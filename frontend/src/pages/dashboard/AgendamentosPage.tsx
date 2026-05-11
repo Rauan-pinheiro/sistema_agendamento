@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { listAgendamentos, updateStatus } from '../../api/agendamentos';
+import { listAgendamentos, updateStatus, deleteAgendamento } from '../../api/agendamentos';
 import type { Agendamento, AgendamentoStatus } from '../../types';
 
 type TabValue = AgendamentoStatus | 'todos' | 'hoje';
@@ -43,18 +43,6 @@ function formatWhatsapp(numero: string): string {
   return digits.startsWith('55') ? digits : `55${digits}`;
 }
 
-// Codifica apenas caracteres ASCII especiais; emojis e acentos ficam como UTF-8 cru.
-// WhatsApp Web renderiza emojis corretamente quando não estão percent-encoded.
-function encodeWhatsAppText(text: string): string {
-  return Array.from(text)
-    .map((char) => {
-      const code = char.codePointAt(0)!;
-      if (code > 127) return char;
-      return encodeURIComponent(char);
-    })
-    .join('');
-}
-
 function buildWhatsappUrl(ag: Agendamento): string {
   const data = new Date(ag.data_hora);
   const dataFormatada = data.toLocaleDateString('pt-BR', {
@@ -76,7 +64,7 @@ function buildWhatsappUrl(ag: Agendamento): string {
     `Qualquer dúvida, entre em contato. Até lá! 😊`,
   ].join('\n');
 
-  return `https://wa.me/${formatWhatsapp(ag.whatsapp_cliente)}?text=${encodeWhatsAppText(mensagem)}`;
+  return `https://wa.me/${formatWhatsapp(ag.whatsapp_cliente)}?text=${encodeURIComponent(mensagem)}`;
 }
 
 // Reutiliza a mesma janela para todos os cliques de WhatsApp.
@@ -99,6 +87,7 @@ export function AgendamentosPage() {
   const [tab, setTab] = useState<TabValue>('hoje');
   const [loading, setLoading] = useState(true);
   const [autoRefreshing, setAutoRefreshing] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const fetchData = useCallback(async (silent = false) => {
     silent ? setAutoRefreshing(true) : setLoading(true);
@@ -119,8 +108,9 @@ export function AgendamentosPage() {
   const fetchDataRef = useRef(fetchData);
   useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
 
-  // Carga inicial e ao trocar de aba
+  // Carga inicial e ao trocar de aba; reseta confirmação de exclusão pendente
   useEffect(() => {
+    setConfirmDeleteId(null);
     fetchData(false);
   }, [fetchData]);
 
@@ -134,6 +124,12 @@ export function AgendamentosPage() {
 
   async function handleStatus(id: number, status: AgendamentoStatus) {
     await updateStatus(id, status);
+    fetchData(true);
+  }
+
+  async function handleDelete(id: number) {
+    await deleteAgendamento(id);
+    setConfirmDeleteId(null);
     fetchData(true);
   }
 
@@ -208,6 +204,32 @@ export function AgendamentosPage() {
                   </button>
                 </div>
               )}
+              <div className="agendamento-delete-row">
+                {confirmDeleteId === ag.id ? (
+                  <>
+                    <span className="agendamento-delete-confirm-text">Excluir permanentemente?</span>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDelete(ag.id)}
+                    >
+                      Sim, excluir
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
+                      Não
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn btn-ghost btn-sm agendamento-delete-btn"
+                    onClick={() => setConfirmDeleteId(ag.id)}
+                  >
+                    Excluir
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

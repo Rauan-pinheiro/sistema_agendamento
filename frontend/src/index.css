@@ -248,6 +248,9 @@ a:hover { text-decoration: underline; }
 .agendamento-servico { font-size: 13px; color: var(--text-muted); }
 .agendamento-info { display: flex; gap: 20px; font-size: 13px; color: var(--text-muted); }
 .agendamento-actions { display: flex; gap: 8px; }
+.agendamento-delete-row { display: flex; align-items: center; gap: 8px; padding-top: 4px; border-top: 1px solid var(--border); }
+.agendamento-delete-btn { color: var(--text-muted); font-size: 12px; }
+.agendamento-delete-confirm-text { font-size: 13px; color: var(--danger); flex: 1; }
 
 /* ── Status badges ───────────────────────────────────────────────────────── */
 .badge {
