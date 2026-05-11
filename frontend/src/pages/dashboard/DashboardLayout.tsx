@@ -15,10 +15,33 @@ export function DashboardLayout() {
 
   function handleCopyLink() {
     const url = `${window.location.origin}/${empresa?.slug}`;
-    navigator.clipboard.writeText(url).then(() => {
+
+    function onCopied() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(onCopied).catch(() => fallbackCopy(url, onCopied));
+    } else {
+      fallbackCopy(url, onCopied);
+    }
+  }
+
+  function fallbackCopy(text: string, onSuccess: () => void) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand('copy');
+      onSuccess();
+    } finally {
+      document.body.removeChild(ta);
+    }
   }
 
   return (
@@ -37,6 +60,7 @@ export function DashboardLayout() {
               /{empresa?.slug} <ExternalLink size={11} />
             </a>
             <button
+              type="button"
               className={`sidebar-copy-btn${copied ? ' sidebar-copy-btn--copied' : ''}`}
               onClick={handleCopyLink}
               title="Copiar link de agendamento"
