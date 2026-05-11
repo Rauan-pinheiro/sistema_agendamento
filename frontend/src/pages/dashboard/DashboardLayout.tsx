@@ -1,14 +1,24 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Scissors, Clock, LogOut, ExternalLink } from 'lucide-react';
+import { Calendar, Scissors, Clock, LogOut, ExternalLink, Copy, Check } from 'lucide-react';
 
 export function DashboardLayout() {
   const { empresa, logout } = useAuth();
   const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
 
   function handleLogout() {
     logout();
     navigate('/login');
+  }
+
+  function handleCopyLink() {
+    const url = `${window.location.origin}/${empresa?.slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }
 
   return (
@@ -26,6 +36,14 @@ export function DashboardLayout() {
             >
               /{empresa?.slug} <ExternalLink size={11} />
             </a>
+            <button
+              className={`sidebar-copy-btn${copied ? ' sidebar-copy-btn--copied' : ''}`}
+              onClick={handleCopyLink}
+              title="Copiar link de agendamento"
+            >
+              {copied ? <Check size={11} /> : <Copy size={11} />}
+              {copied ? 'Copiado!' : 'Copiar link'}
+            </button>
           </div>
         </div>
 

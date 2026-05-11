@@ -159,6 +159,24 @@ a:hover { text-decoration: underline; }
 }
 .sidebar-slug:hover { color: #f1f5f9; text-decoration: none; }
 
+.sidebar-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sidebar-text);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.sidebar-copy-btn:hover { background: rgba(255,255,255,.08); color: #f1f5f9; border-color: rgba(255,255,255,.3); }
+.sidebar-copy-btn--copied { color: #4ade80; border-color: rgba(74,222,128,.4); }
+
 .sidebar-nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
 .nav-link {
   display: flex;

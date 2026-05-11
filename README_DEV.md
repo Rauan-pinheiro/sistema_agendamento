@@ -124,6 +124,7 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 - [x] Correção das chamadas de API para consumir o envelope paginado (`results`)
 - [x] Sistema de tipos TypeScript completo (`Empresa`, `Servico`, `Agendamento`, `HorarioFuncionamento`, `SlotDisponivel`, `PaginatedResponse<T>`)
 - [x] `AuthContext` resiliente a localStorage corrompido — `parseEmpresa()` protege contra `JSON.parse("undefined")` que derrubava o app inteiro com página em branco
+- [x] Botão "Copiar link" na sidebar do dashboard — copia a URL pública de agendamento (`{origin}/{slug}`) para o clipboard com feedback visual "Copiado!" por 2 segundos; usa a Clipboard API nativa
 
 ## 8. Decisões técnicas e armadilhas conhecidas
 
