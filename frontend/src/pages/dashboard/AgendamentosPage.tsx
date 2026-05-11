@@ -19,6 +19,39 @@ function formatDataHora(iso: string) {
   });
 }
 
+function formatPreco(preco: string) {
+  return parseFloat(preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatWhatsapp(numero: string): string {
+  const digits = numero.replace(/\D/g, '');
+  return digits.startsWith('55') ? digits : `55${digits}`;
+}
+
+function buildWhatsappUrl(ag: Agendamento): string {
+  const data = new Date(ag.data_hora);
+  const dataFormatada = data.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const horario = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  const mensagem = [
+    `Olá *${ag.nome_cliente}*! ✅ Seu agendamento está *confirmado*:`,
+    ``,
+    `📋 *Serviço:* ${ag.servico_nome}`,
+    `📅 *Data:* ${dataFormatada}`,
+    `⏰ *Horário:* ${horario}`,
+    `💰 *Valor:* ${formatPreco(ag.servico_preco)}`,
+    ``,
+    `Qualquer dúvida, entre em contato. Até lá! 😊`,
+  ].join('\n');
+
+  return `https://wa.me/${formatWhatsapp(ag.whatsapp_cliente)}?text=${encodeURIComponent(mensagem)}`;
+}
+
 function StatusBadge({ status }: { status: AgendamentoStatus }) {
   const labels: Record<AgendamentoStatus, string> = {
     pendente: 'Pendente',
@@ -87,21 +120,34 @@ export function AgendamentosPage() {
               <div className="agendamento-info">
                 <span>📅 {formatDataHora(ag.data_hora)}</span>
                 <span>📱 {ag.whatsapp_cliente}</span>
+                <span>💰 {formatPreco(ag.servico_preco)}</span>
               </div>
-              {ag.status === 'pendente' && (
+              {(ag.status === 'pendente' || ag.status === 'confirmado') && (
                 <div className="agendamento-actions">
-                  <button
-                    className="btn btn-success btn-sm"
-                    onClick={() => handleStatus(ag.id, 'confirmado')}
+                  {ag.status === 'pendente' && (
+                    <>
+                      <button
+                        className="btn btn-success btn-sm"
+                        onClick={() => handleStatus(ag.id, 'confirmado')}
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleStatus(ag.id, 'cancelado')}
+                      >
+                        Cancelar
+                      </button>
+                    </>
+                  )}
+                  <a
+                    href={buildWhatsappUrl(ag)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-whatsapp btn-sm"
                   >
-                    Confirmar
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => handleStatus(ag.id, 'cancelado')}
-                  >
-                    Cancelar
-                  </button>
+                    WhatsApp
+                  </a>
                 </div>
               )}
             </div>

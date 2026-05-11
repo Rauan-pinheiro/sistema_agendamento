@@ -27,15 +27,16 @@ class ServicoSerializer(serializers.ModelSerializer):
 
 class AgendamentoSerializer(serializers.ModelSerializer):
     servico_nome = serializers.CharField(source='servico.nome', read_only=True)
+    servico_preco = serializers.DecimalField(source='servico.preco', max_digits=8, decimal_places=2, read_only=True)
 
     class Meta:
         model = Agendamento
         fields = [
-            'id', 'empresa', 'servico', 'servico_nome', 'nome_cliente',
+            'id', 'empresa', 'servico', 'servico_nome', 'servico_preco', 'nome_cliente',
             'whatsapp_cliente', 'data_hora', 'status',
             'criado_em', 'atualizado_em',
         ]
-        read_only_fields = ['id', 'empresa', 'servico_nome', 'status', 'criado_em', 'atualizado_em']
+        read_only_fields = ['id', 'empresa', 'servico_nome', 'servico_preco', 'status', 'criado_em', 'atualizado_em']
 
     def validate(self, data):
         empresa = self.context.get('empresa') or getattr(self.instance, 'empresa', None)

@@ -54,6 +54,8 @@ a:hover { text-decoration: underline; }
 .btn-success:hover:not(:disabled)  { background: var(--success-hover); }
 .btn-danger   { background: var(--danger);   color: #fff; }
 .btn-danger:hover:not(:disabled)   { background: var(--danger-hover); }
+.btn-whatsapp { background: #25d366; color: #fff; }
+.btn-whatsapp:hover:not(:disabled) { background: #1da851; }
 .btn-ghost    { background: transparent; border: 1px solid var(--border); color: var(--text); }
 .btn-ghost:hover:not(:disabled)    { background: var(--bg); }
 .btn-full     { width: 100%; justify-content: center; }

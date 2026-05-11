@@ -160,9 +160,82 @@ Nenhum bug conhecido no momento.
 ### Backend
 - [ ] **Arquivamento automático de agendamentos antigos** — agendamentos com `data_hora` anterior a 90 dias e status `confirmado` ou `cancelado` movidos para status `arquivado` (novo choice); implementar via `management command` agendado (cron/Railway)
 - [ ] **Controle financeiro — `GET /api/v1/financeiro/resumo/`** — retorna para o mês corrente: total de agendamentos confirmados, receita bruta, ticket médio e breakdown por serviço; sem model extra, calculado via agregação no queryset
+- [ ] **Gestão de Profissionais** — novo model `Profissional` com FK para `Empresa` (`nome`, `especialidade`, `ativo`); CRUD privado em `api/v1/profissionais/`; `Agendamento` ganha FK opcional `profissional`; `HorarioFuncionamento` poderá ser vinculado a um profissional específico para que cada um tenha sua própria grade de horários (campo `profissional` nullable — `null` significa horário padrão da empresa)
 
 ### Frontend
 - [ ] **Paleta de cores revisada** — substituir azul intenso (`#2563eb`) por azul bebê (`#60a5fa` / `#bfdbfe`), verde calmo (`#4ade80`) para confirmados e ações positivas; visual mais suave
 - [ ] **Página de Financeiro no dashboard** — cards com resumo do mês (receita total, nº de confirmados, ticket médio) + tabela de breakdown por serviço; dados buscados do endpoint de resumo
 - [ ] **Filtro "Hoje" na página de Agendamentos** — adicionar aba ou toggle "Hoje" que filtra os agendamentos cuja `data_hora` cai no dia atual (comparação no frontend, sem chamada extra à API); posicionar como primeira aba ou destaque visual para ser o acesso padrão do prestador no dia a dia
-- [ ] **Confirmação de agendamento via WhatsApp** — na lista de agendamentos com status `pendente` ou `confirmado`, exibir botão "Confirmar via WhatsApp" que abre `https://wa.me/{whatsapp_cliente}` com mensagem pré-formatada via query param `?text=`; a mensagem deve incluir: nome do cliente, nome do serviço, data e hora formatados em pt-BR, preço e uma saudação de confirmação. Exemplo de mensagem: _"Olá {nome_cliente}! Seu agendamento de {servico_nome} está confirmado para {data_hora} por R$ {preco}. Até lá! 😊"_
+- [x] **Confirmação de agendamento via WhatsApp (manual)** — botão "WhatsApp" verde nos cards de status `pendente` e `confirmado`; abre `https://wa.me/{whatsapp_cliente}?text=` com mensagem pré-formatada em pt-BR contendo: saudação, serviço, data completa (dia da semana + DD/MM/YYYY), horário e valor em BRL; número formatado automaticamente com DDI 55; `servico_preco` adicionado como campo read-only no `AgendamentoSerializer` (mesmo padrão de `servico_nome`); profissional será incluído na mensagem quando a feature de Profissionais for implementada
+- [ ] **Seleção de Profissional na página pública** — após selecionar o serviço, exibir cards dos profissionais disponíveis da empresa (buscados em `api/v1/public/{slug}/profissionais/`); cliente escolhe com quem quer ser atendido antes de escolher data e horário; campo profissional enviado no POST de agendamento; passo opcional — se a empresa tiver apenas 1 profissional (ou nenhum cadastrado), o passo é suprimido automaticamente
+- [ ] **Página de Profissionais no dashboard** — tabela com nome e especialidade, modal de criação/edição, toggle de ativo/inativo; padrão visual igual às páginas de Serviços e Horários
+
+## 12. Funcionalidades Premium (planos avançados / atualizações futuras)
+
+> Esta seção registra funcionalidades que exigem custo operacional, integrações externas pagas ou infraestrutura adicional — adequadas para um plano pago mais completo ou releases futuras após validação do produto. Sempre que uma ideia de feature "premium" surgir durante o desenvolvimento, ela é documentada aqui antes de ser priorizada.
+
+---
+
+### WhatsApp automático (lembretes e confirmações sem clique humano)
+
+> **Por que é premium?** Exige API externa paga (WhatsApp Business API) + infraestrutura de fila de tarefas. O plano básico cobre o botão manual `wa.me` (v1.1), que não tem custo algum.
+
+**Dependências técnicas necessárias:**
+
+- **API do WhatsApp** — única forma de enviar mensagens programaticamente:
+  - **Z-API / Evolution API** — provedores brasileiros, ~R$50–150/mês, integração via `POST` HTTP simples; escolha prática para early-stage
+  - **Twilio / Meta Cloud API** — solução oficial Meta, mais robusta, exige aprovação prévia de templates junto à Meta
+- **Agendador de tarefas** — para disparar na hora certa sem interação humana:
+  - **Celery + Redis** — padrão Django para filas; Redis seria novo serviço na infra GCP
+  - **Cloud Scheduler + Cloud Run Job** — alternativa GCP-nativa sem Redis, mas exige segunda imagem Docker
+
+**Fluxo de dados:**
+```
+Cloud Scheduler (cron a cada hora)
+    ↓
+Django management command / Cloud Run Job
+    ↓  filtra Agendamento onde data_hora ∈ [now+47h, now+49h] e status=confirmado
+Z-API / Evolution API
+    ↓  POST com whatsapp_cliente + mensagem formatada
+Cliente recebe mensagem no WhatsApp
+```
+
+- [ ] **Lembrete automático 48h antes** — `management command` `enviar_lembretes` agendado via Cloud Scheduler; mensagem: _"Olá {nome_cliente}! Lembrete: seu agendamento de {servico_nome} é amanhã, {data_hora}. Qualquer dúvida, entre em contato!"_
+- [ ] **Confirmação automática imediata** — ao criar agendamento via página pública, disparar mensagem instantânea para `whatsapp_cliente` com resumo completo do agendamento
+
+---
+
+### Controle de acesso por função (RBAC)
+
+> **Por que é premium?** Adiciona complexidade ao modelo de autenticação. No plano básico, cada empresa tem um único dono (`owner`). Com RBAC, seria possível ter múltiplos usuários com papéis distintos por empresa.
+
+- [ ] **Múltiplos usuários por empresa** — model `MembroEmpresa` com roles `dono`, `gerente`, `profissional`; permissões distintas por role (ex: profissional vê apenas seus próprios agendamentos; gerente confirma/cancela mas não altera serviços)
+
+---
+
+### Pagamento online no momento do agendamento
+
+> **Por que é premium?** Exige integração com gateway de pagamento e lógica de confirmação condicional — o agendamento só é efetivado após o pagamento ser aprovado.
+
+- [ ] **Reserva com pagamento antecipado** — cliente paga no momento do agendamento via MercadoPago ou Stripe; agendamento criado com status `aguardando_pagamento` e confirmado automaticamente após webhook de pagamento aprovado; prestador configura por serviço se exige pagamento antecipado ou não
+
+---
+
+### Estratégia de monetização e quando implementar o sistema de planos
+
+O sistema de planos **não deve ser implementado antes das features premium estarem funcionando**. Criar restrições sem ter algo a oferecer no upgrade é complexidade sem retorno.
+
+**Roadmap de monetização:**
+```
+v1.0 → deploy com todas as features básicas gratuitas (custo = só hospedagem ~R$80–150/mês)
+v1.1 → profissionais, financeiro, botão WhatsApp manual (ainda gratuito)
+v1.2 → features premium funcionando (WhatsApp automático, pagamento online)
+v1.3 → implementar sistema de planos e começar a cobrar
+```
+
+**Como implementar tecnicamente (quando chegar a hora):**
+
+1. Adicionar campo `plano` em `Empresa` com choices (`basico`, `profissional`, `premium`)
+2. No backend, checar `request.user.empresa.plano` nas views que controlam features premium antes de executar a ação — retornar `HTTP 403` com mensagem de upgrade se o plano não cobrir
+3. No frontend, o dashboard lê o plano da empresa (já retornado em `GET /api/v1/empresa/`) e oculta ou bloqueia visualmente as features indisponíveis, exibindo um prompt de upgrade no lugar
+4. Integrar MercadoPago ou Stripe: ao assinar, o gateway dispara um webhook que atualiza `empresa.plano` — acesso liberado instantaneamente sem intervenção manual

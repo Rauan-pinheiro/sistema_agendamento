@@ -22,6 +22,7 @@ export interface Agendamento {
   empresa: number;
   servico: number;
   servico_nome: string;
+  servico_preco: string;
   nome_cliente: string;
   whatsapp_cliente: string;
   data_hora: string;
