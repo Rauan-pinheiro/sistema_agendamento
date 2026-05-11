@@ -392,7 +392,9 @@ a:hover { text-decoration: underline; }
 }
 .slot-day-label { font-size: 15px; font-weight: 600; margin: 16px 0 10px; }
 .slot-loading, .slot-empty { font-size: 14px; color: var(--text-muted); margin-top: 12px; }
-.slot-closed { font-size: 14px; color: #f87171; margin-top: 12px; font-weight: 500; }
+.slot-closed { margin-top: 14px; padding: 12px 14px; background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3); border-radius: 8px; }
+.slot-closed p { font-size: 14px; color: #f87171; margin: 0 0 4px; }
+.slot-closed p:last-child { margin-bottom: 0; color: var(--text-muted); font-size: 13px; }
 .slot-grid {
   display: flex;
   flex-wrap: wrap;

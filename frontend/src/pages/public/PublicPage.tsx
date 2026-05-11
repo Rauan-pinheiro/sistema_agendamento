@@ -56,6 +56,8 @@ export function PublicPage() {
     if (!slug || !dataSelecionada) {
       setSlots([]);
       setSlotSelecionado('');
+      setLoadingSlots(false);
+      setDiaClosed(false);
       return;
     }
     setLoadingSlots(true);
@@ -207,7 +209,13 @@ export function PublicPage() {
                 {loadingSlots ? (
                   <p className="slot-loading">Carregando horários...</p>
                 ) : diaClosed ? (
-                  <p className="slot-closed">Não atendemos neste dia. Escolha outra data.</p>
+                  <div className="slot-closed">
+                    <p>
+                      <strong>{empresa?.nome_fantasia}</strong> não atende em{' '}
+                      <strong>{labelDia(dataSelecionada)}</strong>.
+                    </p>
+                    <p>Por favor, escolha outra data disponível para agendar.</p>
+                  </div>
                 ) : !diasComSlots ? (
                   <p className="slot-empty">Nenhum horário disponível neste dia.</p>
                 ) : (
