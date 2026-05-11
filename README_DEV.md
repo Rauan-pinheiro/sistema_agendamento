@@ -5,10 +5,23 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 
 ## 2. Arquitetura e Stack
 - **Backend:** Python / Django + Django Rest Framework
-- **Banco de Dados:** SQLite (desenvolvimento) → MySQL via Railway (produção)
-- **Frontend:** React + TypeScript + Vite — consome a API REST via Axios com interceptor JWT
-- **Infra:** Deploy planejado na plataforma Railway
+- **Banco de Dados:** SQLite (desenvolvimento) → MySQL via Cloud SQL (produção)
+- **Frontend:** React + TypeScript + Vite — consome a API REST via Axios com interceptor JWT; build servido pelo próprio Django via WhiteNoise (sem serviço de frontend separado)
+- **Infra:** Google Cloud Platform (GCP), região `southamerica-east1` (São Paulo) — elimina latência para usuários brasileiros
+- **Containerização:** Docker — `Dockerfile` para o backend e `docker-compose.yml` para desenvolvimento local; obrigatório para deploy no Cloud Run
 - **Estratégia de Produto:** Web-First (mobile e desktop em planos futuros)
+
+### Por que GCP em vez de Railway + Vercel
+Railway não possui região no Brasil — cada chamada de API percorreria ~180–250 ms de ida e volta (Brasil → EUA → Brasil). Com Cloud Run em São Paulo, backend, banco e frontend ficam na mesma região, eliminando essa latência. O React build é servido pelo Django com WhiteNoise, mantendo tudo em um único serviço sem custo de CDN separado no early-stage.
+
+### Arquitetura de produção
+```
+Usuário (Brasil)
+    ↓
+Cloud Run — Django + WhiteNoise (serve React build + API REST)
+    ↓
+Cloud SQL — MySQL (mesma região southamerica-east1)
+```
 
 ## 3. Estrutura Multi-Tenant (Isolamento de Dados)
 - Estratégia: **Shared Database, Isolated Rows** (isolamento via chave estrangeira).
@@ -123,9 +136,12 @@ Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). C
 
 ## 9. Pendente para v1.0 (antes do deploy)
 
-- [ ] **Deploy no Railway com banco MySQL** — ajustar `DATABASES` via variável de ambiente, instalar `mysqlclient`, configurar `ALLOWED_HOSTS` e `SECRET_KEY` via env vars, servir arquivos estáticos com `whitenoise`
-- [ ] **Build do frontend** — rodar `npm run build` e configurar o Django para servir os arquivos estáticos ou subir o frontend num serviço separado (Vercel/Netlify)
 - [ ] **Variáveis de ambiente** — extrair `SECRET_KEY`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS` para `.env` com `python-decouple` ou `django-environ`
+- [ ] **WhiteNoise** — instalar e configurar para o Django servir o build do React em produção
+- [ ] **Build do frontend** — rodar `npm run build` e copiar o `dist/` para dentro do projeto Django (ou configurar o `Dockerfile` para fazer isso no build)
+- [ ] **Dockerizar o backend** — criar `Dockerfile` para o Django (imagem base `python:3.x-slim`, instalar dependências, copiar código, rodar `gunicorn`)
+- [ ] **docker-compose para desenvolvimento** — `docker-compose.yml` subindo Django + MySQL localmente com um único `docker compose up`, substituindo a necessidade de dois terminais separados
+- [ ] **Deploy no GCP Cloud Run** — criar projeto no GCP, configurar Cloud SQL (MySQL) na região `southamerica-east1`, fazer push da imagem para o Artifact Registry e deploy no Cloud Run; configurar `ALLOWED_HOSTS`, `SECRET_KEY` e `DATABASE_URL` via variáveis de ambiente do Cloud Run
 
 ## 10. Melhorias planejadas (v1.1)
 
