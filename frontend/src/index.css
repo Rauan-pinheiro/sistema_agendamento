@@ -219,6 +219,7 @@ a:hover { text-decoration: underline; }
 .page { padding: 32px; max-width: 900px; }
 .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .page-header h2 { font-size: 20px; font-weight: 700; }
+.auto-refresh-label { font-size: 12px; color: var(--text-muted); font-style: italic; }
 
 /* ── Tabs ────────────────────────────────────────────────────────────────── */
 .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--surface); padding: 4px; border-radius: var(--radius); border: 1px solid var(--border); width: fit-content; }

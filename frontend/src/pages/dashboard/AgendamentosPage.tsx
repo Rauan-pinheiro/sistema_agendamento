@@ -1,13 +1,28 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { listAgendamentos, updateStatus } from '../../api/agendamentos';
 import type { Agendamento, AgendamentoStatus } from '../../types';
 
-const TABS: { label: string; value: AgendamentoStatus | 'todos' }[] = [
+type TabValue = AgendamentoStatus | 'todos' | 'hoje';
+
+const TABS: { label: string; value: TabValue }[] = [
+  { label: 'Hoje', value: 'hoje' },
   { label: 'Todos', value: 'todos' },
   { label: 'Pendentes', value: 'pendente' },
   { label: 'Confirmados', value: 'confirmado' },
   { label: 'Cancelados', value: 'cancelado' },
 ];
+
+const POLL_INTERVAL_MS = 30_000;
+
+function isToday(iso: string): boolean {
+  const hoje = new Date();
+  const data = new Date(iso);
+  return (
+    data.getDate() === hoje.getDate() &&
+    data.getMonth() === hoje.getMonth() &&
+    data.getFullYear() === hoje.getFullYear()
+  );
+}
 
 function formatDataHora(iso: string) {
   return new Date(iso).toLocaleString('pt-BR', {
@@ -26,6 +41,18 @@ function formatPreco(preco: string) {
 function formatWhatsapp(numero: string): string {
   const digits = numero.replace(/\D/g, '');
   return digits.startsWith('55') ? digits : `55${digits}`;
+}
+
+// Codifica apenas caracteres ASCII especiais; emojis e acentos ficam como UTF-8 cru.
+// WhatsApp Web renderiza emojis corretamente quando não estão percent-encoded.
+function encodeWhatsAppText(text: string): string {
+  return Array.from(text)
+    .map((char) => {
+      const code = char.codePointAt(0)!;
+      if (code > 127) return char;
+      return encodeURIComponent(char);
+    })
+    .join('');
 }
 
 function buildWhatsappUrl(ag: Agendamento): string {
@@ -49,7 +76,13 @@ function buildWhatsappUrl(ag: Agendamento): string {
     `Qualquer dúvida, entre em contato. Até lá! 😊`,
   ].join('\n');
 
-  return `https://wa.me/${formatWhatsapp(ag.whatsapp_cliente)}?text=${encodeURIComponent(mensagem)}`;
+  return `https://wa.me/${formatWhatsapp(ag.whatsapp_cliente)}?text=${encodeWhatsAppText(mensagem)}`;
+}
+
+// Reutiliza a mesma janela para todos os cliques de WhatsApp.
+// Se a janela ainda estiver aberta, navega ela; caso contrário, abre uma nova.
+function openWhatsApp(url: string) {
+  window.open(url, 'whatsapp_panel');
 }
 
 function StatusBadge({ status }: { status: AgendamentoStatus }) {
@@ -63,29 +96,52 @@ function StatusBadge({ status }: { status: AgendamentoStatus }) {
 
 export function AgendamentosPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [tab, setTab] = useState<AgendamentoStatus | 'todos'>('todos');
+  const [tab, setTab] = useState<TabValue>('hoje');
   const [loading, setLoading] = useState(true);
+  const [autoRefreshing, setAutoRefreshing] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const data = await listAgendamentos(tab === 'todos' ? undefined : tab);
-    setAgendamentos(data);
+  const fetchData = useCallback(async (silent = false) => {
+    silent ? setAutoRefreshing(true) : setLoading(true);
+
+    const statusFilter =
+      tab === 'todos' || tab === 'hoje' ? undefined : (tab as AgendamentoStatus);
+
+    const data = await listAgendamentos(statusFilter);
+    const resultado = tab === 'hoje' ? data.filter((ag) => isToday(ag.data_hora)) : data;
+
+    setAgendamentos(resultado);
     setLoading(false);
+    setAutoRefreshing(false);
   }, [tab]);
 
+  // Ref garante que o intervalo sempre chame a versão mais atual de fetchData
+  // sem precisar recriar o setInterval a cada troca de aba (evita stale closure).
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+
+  // Carga inicial e ao trocar de aba
   useEffect(() => {
-    fetchData();
+    fetchData(false);
   }, [fetchData]);
+
+  // Polling silencioso — intervalo único, nunca recriado, pausa quando a aba está em segundo plano
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!document.hidden) fetchDataRef.current(true);
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
 
   async function handleStatus(id: number, status: AgendamentoStatus) {
     await updateStatus(id, status);
-    fetchData();
+    fetchData(true);
   }
 
   return (
     <div className="page">
       <div className="page-header">
         <h2>Agendamentos</h2>
+        {autoRefreshing && <span className="auto-refresh-label">atualizando...</span>}
       </div>
 
       <div className="tabs">
@@ -104,7 +160,11 @@ export function AgendamentosPage() {
         <p className="loading">Carregando...</p>
       ) : agendamentos.length === 0 ? (
         <div className="empty-state">
-          <p>Nenhum agendamento encontrado.</p>
+          <p>
+            {tab === 'hoje'
+              ? 'Nenhum agendamento para hoje.'
+              : 'Nenhum agendamento encontrado.'}
+          </p>
         </div>
       ) : (
         <div className="card-list">
@@ -140,14 +200,12 @@ export function AgendamentosPage() {
                       </button>
                     </>
                   )}
-                  <a
-                    href={buildWhatsappUrl(ag)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
                     className="btn btn-whatsapp btn-sm"
+                    onClick={() => openWhatsApp(buildWhatsappUrl(ag))}
                   >
                     WhatsApp
-                  </a>
+                  </button>
                 </div>
               )}
             </div>
