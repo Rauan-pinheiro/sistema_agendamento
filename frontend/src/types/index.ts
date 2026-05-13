@@ -5,6 +5,23 @@ export interface Empresa {
   whatsapp_contato: string;
 }
 
+export interface Profissional {
+  id: number;
+  empresa: number;
+  nome: string;
+  especialidade: string;
+  ativo: boolean;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Versão pública — retornada por /public/<slug>/profissionais/ */
+export interface ProfissionalPublico {
+  id: number;
+  nome: string;
+  especialidade: string;
+}
+
 export interface Servico {
   id: number;
   empresa: number;
@@ -15,7 +32,7 @@ export interface Servico {
   atualizado_em: string;
 }
 
-export type AgendamentoStatus = 'pendente' | 'confirmado' | 'cancelado';
+export type AgendamentoStatus = 'pendente' | 'confirmado' | 'cancelado' | 'arquivado';
 
 export interface Agendamento {
   id: number;
@@ -23,6 +40,8 @@ export interface Agendamento {
   servico: number;
   servico_nome: string;
   servico_preco: string;
+  profissional: number | null;
+  profissional_nome: string | null;
   nome_cliente: string;
   whatsapp_cliente: string;
   data_hora: string;
@@ -49,6 +68,7 @@ export interface RegistroPayload {
 export interface HorarioFuncionamento {
   id: number;
   empresa: number;
+  profissional: number | null;
   dia_semana: number;
   hora_inicio: string;
   hora_fim: string;
@@ -68,4 +88,11 @@ export interface PaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+export interface FinanceiroResumo {
+  mes_referencia: string;       // "YYYY-MM"
+  agendamentos_confirmados: number;
+  receita_bruta: string;        // "1250.00"
+  ticket_medio: string;         // "250.00"
 }

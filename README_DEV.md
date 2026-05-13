@@ -35,11 +35,30 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 |---|---|---|
 | `Empresa` | `owner` (User), `nome_fantasia`, `slug`, `whatsapp_contato` | `Model` |
 | `BaseModel` | `empresa` (FK), `criado_em`, `atualizado_em` | `Model` (abstract) |
+| `Profissional` | `nome`, `especialidade`, `ativo` | `BaseModel` |
 | `Servico` | `nome`, `duracao_min`, `preco` | `BaseModel` |
-| `Agendamento` | `servico`, `nome_cliente`, `whatsapp_cliente`, `data_hora`, `status` | `BaseModel` |
-| `HorarioFuncionamento` | `dia_semana` (0–6), `hora_inicio`, `hora_fim`, `intervalo_min` | `BaseModel` |
+| `Agendamento` | `servico`, `profissional` (nullable FK), `nome_cliente`, `whatsapp_cliente`, `data_hora`, `status` | `BaseModel` |
+| `HorarioFuncionamento` | `profissional` (nullable FK), `dia_semana` (0–6), `hora_inicio`, `hora_fim`, `intervalo_min` | `BaseModel` |
 
-> `HorarioFuncionamento` tem `unique_together = ['empresa', 'dia_semana']` — máximo de um horário por dia por empresa.
+### Grades de horário — lógica de prioridade
+`HorarioFuncionamento.profissional` é nullable:
+- `NULL` → grade geral da empresa (se aplica quando nenhum profissional específico é informado)
+- Preenchido → grade individual do profissional (prevalece sobre a grade geral)
+
+Ao resolver horários disponíveis para um profissional:
+1. Busca grade do profissional (`empresa + profissional + dia_semana`)
+2. Se não encontrar, usa a grade geral da empresa (`empresa + profissional=NULL + dia_semana`)
+3. Se nenhuma existir, retorna `{ fechado: true }`
+
+> **Por que o `unique_together` foi removido do banco?** MySQL trata `NULL != NULL` em índice único — ou seja, a constraint `UNIQUE(empresa, profissional, dia_semana)` permitiria múltiplas grades genéricas (todas com `profissional=NULL`) para o mesmo dia, o que é incorreto. A unicidade é garantida no `HorarioFuncionamentoSerializer` com uma query explícita — ver seção 8.
+
+### Status do Agendamento
+| Valor | Significado |
+|---|---|
+| `pendente` | Criado pelo cliente, aguardando confirmação do prestador |
+| `confirmado` | Confirmado pelo prestador |
+| `cancelado` | Cancelado (por qualquer parte) |
+| `arquivado` | Movido automaticamente pelo management command após 90 dias |
 
 ## 5. API REST — Endpoints
 
@@ -54,24 +73,49 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 | Método | Rota | Descrição |
 |---|---|---|
 | GET / PATCH | `api/v1/empresa/` | Dados da empresa do usuário logado |
+| GET / POST | `api/v1/profissionais/` | Listar (paginado) e criar profissionais |
+| GET / PUT / PATCH / DELETE | `api/v1/profissionais/{id}/` | Gerenciar um profissional |
 | GET / POST | `api/v1/servicos/` | Listar (paginado) e criar serviços |
 | GET / PUT / PATCH / DELETE | `api/v1/servicos/{id}/` | Gerenciar um serviço |
-| GET / POST | `api/v1/agendamentos/` | Listar (paginado, `?status=pendente`) e criar agendamentos |
+| GET / POST | `api/v1/agendamentos/` | Listar (paginado, `?status=`, `?profissional_id=`) e criar agendamentos |
 | GET / PUT / PATCH / DELETE | `api/v1/agendamentos/{id}/` | Gerenciar um agendamento |
 | PATCH | `api/v1/agendamentos/{id}/status/` | Confirmar ou cancelar um agendamento |
-| GET / POST | `api/v1/horarios/` | Listar e criar horários de funcionamento |
+| GET / POST | `api/v1/horarios/` | Listar (`?profissional_id=N` ou `?profissional_id=null`) e criar horários |
 | GET / PUT / PATCH / DELETE | `api/v1/horarios/{id}/` | Gerenciar um horário de funcionamento |
+| GET | `api/v1/financeiro/resumo/` | Resumo financeiro do mês corrente (receita bruta, confirmados, ticket médio) |
 
 ### Área pública (sem autenticação, via slug)
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `api/v1/public/{slug}/` | Info da empresa (nome, slug, whatsapp) |
+| GET | `api/v1/public/{slug}/profissionais/` | Profissionais ativos da empresa (sem paginação) |
 | GET | `api/v1/public/{slug}/servicos/` | Serviços disponíveis da empresa (paginado) |
-| POST | `api/v1/public/{slug}/agendamentos/` | Cliente cria um agendamento |
-| GET | `api/v1/public/{slug}/horarios-disponiveis/?data=YYYY-MM-DD[&servico_id=N]` | Retorna slots livres do dia; inclui `fechado: true` quando o dia não tem horário cadastrado |
+| POST | `api/v1/public/{slug}/agendamentos/` | Cliente cria um agendamento (`profissional` é opcional no body) |
+| GET | `api/v1/public/{slug}/horarios-disponiveis/?data=YYYY-MM-DD[&servico_id=N][&profissional_id=N]` | Retorna slots livres do dia respeitando a grade do profissional (ou a geral); inclui `fechado: true` quando nenhuma grade se aplica |
 
-> **Paginação:** as listagens de serviços, agendamentos e horários retornam `{ count, next, previous, results: [...] }` com `page_size=20` padrão. O cliente pode passar `?page_size=N` (máx 100) e `?page=N`.
-> `GET /api/v1/empresa/` é uma **exceção**: retorna lista simples `[{...}]` sem envelope de paginação, pois um usuário sempre tem exatamente uma empresa (`pagination_class = None` no `EmpresaViewSet`).
+> **Paginação:** as listagens de serviços, agendamentos e profissionais retornam `{ count, next, previous, results: [...] }` com `page_size=20` padrão. O cliente pode passar `?page_size=N` (máx 100) e `?page=N`.
+> `GET /api/v1/empresa/` e `GET /api/v1/horarios/` e `GET /api/v1/public/{slug}/profissionais/` são **exceções** com `pagination_class = None` — retornam lista simples (regra: qualquer endpoint com número fixo ou pequeno de registros por tenant deve sobrescrever a paginação).
+
+### Payload do `POST /api/v1/public/{slug}/agendamentos/`
+```json
+{
+  "servico": 1,
+  "profissional": 3,        // opcional; null ou omitido = sem profissional específico
+  "nome_cliente": "João",
+  "whatsapp_cliente": "85999990000",
+  "data_hora": "2025-06-10T09:00:00-03:00"
+}
+```
+
+### Resposta do `GET /api/v1/financeiro/resumo/`
+```json
+{
+  "mes_referencia": "2025-05",
+  "agendamentos_confirmados": 42,
+  "receita_bruta": "3150.00",
+  "ticket_medio": "75.00"
+}
+```
 
 ## 6. Fluxos de Usuário
 
@@ -81,13 +125,15 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 3. No dashboard (`/dashboard`):
    - **Agendamentos:** visualiza por aba (Hoje / Todos / Pendentes / Confirmados / Cancelados); a aba "Hoje" é a padrão ao abrir; lista atualiza automaticamente a cada 30s sem recarregar a página; confirma, cancela ou exclui agendamentos (exclusão com confirmação inline); envia mensagem de confirmação pré-formatada via WhatsApp com um clique.
    - **Serviços:** cria, edita e exclui serviços com nome, duração e preço.
-   - **Horários:** cadastra os dias da semana e faixas de atendimento (ex: Seg–Sex 08–18h, Sáb 08–13h) com o intervalo de slots desejado.
+   - **Horários:** cadastra os dias da semana e faixas de atendimento (ex: Seg–Sex 08–18h, Sáb 08–13h) com o intervalo de slots desejado; suporta grade geral da empresa e grade individual por profissional.
+   - **Financeiro:** cards com receita bruta, total de confirmados e ticket médio do mês corrente, calculados em tempo real pelo backend.
 
 ### Cliente (página pública)
 1. Acessa `/{slug}` sem login.
 2. **Passo 1:** vê os cards de serviços e seleciona um.
-3. **Passo 2:** escolhe a data num seletor; a interface busca os slots disponíveis via API e exibe botões de horário — slots já ocupados aparecem riscados e desabilitados.
-4. **Passo 3:** preenche nome e WhatsApp e confirma o agendamento.
+3. **Passo 2 (condicional):** se a empresa tiver mais de 1 profissional ativo, exibe cards para escolha do profissional. Se tiver exatamente 1, seleciona automaticamente e pula o passo. Se não tiver nenhum, pula o passo.
+4. **Passo 3:** escolhe a data num seletor; a interface busca os slots disponíveis via API (respeitando a grade do profissional escolhido) e exibe botões de horário — slots ocupados aparecem riscados e desabilitados.
+5. **Passo 4:** preenche nome e WhatsApp e confirma o agendamento.
 
 ## 7. O que foi implementado
 
@@ -96,7 +142,7 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 - [x] `Serializers` com validação de integridade (serviço pertence à empresa) e sobreposição de horário
 - [x] `ViewSets` com isolamento de Tenant por `get_queryset` e injeção de empresa via `perform_create`
 - [x] Roteamento com `DefaultRouter` (rotas privadas) + `path()` manual (rotas públicas com slug)
-- [x] Migrations geradas e aplicadas (`0001_initial`, `0002_horariofuncionamento`)
+- [x] Migrations geradas e aplicadas (`0001_initial`, `0002_horariofuncionamento`, `0003_v1_1_profissional_arquivado`)
 - [x] Script `seed.py` para popular o banco em desenvolvimento
 - [x] Autenticação JWT com `djangorestframework-simplejwt` — login, refresh e uso do token
 - [x] Endpoint de registro de Empresa + criação automática do User vinculado
@@ -110,6 +156,15 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 - [x] CRUD de `HorarioFuncionamento` — endpoint privado completo
 - [x] Endpoint público de slots disponíveis — cruza horários de funcionamento com agendamentos existentes, considera duração do serviço selecionado
 - [x] Campo `servico_preco` (read-only) no `AgendamentoSerializer` — mesmo padrão de `servico_nome`; evita chamada extra ao endpoint de serviços só para exibir o preço na lista e na mensagem WhatsApp
+- [x] **[v1.1]** Model `Profissional` herdando `BaseModel` — `nome`, `especialidade`, `ativo`; CRUD privado em `/api/v1/profissionais/`
+- [x] **[v1.1]** `Agendamento` ganhou FK opcional `profissional`; detecção de conflito agora é por profissional (quando definido) ou empresa-wide (quando `null`)
+- [x] **[v1.1]** `HorarioFuncionamento` ganhou FK opcional `profissional` — `null` = grade geral, preenchido = grade individual; `unique_together` removido do banco e portado para validação no serializer (ver seção 8)
+- [x] **[v1.1]** `Agendamento.status` ganhou o choice `arquivado`
+- [x] **[v1.1]** `service.py` — camada de lógica desacoplada da view; `calcular_resumo_financeiro(empresa)` agrega `Count`/`Sum` do mês corrente sem model extra
+- [x] **[v1.1]** Endpoint `GET /api/v1/financeiro/resumo/` — delega para `service.py`, retorna `mes_referencia`, `agendamentos_confirmados`, `receita_bruta`, `ticket_medio`
+- [x] **[v1.1]** `HorariosDisponiveisView` aceita `?profissional_id=N`; resolve a grade com prioridade: grade do profissional → grade geral da empresa; conflitos de slot filtrados pelo profissional correto
+- [x] **[v1.1]** Endpoint público `GET /api/v1/public/{slug}/profissionais/` — lista profissionais ativos (sem paginação, sem autenticação)
+- [x] **[v1.1]** Management command `arquivar_agendamentos` — flags `--dias N` (padrão 90) e `--dry-run`; isolamento por tenant garantido pela FK `empresa` em cada `Agendamento` (query nunca filtra por empresa explicitamente — cada registro já pertence a um tenant)
 
 ### Frontend
 - [x] Setup React + TypeScript + Vite com Axios e interceptor automático de JWT (refresh em fila)
@@ -120,7 +175,7 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 - [x] Página de Agendamentos com abas por status e ações de confirmar/cancelar
 - [x] Página de Serviços com tabela, modal de criação/edição e exclusão com confirmação
 - [x] Página de Horários — cadastro dos dias e faixas de atendimento com modal de criação/edição
-- [x] Página pública do cliente com fluxo em 3 passos: selecionar serviço → escolher data e slot → preencher dados
+- [x] Página pública do cliente com fluxo em passos: selecionar serviço → (profissional) → escolher data e slot → preencher dados
 - [x] Slots ocupados exibidos desabilitados e riscados; apenas slots com espaço suficiente para o serviço são exibidos
 - [x] Correção das chamadas de API para consumir o envelope paginado (`results`)
 - [x] Sistema de tipos TypeScript completo (`Empresa`, `Servico`, `Agendamento`, `HorarioFuncionamento`, `SlotDisponivel`, `PaginatedResponse<T>`)
@@ -133,6 +188,13 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 - [x] Polling silencioso na página de Agendamentos — `setInterval` de 30s atualiza a lista sem exibir spinner; pausa quando a aba do browser está em segundo plano (`document.hidden`); indicador discreto "atualizando..." no cabeçalho durante o refresh; intervalo único criado na montagem do componente via padrão `useRef` para evitar stale closure — ver seção 8
 - [x] Botão "WhatsApp" nos cards de agendamento — aparece nos status `pendente` e `confirmado`; mensagem pré-formatada em pt-BR com nome do cliente, serviço, data completa (dia da semana + DD/MM/YYYY), horário e valor em BRL; mensagem codificada via `encodeURIComponent` (UTF-8 percent-encoding padrão, emojis incluídos); reutiliza a mesma janela do browser com `window.open(url, 'whatsapp_panel')` — ver seção 8
 - [x] Exclusão de agendamento com confirmação inline — botão "Excluir" (ghost, discreto) disponível em todos os cards independente de status; ao clicar, substitui o botão pela confirmação diretamente no card ("Excluir permanentemente? / Sim, excluir / Não") sem abrir modal; ao trocar de aba, qualquer confirmação pendente é descartada automaticamente (`setConfirmDeleteId(null)` no `useEffect` de `tab`)
+- [x] **[v1.1]** Paleta de cores revisada — `--primary: #60a5fa` (azul bebê), `--success: #4ade80` (verde calmo); todos os `rgba()` hardcoded derivados atualizados em `index.css`
+- [x] **[v1.1]** Tipos `Profissional`, `ProfissionalPublico` e `FinanceiroResumo` adicionados a `types/index.ts`; `Agendamento` e `HorarioFuncionamento` atualizados com campos `profissional` nullable
+- [x] **[v1.1]** `api/profissionais.ts` — CRUD privado de profissionais + `getFinanceiroResumo()`
+- [x] **[v1.1]** `api/public.ts` — `listProfissionaisPublicos()` e `profissional_id` em `getHorariosDisponiveis()`
+- [x] **[v1.1]** `PublicPage.tsx` — passo de seleção de profissional condicional: suprimido se `profissionais.length <= 1`; auto-seleciona o único profissional; numeração dos passos ajustada dinamicamente; profissional aparece no resumo do booking
+- [x] **[v1.1]** `FinanceiroPage.tsx` — 3 cards com receita bruta, confirmados e ticket médio; formata valores com `Intl.NumberFormat` em BRL; rota `/dashboard/financeiro`
+- [x] **[v1.1]** `DashboardLayout.tsx` — nav link "Financeiro" com ícone `TrendingUp` (lucide-react)
 
 ## 8. Decisões técnicas e armadilhas conhecidas
 
@@ -149,6 +211,11 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 | Polling com stale closure → atualização só no filtro "Todos" | O `setInterval` do polling tinha `[fetchData]` como dependência do `useEffect`. Toda vez que o usuário trocava de aba, `fetchData` era recriado (novo `useCallback`), o intervalo era destruído e recriado do zero — resetando os 30s. Além disso, a versão capturada de `fetchData` dentro do intervalo ficava desatualizada (stale closure), fazendo o poll sempre usar o filtro da aba inicial (`'todos'`) | Padrão `useRef`: `fetchDataRef` guarda sempre a referência mais recente de `fetchData` (atualizado via `useEffect` a cada mudança de `tab`). O `setInterval` é criado **uma única vez** na montagem com deps `[]` e lê `fetchDataRef.current` a cada tick — sem stale closure e sem reset do intervalo ao trocar de aba |
 | Emojis renderizados como losango+`?` na mensagem do WhatsApp | A abordagem anterior (`encodeWhatsAppText`) deixava emojis como caracteres Unicode crus na URL, confiando no browser para codificá-los. O comportamento é inconsistente entre browsers e pode gerar bytes fora do padrão UTF-8, resultando no glifo de caractere desconhecido no WhatsApp | Substituído por `encodeURIComponent(mensagem)` diretamente. `encodeURIComponent` codifica todos os caracteres não-ASCII (incluindo emojis e acentos) como UTF-8 percent-encoding (`%F0%9F%93%8B` etc.), que é o padrão suportado pelo `wa.me` e decodificado corretamente pelo WhatsApp Web |
 | Botão WhatsApp abre nova aba a cada clique | `<a target="_blank">` sempre abre uma nova aba no browser, mesmo que uma aba do WhatsApp Web já esteja aberta, gerando acúmulo de abas | Trocado para `<button onClick>` com `window.open(url, 'whatsapp_panel')`. O segundo argumento é o nome da janela: o browser reutiliza a janela existente (navega para a nova conversa) se ela ainda estiver aberta; só abre uma nova se o usuário a tiver fechado |
+| **[v1.1]** `unique_together` em `HorarioFuncionamento` quebra com `profissional=NULL` no MySQL | Com `profissional` nullable, a constraint `UNIQUE(empresa, profissional, dia_semana)` no banco não protege o caso genérico: MySQL trata `NULL != NULL`, portanto múltiplas linhas `(empresa=1, NULL, 0)` passariam pela constraint sem erro — permitindo duas grades genéricas para segunda-feira na mesma empresa | `unique_together` removido do `Meta`. `HorarioFuncionamentoSerializer.validate()` executa a query explícita `HorarioFuncionamento.objects.filter(empresa=..., profissional=..., dia_semana=...).exists()` (com `filter(profissional__isnull=True)` para o caso genérico) e lança `ValidationError` se já existir. SQLite em desenvolvimento tem o mesmo comportamento com `NULL` em índices, então a correção é consistente entre ambientes |
+| **[v1.1]** Conflito de agendamento com múltiplos profissionais | Dois profissionais diferentes podem atender clientes ao mesmo tempo — a lógica original checava conflitos empresa-wide, o que bloquearia agendamentos simultâneos para profissionais distintos | `AgendamentoSerializer._validar_conflito_horario` agora segmenta a busca: se o novo agendamento tem `profissional != None`, filtra candidatos por `profissional=profissional`; se `profissional=None`, filtra por `profissional__isnull=True`. Agendamentos de profissionais distintos nunca colidem |
+| **[v1.1]** Passo de profissional na `PublicPage` pode quebrar o `useEffect` de slots | Ao trocar de profissional após já ter selecionado data + slot, o estado `profissionalId` muda mas `dataSelecionada` não é zerada — o `useEffect` de slots não seria re-disparado se a dependência fosse só `dataSelecionada` | `profissionalId` foi adicionado ao array de dependências do `useEffect` de slots. Ao trocar de profissional, `dataSelecionada` e `slotSelecionado` são zerados em `handleSelecionarProfissional`, garantindo que o usuário refaça a escolha de data com a grade correta do novo profissional |
+| **[v1.1]** `profissionalId = undefined` vs `null` na `PublicPage` | O componente usa `undefined` para "passo suprimido (sem profissionais)" e `null` para "profissional ainda não escolhido (passo ativo)". Enviar `undefined` no payload de criação do agendamento causaria campos omitidos vs `null` no JSON | No `handleSubmit` e no `useEffect` de slots: `profId = profissionalId === undefined ? null : profissionalId`. O payload enviado ao backend sempre tem `profissional: null` (sem profissional específico) ou `profissional: <id>` (profissional selecionado) — nunca `profissional: undefined` |
+| **[v1.1]** `management command` + `auto_now=True` em `atualizado_em` | `QuerySet.update()` não dispara o `.save()` dos registros e portanto não aciona `auto_now=True`. Incluir `atualizado_em=timezone.now()` no `update()` funcionaria no SQLite, mas em Django a semântica canônica é que `auto_now` só roda via `.save()` | O comando usa apenas `qs.update(status='arquivado')` sem tentar setar `atualizado_em`. O campo reflete a última edição manual do registro, não o arquivamento em lote — comportamento aceitável para uma operação de manutenção |
 
 ## 9. Bugs conhecidos (a corrigir)
 
@@ -163,20 +230,27 @@ Nenhum bug conhecido no momento.
 - [ ] **docker-compose para desenvolvimento** — `docker-compose.yml` subindo Django + MySQL localmente com um único `docker compose up`, substituindo a necessidade de dois terminais separados
 - [ ] **Deploy no GCP Cloud Run** — criar projeto no GCP, configurar Cloud SQL (MySQL) na região `southamerica-east1`, fazer push da imagem para o Artifact Registry e deploy no Cloud Run; configurar `ALLOWED_HOSTS`, `SECRET_KEY` e `DATABASE_URL` via variáveis de ambiente do Cloud Run
 
-## 11. Melhorias planejadas (v1.1)
+## 11. Melhorias implementadas (v1.1) ✅
 
 ### Backend
-- [ ] **Arquivamento automático de agendamentos antigos** — agendamentos com `data_hora` anterior a 90 dias e status `confirmado` ou `cancelado` movidos para status `arquivado` (novo choice); implementar via `management command` agendado (cron/Railway)
-- [ ] **Controle financeiro — `GET /api/v1/financeiro/resumo/`** — retorna para o mês corrente: total de agendamentos confirmados, receita bruta, ticket médio e breakdown por serviço; sem model extra, calculado via agregação no queryset
-- [ ] **Gestão de Profissionais** — novo model `Profissional` com FK para `Empresa` (`nome`, `especialidade`, `ativo`); CRUD privado em `api/v1/profissionais/`; `Agendamento` ganha FK opcional `profissional`; `HorarioFuncionamento` poderá ser vinculado a um profissional específico para que cada um tenha sua própria grade de horários (campo `profissional` nullable — `null` significa horário padrão da empresa)
+- [x] **Arquivamento automático de agendamentos antigos** — management command `arquivar_agendamentos`; flags `--dias N` (padrão 90) e `--dry-run`; move agendamentos `confirmado`/`cancelado` com `data_hora` anterior ao limite para status `arquivado`; isolamento por tenant garantido pela FK `empresa` em cada registro
+- [x] **Controle financeiro — `GET /api/v1/financeiro/resumo/`** — retorna para o mês corrente: `agendamentos_confirmados`, `receita_bruta`, `ticket_medio`; lógica de agregação encapsulada em `service.py` (`calcular_resumo_financeiro`); sem model extra
+- [x] **Gestão de Profissionais** — model `Profissional` (`nome`, `especialidade`, `ativo`) herdando `BaseModel`; CRUD privado em `/api/v1/profissionais/`; `Agendamento` e `HorarioFuncionamento` ganharam FK nullable `profissional`; grade individual por profissional com fallback para grade geral da empresa
 
 ### Frontend
-- [ ] **Paleta de cores revisada** — substituir azul intenso (`#2563eb`) por azul bebê (`#60a5fa` / `#bfdbfe`), verde calmo (`#4ade80`) para confirmados e ações positivas; visual mais suave
-- [ ] **Página de Financeiro no dashboard** — cards com resumo do mês (receita total, nº de confirmados, ticket médio) + tabela de breakdown por serviço; dados buscados do endpoint de resumo
-- [ ] **Seleção de Profissional na página pública** — após selecionar o serviço, exibir cards dos profissionais disponíveis da empresa (buscados em `api/v1/public/{slug}/profissionais/`); cliente escolhe com quem quer ser atendido antes de escolher data e horário; campo profissional enviado no POST de agendamento; passo opcional — se a empresa tiver apenas 1 profissional (ou nenhum cadastrado), o passo é suprimido automaticamente
+- [x] **Paleta de cores revisada** — `--primary: #60a5fa` / `#bfdbfe`, `--success: #4ade80`; visual mais suave
+- [x] **Página de Financeiro no dashboard** — 3 cards (receita bruta, confirmados, ticket médio); valores formatados em BRL via `Intl.NumberFormat`; rota `/dashboard/financeiro`
+- [x] **Seleção de Profissional na página pública** — passo condicional: suprimido se `profissionais.length <= 1` (auto-seleciona único ou envia `null`); exibido como Passo 2 se `> 1`; numeração dinâmica dos passos seguintes; profissional listado no resumo do agendamento
+
+## 12. Melhorias planejadas (v1.2)
+
+### Backend
 - [ ] **Página de Profissionais no dashboard** — tabela com nome e especialidade, modal de criação/edição, toggle de ativo/inativo; padrão visual igual às páginas de Serviços e Horários
 
-## 12. Funcionalidades Premium (planos avançados / atualizações futuras)
+### Frontend
+- [ ] **Horários por profissional no dashboard** — ao cadastrar/editar horários, permitir selecionar se o horário é da empresa (grade geral) ou de um profissional específico; hoje a FK `profissional` já existe no modelo mas a UI de Horários ainda não expõe essa opção
+
+## 13. Funcionalidades Premium (planos avançados / atualizações futuras)
 
 > Esta seção registra funcionalidades que exigem custo operacional, integrações externas pagas ou infraestrutura adicional — adequadas para um plano pago mais completo ou releases futuras após validação do produto. Sempre que uma ideia de feature "premium" surgir durante o desenvolvimento, ela é documentada aqui antes de ser priorizada.
 
@@ -184,7 +258,7 @@ Nenhum bug conhecido no momento.
 
 ### WhatsApp automático (lembretes e confirmações sem clique humano)
 
-> **Por que é premium?** Exige API externa paga (WhatsApp Business API) + infraestrutura de fila de tarefas. O plano básico cobre o botão manual `wa.me` (v1.1), que não tem custo algum.
+> **Por que é premium?** Exige API externa paga (WhatsApp Business API) + infraestrutura de fila de tarefas. O plano básico cobre o botão manual `wa.me` (implementado), que não tem custo algum.
 
 **Dependências técnicas necessárias:**
 
@@ -234,9 +308,10 @@ O sistema de planos **não deve ser implementado antes das features premium esta
 **Roadmap de monetização:**
 ```
 v1.0 → deploy com todas as features básicas gratuitas (custo = só hospedagem ~R$80–150/mês)
-v1.1 → profissionais, financeiro, botão WhatsApp manual (ainda gratuito)
-v1.2 → features premium funcionando (WhatsApp automático, pagamento online)
-v1.3 → implementar sistema de planos e começar a cobrar
+v1.1 → profissionais, financeiro, paleta revisada ✅ (implementado)
+v1.2 → UI de profissionais no dashboard + horários por profissional na UI
+v1.3 → features premium funcionando (WhatsApp automático, pagamento online)
+v1.4 → implementar sistema de planos e começar a cobrar
 ```
 
 **Como implementar tecnicamente (quando chegar a hora):**

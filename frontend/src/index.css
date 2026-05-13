@@ -3,10 +3,10 @@
 
 /* ── Variables ───────────────────────────────────────────────────────────── */
 :root {
-  --primary:       #2563eb;
-  --primary-hover: #1d4ed8;
-  --success:       #16a34a;
-  --success-hover: #15803d;
+  --primary:       #60a5fa;
+  --primary-hover: #3b82f6;
+  --success:       #4ade80;
+  --success-hover: #22c55e;
   --danger:        #dc2626;
   --danger-hover:  #b91c1c;
   --bg:            #f1f5f9;
@@ -94,7 +94,7 @@ a:hover { text-decoration: underline; }
 .form-group input:focus,
 .form-group select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+  box-shadow: 0 0 0 3px rgba(96,165,250,.18);
 }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-hint { font-size: 12px; color: var(--text-muted); }
@@ -196,7 +196,7 @@ a:hover { text-decoration: underline; }
   transition: background .15s, color .15s;
 }
 .nav-link:hover { background: rgba(255,255,255,.07); color: #f1f5f9; text-decoration: none; }
-.nav-link.active { background: rgba(37,99,235,.3); color: #93c5fd; }
+.nav-link.active { background: rgba(96,165,250,.2); color: #bfdbfe; }
 
 .sidebar-logout {
   display: flex;
@@ -338,7 +338,7 @@ a:hover { text-decoration: underline; }
   transition: border-color .15s, box-shadow .15s;
 }
 .service-card:hover { border-color: var(--primary); }
-.service-card.selected { border-color: var(--primary); background: #eff6ff; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.service-card.selected { border-color: var(--primary); background: #eff6ff; box-shadow: 0 0 0 3px rgba(96,165,250,.18); }
 .service-name { font-weight: 600; font-size: 15px; }
 .service-detail { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
 
@@ -394,7 +394,7 @@ a:hover { text-decoration: underline; }
 }
 .slot-date-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+  box-shadow: 0 0 0 3px rgba(96,165,250,.18);
 }
 .slot-day-label { font-size: 15px; font-weight: 600; margin: 16px 0 10px; }
 .slot-loading, .slot-empty { font-size: 14px; color: var(--text-muted); margin-top: 12px; }
@@ -531,3 +531,72 @@ a:hover { text-decoration: underline; }
 .btn-secondary:hover:not(:disabled) { background: var(--border); }
 .page-header h1 { font-size: 20px; font-weight: 700; }
 .empty-hint { font-size: 13px; max-width: 360px; }
+
+/* ── Financeiro — cards de resumo ────────────────────────────────────────── */
+.financeiro-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.financeiro-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.financeiro-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+}
+.financeiro-card-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+.financeiro-card--receita .financeiro-card-value  { color: var(--success-hover); }
+.financeiro-card--confirmados .financeiro-card-value { color: var(--primary-hover); }
+.financeiro-card--ticket .financeiro-card-value   { color: #7c3aed; }
+.financeiro-mes { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+
+/* ── Seleção de profissional (página pública) ────────────────────────────── */
+.profissional-cards { display: flex; flex-direction: column; gap: 10px; }
+.profissional-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.profissional-card:hover { border-color: var(--primary); }
+.profissional-card.selected {
+  border-color: var(--primary);
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(96,165,250,.18);
+}
+.profissional-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.profissional-nome { font-weight: 600; font-size: 15px; }
+.profissional-especialidade { font-size: 13px; color: var(--text-muted); margin-top: 2px; }

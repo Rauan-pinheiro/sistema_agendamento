@@ -1,7 +1,10 @@
 import { useState, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Scissors, Clock, LogOut, ExternalLink, Copy, Check } from 'lucide-react';
+import {
+  Calendar, Scissors, Clock, LogOut,
+  ExternalLink, Copy, Check, TrendingUp,
+} from 'lucide-react';
 
 function CopyLinkButton({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false);
@@ -82,6 +85,13 @@ export function DashboardLayout() {
           >
             <Clock size={17} />
             Horários
+          </NavLink>
+          <NavLink
+            to="/dashboard/financeiro"
+            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+          >
+            <TrendingUp size={17} />
+            Financeiro
           </NavLink>
         </nav>
 

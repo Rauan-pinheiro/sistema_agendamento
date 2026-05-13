@@ -7,6 +7,7 @@ import { DashboardLayout } from './pages/dashboard/DashboardLayout';
 import { AgendamentosPage } from './pages/dashboard/AgendamentosPage';
 import { ServicosPage } from './pages/dashboard/ServicosPage';
 import { HorariosPage } from './pages/dashboard/HorariosPage';
+import { FinanceiroPage } from './pages/dashboard/FinanceiroPage';
 import { PublicPage } from './pages/public/PublicPage';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
               <Route index element={<AgendamentosPage />} />
               <Route path="servicos" element={<ServicosPage />} />
               <Route path="horarios" element={<HorariosPage />} />
+              <Route path="financeiro" element={<FinanceiroPage />} />
             </Route>
           </Route>
           <Route path="/:slug" element={<PublicPage />} />

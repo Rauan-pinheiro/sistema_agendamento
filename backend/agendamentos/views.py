@@ -3,16 +3,19 @@ from rest_framework import viewsets, permissions, mixins, generics, status
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from .models import Empresa, Servico, Agendamento, HorarioFuncionamento
+from .models import Empresa, Profissional, Servico, Agendamento, HorarioFuncionamento
 from .serializers import (
     EmpresaSerializer, EmpresaPublicSerializer,
+    ProfissionalSerializer, ProfissionalPublicSerializer,
     ServicoSerializer, AgendamentoSerializer,
     HorarioFuncionamentoSerializer, RegistroSerializer,
 )
+from .service import calcular_resumo_financeiro
 
 
 # ── Paginação ─────────────────────────────────────────────────────────────────
@@ -23,19 +26,15 @@ class StandardPagination(PageNumberPagination):
     max_page_size = 100
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-def get_empresa_do_usuario(user):
+def get_empresa_do_usuario(user) -> Empresa:
     return get_object_or_404(Empresa, owner=user)
 
 
 # ── Dashboard (autenticado) ───────────────────────────────────────────────────
 
 class EmpresaViewSet(viewsets.ModelViewSet):
-    """
-    Retorna e permite editar apenas a Empresa do usuário autenticado.
-    Criação e exclusão são gerenciadas pelo fluxo de registro, não pela API.
-    """
     serializer_class = EmpresaSerializer
     permission_classes = [permissions.IsAuthenticated]
     http_method_names = ['get', 'put', 'patch', 'head', 'options']
@@ -45,22 +44,39 @@ class EmpresaViewSet(viewsets.ModelViewSet):
         return Empresa.objects.filter(owner=self.request.user)
 
 
+class ProfissionalViewSet(viewsets.ModelViewSet):
+    """CRUD de Profissionais isolado por Tenant."""
+    serializer_class = ProfissionalSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
+
+    def _empresa(self) -> Empresa:
+        return get_empresa_do_usuario(self.request.user)
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['empresa'] = self._empresa()
+        return ctx
+
+    def get_queryset(self):
+        return Profissional.objects.filter(empresa=self._empresa())
+
+    def perform_create(self, serializer):
+        serializer.save(empresa=self._empresa())
+
+
 class ServicoViewSet(viewsets.ModelViewSet):
-    """
-    CRUD de Serviços isolado por Tenant.
-    Cada usuário vê e manipula apenas os serviços da sua própria Empresa.
-    """
     serializer_class = ServicoSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
 
-    def _empresa(self):
+    def _empresa(self) -> Empresa:
         return get_empresa_do_usuario(self.request.user)
 
     def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['empresa'] = self._empresa()
-        return context
+        ctx = super().get_serializer_context()
+        ctx['empresa'] = self._empresa()
+        return ctx
 
     def get_queryset(self):
         return Servico.objects.filter(empresa=self._empresa())
@@ -72,28 +88,34 @@ class ServicoViewSet(viewsets.ModelViewSet):
 class AgendamentoViewSet(viewsets.ModelViewSet):
     """
     CRUD de Agendamentos isolado por Tenant.
-    Suporta filtro por status: GET /agendamentos/?status=pendente
+    Filtros: ?status=pendente  |  ?profissional_id=N
     """
     serializer_class = AgendamentoSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
 
-    def _empresa(self):
+    def _empresa(self) -> Empresa:
         return get_empresa_do_usuario(self.request.user)
 
     def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['empresa'] = self._empresa()
-        return context
+        ctx = super().get_serializer_context()
+        ctx['empresa'] = self._empresa()
+        return ctx
 
     def get_queryset(self):
-        qs = Agendamento.objects.filter(
-            empresa=self._empresa()
-        ).select_related('servico').order_by('data_hora')
+        qs = (
+            Agendamento.objects
+            .filter(empresa=self._empresa())
+            .select_related('servico', 'profissional')
+            .order_by('data_hora')
+        )
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            qs = qs.filter(status=status_param)
 
-        status = self.request.query_params.get('status')
-        if status:
-            qs = qs.filter(status=status)
+        profissional_id = self.request.query_params.get('profissional_id')
+        if profissional_id:
+            qs = qs.filter(profissional_id=profissional_id)
 
         return qs
 
@@ -118,34 +140,68 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(agendamento).data)
 
 
-# ── Horários de Funcionamento (autenticado) ───────────────────────────────────
-
 class HorarioFuncionamentoViewSet(viewsets.ModelViewSet):
     """
-    CRUD dos horários de funcionamento por dia da semana.
-    Máximo de 7 registros por empresa (um por dia).
+    CRUD dos horários de funcionamento.
+    Suporta grade geral (?profissional_id=null) e por profissional (?profissional_id=N).
     """
     serializer_class = HorarioFuncionamentoSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = None
 
-    def _empresa(self):
+    def _empresa(self) -> Empresa:
         return get_empresa_do_usuario(self.request.user)
 
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['empresa'] = self._empresa()
+        return ctx
+
     def get_queryset(self):
-        return HorarioFuncionamento.objects.filter(empresa=self._empresa())
+        qs = HorarioFuncionamento.objects.filter(empresa=self._empresa())
+        profissional_id = self.request.query_params.get('profissional_id')
+        if profissional_id == 'null' or profissional_id == '':
+            qs = qs.filter(profissional__isnull=True)
+        elif profissional_id:
+            qs = qs.filter(profissional_id=profissional_id)
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(empresa=self._empresa())
 
 
+# ── Financeiro (autenticado) ──────────────────────────────────────────────────
+
+class FinanceiroResumoView(APIView):
+    """
+    GET /api/v1/financeiro/resumo/
+    Retorna métricas do mês corrente sem nenhum model extra.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        empresa = get_empresa_do_usuario(request.user)
+        resumo = calcular_resumo_financeiro(empresa)
+        return Response(resumo)
+
+
 # ── Área pública (sem autenticação) ──────────────────────────────────────────
 
+class ProfissionalPublicoViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    """
+    Lista profissionais ativos de uma empresa pelo slug.
+    GET /api/v1/public/<slug>/profissionais/
+    """
+    serializer_class = ProfissionalPublicSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
+
+    def get_queryset(self):
+        empresa = get_object_or_404(Empresa, slug=self.kwargs['slug'])
+        return Profissional.objects.filter(empresa=empresa, ativo=True)
+
+
 class ServicoPublicoViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    """
-    Lista os serviços de uma empresa pelo slug — sem autenticação.
-    Rota: GET /api/public/<slug>/servicos/
-    """
     serializer_class = ServicoSerializer
     permission_classes = [permissions.AllowAny]
     pagination_class = StandardPagination
@@ -156,48 +212,40 @@ class ServicoPublicoViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
 
 class AgendamentoPublicoViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
-    """
-    Permite ao cliente final criar um agendamento para uma empresa pelo slug.
-    Rota: POST /api/public/<slug>/agendamentos/
-    """
     serializer_class = AgendamentoSerializer
     permission_classes = [permissions.AllowAny]
 
-    def _empresa(self):
+    def _empresa(self) -> Empresa:
         return get_object_or_404(Empresa, slug=self.kwargs['slug'])
 
     def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['empresa'] = self._empresa()
-        return context
+        ctx = super().get_serializer_context()
+        ctx['empresa'] = self._empresa()
+        return ctx
 
     def perform_create(self, serializer):
         serializer.save(empresa=self._empresa())
 
 
-# ── Info pública da empresa (sem autenticação) ────────────────────────────────
-
 class EmpresaPublicaView(generics.RetrieveAPIView):
-    """
-    Retorna dados básicos da empresa pelo slug — sem autenticação.
-    Rota: GET /api/v1/public/<slug>/
-    """
     serializer_class = EmpresaPublicSerializer
     permission_classes = [permissions.AllowAny]
     lookup_field = 'slug'
     queryset = Empresa.objects.all()
 
 
-# ── Slots disponíveis (público) ───────────────────────────────────────────────
-
 class HorariosDisponiveisView(generics.GenericAPIView):
     """
-    Retorna os slots livres de um dia para uma empresa.
-    Rota: GET /api/v1/public/<slug>/horarios-disponiveis/?data=YYYY-MM-DD[&servico_id=N]
+    GET /api/v1/public/<slug>/horarios-disponiveis/
+    Parâmetros: ?data=YYYY-MM-DD  [&servico_id=N]  [&profissional_id=N]
+
+    Prioridade da grade:
+    1. Se profissional_id informado E profissional tem grade própria → usa grade do profissional
+    2. Caso contrário → usa grade geral da empresa (profissional=None)
     """
     permission_classes = [permissions.AllowAny]
 
-    def get(self, request, slug):
+    def get(self, request, slug: str):
         empresa = get_object_or_404(Empresa, slug=slug)
 
         data_str = request.query_params.get('data')
@@ -214,13 +262,22 @@ class HorariosDisponiveisView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        dia_semana = data.weekday()  # Segunda=0, Domingo=6
-        try:
-            horario = HorarioFuncionamento.objects.get(empresa=empresa, dia_semana=dia_semana)
-        except HorarioFuncionamento.DoesNotExist:
+        dia_semana = data.weekday()
+
+        # Resolve qual grade de horário usar
+        profissional: Profissional | None = None
+        profissional_id = request.query_params.get('profissional_id')
+        if profissional_id:
+            try:
+                profissional = Profissional.objects.get(pk=profissional_id, empresa=empresa, ativo=True)
+            except Profissional.DoesNotExist:
+                pass  # cai para a grade geral
+
+        horario = self._resolver_horario(empresa, dia_semana, profissional)
+        if horario is None:
             return Response({'data': data_str, 'slots': [], 'fechado': True})
 
-        # Duração do slot: usa a duração do serviço se informado, senão o intervalo padrão
+        # Duração do slot
         duracao_min = horario.intervalo_min
         servico_id = request.query_params.get('servico_id')
         if servico_id:
@@ -236,27 +293,29 @@ class HorariosDisponiveisView(generics.GenericAPIView):
         duracao = timedelta(minutes=duracao_min)
         passo = timedelta(minutes=horario.intervalo_min)
 
-        # Agendamentos não cancelados do dia
+        # Agendamentos não cancelados/arquivados do dia para o profissional correto
         dia_inicio = timezone.make_aware(datetime.combine(data, time_type(0, 0)), local_tz)
         dia_fim = timezone.make_aware(datetime.combine(data, time_type(23, 59, 59)), local_tz)
-        agendamentos = list(
-            Agendamento.objects.filter(
-                empresa=empresa,
-                data_hora__gte=dia_inicio,
-                data_hora__lte=dia_fim,
-            )
-            .exclude(status='cancelado')
+        ags_qs = (
+            Agendamento.objects
+            .filter(empresa=empresa, data_hora__gte=dia_inicio, data_hora__lte=dia_fim)
+            .exclude(status__in=['cancelado', 'arquivado'])
             .select_related('servico')
         )
+        if profissional is not None:
+            ags_qs = ags_qs.filter(profissional=profissional)
+        else:
+            ags_qs = ags_qs.filter(profissional__isnull=True)
 
+        agendamentos = list(ags_qs)
         agora = timezone.now()
         slots = []
         current = inicio
         while current + duracao <= fim:
-            slot_fim = current + duracao
             if current < agora:
                 current += passo
                 continue
+            slot_fim = current + duracao
             disponivel = all(
                 not (
                     current < ag.data_hora + timedelta(minutes=ag.servico.duracao_min)
@@ -273,25 +332,44 @@ class HorariosDisponiveisView(generics.GenericAPIView):
 
         return Response({'data': data_str, 'slots': slots})
 
+    @staticmethod
+    def _resolver_horario(
+        empresa: Empresa,
+        dia_semana: int,
+        profissional: Profissional | None,
+    ) -> HorarioFuncionamento | None:
+        """
+        Retorna a grade aplicável seguindo a prioridade:
+        1. Grade do profissional (se informado e existir)
+        2. Grade geral da empresa
+        """
+        if profissional is not None:
+            try:
+                return HorarioFuncionamento.objects.get(
+                    empresa=empresa, profissional=profissional, dia_semana=dia_semana
+                )
+            except HorarioFuncionamento.DoesNotExist:
+                pass  # fallback para grade geral
+
+        try:
+            return HorarioFuncionamento.objects.get(
+                empresa=empresa, profissional__isnull=True, dia_semana=dia_semana
+            )
+        except HorarioFuncionamento.DoesNotExist:
+            return None
+
 
 # ── Registro de novo prestador ────────────────────────────────────────────────
 
 class RegistroView(generics.CreateAPIView):
-    """
-    Cria User + Empresa numa única operação atômica e retorna os tokens JWT.
-    Rota: POST /api/v1/auth/registro/
-    """
     serializer_class = RegistroSerializer
     permission_classes = [permissions.AllowAny]
 
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         user, empresa = serializer.save()
-
         refresh = RefreshToken.for_user(user)
-
         return Response({
             'access':  str(refresh.access_token),
             'refresh': str(refresh),
