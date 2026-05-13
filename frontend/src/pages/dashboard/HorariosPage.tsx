@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Pencil, Trash2, Plus, X, Check } from 'lucide-react';
+import { Pencil, Trash2, Plus, Check, Clock } from 'lucide-react';
 import { listHorarios, createHorario, updateHorario, deleteHorario } from '../../api/horarios';
 import type { HorarioFuncionamento } from '../../types';
+import { Modal } from '../../components/Modal';
+import { Button } from '../../components/Button';
 
 const DIAS = [
   { value: 0, label: 'Segunda-feira' },
@@ -26,11 +28,8 @@ export function HorariosPage() {
 
   async function carregar() {
     setLoading(true);
-    try {
-      setHorarios(await listHorarios());
-    } finally {
-      setLoading(false);
-    }
+    try { setHorarios(await listHorarios()); }
+    finally { setLoading(false); }
   }
 
   useEffect(() => { carregar(); }, []);
@@ -60,11 +59,7 @@ export function HorariosPage() {
     setErro('');
     setSalvando(true);
     try {
-      if (editando) {
-        await updateHorario(editando.id, form);
-      } else {
-        await createHorario(form);
-      }
+      editando ? await updateHorario(editando.id, form) : await createHorario(form);
       setModalAberto(false);
       carregar();
     } catch (err: unknown) {
@@ -89,118 +84,135 @@ export function HorariosPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Horários de Funcionamento</h1>
-        <button className="btn btn-primary" onClick={abrirCriar} disabled={horarios.length >= 7}>
-          <Plus size={16} /> Adicionar dia
-        </button>
+        <div>
+          <h2>Horários de Funcionamento</h2>
+          <p className="page-subtitle">{horarios.length} de 7 dias configurados</p>
+        </div>
+        <Button onClick={abrirCriar} disabled={horarios.length >= 7}>
+          <Plus size={15} /> Adicionar dia
+        </Button>
       </div>
 
       {loading ? (
-        <p>Carregando...</p>
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr><th>Dia</th><th>Início</th><th>Fim</th><th>Intervalo</th><th></th></tr>
+            </thead>
+            <tbody>
+              {[0, 1, 2].map((i) => (
+                <tr key={i}>
+                  {[60, 30, 30, 30].map((w, j) => (
+                    <td key={j}><div className="skeleton skeleton-row" style={{ width: `${w}%` }} /></td>
+                  ))}
+                  <td />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : horarios.length === 0 ? (
         <div className="empty-state">
-          <p>Nenhum horário cadastrado.</p>
-          <p className="empty-hint">Configure os dias e horários em que você atende para que os clientes vejam os slots disponíveis.</p>
+          <div className="empty-state-icon"><Clock size={28} /></div>
+          <h3>Nenhum horário cadastrado</h3>
+          <p className="empty-hint">
+            Configure os dias e faixas de atendimento para que seus clientes vejam os slots disponíveis na página de agendamento.
+          </p>
+          <Button onClick={abrirCriar}><Plus size={15} /> Configurar horários</Button>
         </div>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Dia</th>
-              <th>Início</th>
-              <th>Fim</th>
-              <th>Intervalo</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {horarios.map((h) => (
-              <tr key={h.id}>
-                <td>{DIAS.find((d) => d.value === h.dia_semana)?.label}</td>
-                <td>{h.hora_inicio.slice(0, 5)}</td>
-                <td>{h.hora_fim.slice(0, 5)}</td>
-                <td>{h.intervalo_min} min</td>
-                <td className="table-actions">
-                  <button className="icon-btn" title="Editar" onClick={() => abrirEditar(h)}>
-                    <Pencil size={15} />
-                  </button>
-                  <button className="icon-btn icon-btn--danger" title="Excluir" onClick={() => remover(h.id)}>
-                    <Trash2 size={15} />
-                  </button>
-                </td>
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Dia</th>
+                <th>Início</th>
+                <th>Fim</th>
+                <th>Intervalo</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {modalAberto && (
-        <div className="modal-overlay" onClick={() => setModalAberto(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editando ? 'Editar horário' : 'Novo horário'}</h2>
-              <button className="icon-btn" onClick={() => setModalAberto(false)}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="form-group">
-              <label>Dia da semana</label>
-              <select
-                value={form.dia_semana}
-                disabled={!!editando}
-                onChange={(e) => setForm((f) => ({ ...f, dia_semana: Number(e.target.value) }))}
-              >
-                {diasDisponiveis.map((d) => (
-                  <option key={d.value} value={d.value}>{d.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Início</label>
-                <input
-                  type="time"
-                  value={form.hora_inicio}
-                  onChange={(e) => setForm((f) => ({ ...f, hora_inicio: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label>Fim</label>
-                <input
-                  type="time"
-                  value={form.hora_fim}
-                  onChange={(e) => setForm((f) => ({ ...f, hora_fim: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Intervalo entre slots (minutos)</label>
-              <input
-                type="number"
-                min={5}
-                max={120}
-                step={5}
-                value={form.intervalo_min}
-                onChange={(e) => setForm((f) => ({ ...f, intervalo_min: Number(e.target.value) }))}
-              />
-            </div>
-
-            {erro && <p className="form-error">{erro}</p>}
-
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setModalAberto(false)}>
-                Cancelar
-              </button>
-              <button className="btn btn-primary" onClick={salvar} disabled={salvando}>
-                <Check size={15} /> {salvando ? 'Salvando...' : 'Salvar'}
-              </button>
-            </div>
-          </div>
+            </thead>
+            <tbody>
+              {horarios.map((h) => (
+                <tr key={h.id}>
+                  <td style={{ fontWeight: 600 }}>{DIAS.find((d) => d.value === h.dia_semana)?.label}</td>
+                  <td>{h.hora_inicio.slice(0, 5)}</td>
+                  <td>{h.hora_fim.slice(0, 5)}</td>
+                  <td>{h.intervalo_min} min</td>
+                  <td className="table-actions">
+                    <button className="icon-btn" title="Editar" onClick={() => abrirEditar(h)}>
+                      <Pencil size={14} />
+                    </button>
+                    <button className="icon-btn icon-btn--danger" title="Excluir" onClick={() => remover(h.id)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <Modal
+        open={modalAberto}
+        onClose={() => setModalAberto(false)}
+        title={editando ? 'Editar horário' : 'Novo horário'}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setModalAberto(false)}>Cancelar</Button>
+            <Button loading={salvando} onClick={salvar}>
+              <Check size={14} /> {salvando ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </>
+        }
+      >
+        <div className="form-group">
+          <label>Dia da semana</label>
+          <select
+            value={form.dia_semana}
+            disabled={!!editando}
+            onChange={(e) => setForm((f) => ({ ...f, dia_semana: Number(e.target.value) }))}
+          >
+            {diasDisponiveis.map((d) => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Início</label>
+            <input
+              type="time"
+              value={form.hora_inicio}
+              onChange={(e) => setForm((f) => ({ ...f, hora_inicio: e.target.value }))}
+            />
+          </div>
+          <div className="form-group">
+            <label>Fim</label>
+            <input
+              type="time"
+              value={form.hora_fim}
+              onChange={(e) => setForm((f) => ({ ...f, hora_fim: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Intervalo entre slots (minutos)</label>
+          <input
+            type="number"
+            min={5}
+            max={120}
+            step={5}
+            value={form.intervalo_min}
+            onChange={(e) => setForm((f) => ({ ...f, intervalo_min: Number(e.target.value) }))}
+          />
+        </div>
+
+        {erro && <p className="form-error">{erro}</p>}
+      </Modal>
     </div>
   );
 }

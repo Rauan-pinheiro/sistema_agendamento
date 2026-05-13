@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { CalendarDays } from 'lucide-react';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -10,7 +11,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -27,8 +28,18 @@ export function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-title">Entrar</h1>
-        <p className="auth-subtitle">Acesse o painel da sua empresa</p>
+        <div className="auth-logo">
+          <div className="auth-logo-icon">
+            <CalendarDays size={20} />
+          </div>
+          <span className="auth-logo-text">AgendaFácil</span>
+        </div>
+
+        <div>
+          <h1 className="auth-title">Boas-vindas</h1>
+          <p className="auth-subtitle">Acesse o painel da sua empresa</p>
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Usuário</label>
@@ -37,6 +48,7 @@ export function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               required
               autoFocus
+              placeholder="seu.usuario"
             />
           </div>
           <div className="form-group">
@@ -46,13 +58,16 @@ export function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              placeholder="••••••••"
             />
           </div>
           {error && <p className="form-error">{error}</p>}
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+          <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading}>
+            {loading && <span className="btn-spinner" />}
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
+
         <p className="auth-footer">
           Não tem conta? <Link to="/register">Cadastre sua empresa</Link>
         </p>

@@ -8,7 +8,7 @@ import {
   getHorariosDisponiveis,
 } from '../../api/public';
 import type { Empresa, Servico, ProfissionalPublico, SlotDisponivel } from '../../types';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, MessageCircle, Check } from 'lucide-react';
 
 const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
@@ -16,6 +16,47 @@ function hoje(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+function initials(nome: string): string {
+  return nome.split(' ').slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase();
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+interface ProgressStep {
+  label: string;
+  state: 'done' | 'current' | 'pending';
+}
+
+function ProgressBar({ steps }: { steps: ProgressStep[] }) {
+  return (
+    <div className="progress-bar-wrap">
+      <div className="progress-steps">
+        {steps.map((step, i) => (
+          <div key={i} className={`progress-step ${step.state}`}>
+            <div className="progress-step-num">
+              {step.state === 'done' ? <Check size={13} /> : i + 1}
+            </div>
+            <span className="progress-step-label">{step.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Step wrapper ────────────────────────────────────────────────────────── */
+function Step({ num, title, children }: { num: number; title: string; children: React.ReactNode }) {
+  return (
+    <div className="public-step">
+      <div className="public-step-header">
+        <div className="public-step-num">{num}</div>
+        <span className="public-step-title">{title}</span>
+      </div>
+      <div className="public-step-body">{children}</div>
+    </div>
+  );
+}
+
+/* ── Main component ──────────────────────────────────────────────────────── */
 export function PublicPage() {
   const { slug } = useParams<{ slug: string }>();
 
@@ -32,7 +73,7 @@ export function PublicPage() {
   const [servicoId, setServicoId] = useState<number | null>(null);
 
   // Passo 2 (condicional) — profissional
-  // null = nenhum selecionado ainda; undefined = empresa sem profissionais (passo suprimido)
+  // null = nenhum selecionado; undefined = passo suprimido
   const [profissionalId, setProfissionalId] = useState<number | null | undefined>(undefined);
 
   // Passo 3 — data e slots
@@ -46,7 +87,6 @@ export function PublicPage() {
   const [nomeCliente, setNomeCliente] = useState('');
   const [whatsappCliente, setWhatsappCliente] = useState('');
 
-  // Carga inicial: empresa + serviços + profissionais
   useEffect(() => {
     if (!slug) return;
     Promise.all([
@@ -63,7 +103,6 @@ export function PublicPage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  // Busca slots quando data, serviço ou profissional mudam
   useEffect(() => {
     if (!slug || !dataSelecionada) {
       setSlots([]);
@@ -75,7 +114,6 @@ export function PublicPage() {
     setLoadingSlots(true);
     setSlotSelecionado('');
     setDiaClosed(false);
-    // profissionalId undefined → passo suprimido → envia null (grade geral)
     const profId = profissionalId === undefined ? null : profissionalId;
     getHorariosDisponiveis(slug, dataSelecionada, servicoId ?? undefined, profId)
       .then((r) => {
@@ -93,15 +131,11 @@ export function PublicPage() {
     setSlotSelecionado('');
     setDiaClosed(false);
 
-    // Decide se exibe passo de profissional
     if (profissionais.length > 1) {
-      // Reseta seleção para forçar o usuário a escolher
       setProfissionalId(null);
     } else if (profissionais.length === 1) {
-      // Auto-seleciona o único profissional e suprime o passo
       setProfissionalId(profissionais[0].id);
     } else {
-      // Empresa sem profissionais — suprime o passo e envia null
       setProfissionalId(undefined);
     }
   }
@@ -119,7 +153,6 @@ export function PublicPage() {
     if (!slotSelecionado) return;
     setFormError('');
     setSubmitting(true);
-    // profissionalId undefined → sem profissional específico → null no payload
     const profId = profissionalId === undefined ? null : profissionalId;
     try {
       await createAgendamentoPublico(slug!, {
@@ -159,24 +192,25 @@ export function PublicPage() {
   }
 
   if (loading) return <div className="public-loading">Carregando...</div>;
-  if (notFound)
-    return (
-      <div className="public-not-found">
-        <h2>Empresa não encontrada</h2>
-        <p>Verifique o link e tente novamente.</p>
-      </div>
-    );
+  if (notFound) return (
+    <div className="public-not-found">
+      <h2>Empresa não encontrada</h2>
+      <p>Verifique o link e tente novamente.</p>
+    </div>
+  );
 
   if (success) {
     return (
       <div className="public-page">
         <div className="public-success">
-          <CheckCircle size={60} className="success-icon" />
-          <h2>Agendamento solicitado!</h2>
-          <p>Aguarde a confirmação via WhatsApp.</p>
-          <button className="btn btn-primary" onClick={resetForm}>
-            Fazer outro agendamento
-          </button>
+          <div className="success-card">
+            <CheckCircle size={52} className="success-icon" />
+            <h2>Agendamento solicitado!</h2>
+            <p>Aguarde a confirmação via WhatsApp.</p>
+            <button className="btn btn-primary btn-full" onClick={resetForm} style={{ marginTop: 8 }}>
+              Fazer outro agendamento
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -184,11 +218,21 @@ export function PublicPage() {
 
   const servicoAtual = servicos.find((s) => s.id === servicoId);
   const mostrarPassoProfissional = servicoId !== null && profissionais.length > 1;
-  // Passo de data liberado quando: serviço escolhido E (sem profissionais OU profissional escolhido)
   const passoDataLiberado =
-    servicoId !== null &&
-    (profissionais.length === 0 ||
-      profissionalId !== null);
+    servicoId !== null && (profissionais.length === 0 || profissionalId !== null);
+  const profAtual = profissionais.find((p) => p.id === profissionalId);
+  const numData  = profissionais.length > 1 ? 3 : 2;
+  const numDados = profissionais.length > 1 ? 4 : 3;
+
+  // Progress bar state
+  const progressSteps: ProgressStep[] = [
+    { label: 'Serviço',      state: servicoId !== null ? 'done' : 'current' },
+    ...(profissionais.length > 1
+      ? [{ label: 'Profissional', state: (servicoId === null ? 'pending' : profissionalId !== null ? 'done' : 'current') as ProgressStep['state'] }]
+      : []),
+    { label: 'Data e hora', state: (slotSelecionado ? 'done' : passoDataLiberado ? 'current' : 'pending') as ProgressStep['state'] },
+    { label: 'Seus dados',  state: (slotSelecionado ? 'current' : 'pending') as ProgressStep['state'] },
+  ];
 
   function labelDia(dateStr: string) {
     if (!dateStr) return '';
@@ -198,27 +242,29 @@ export function PublicPage() {
     return `${diaSemana}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
   }
 
-  const profAtual = profissionais.find((p) => p.id === profissionalId);
-  const numeroPasso = profissionais.length > 1 ? { data: 3, dados: 4 } : { data: 2, dados: 3 };
-
   return (
     <div className="public-page">
       <header className="public-header">
-        <h1>{empresa?.nome_fantasia}</h1>
-        <a
-          href={`https://wa.me/${empresa?.whatsapp_contato}`}
-          className="whatsapp-link"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          💬 {empresa?.whatsapp_contato}
-        </a>
+        <div className="public-header-content">
+          <h1>{empresa?.nome_fantasia}</h1>
+          <p className="public-header-sub">Agende seu horário online</p>
+          <a
+            href={`https://wa.me/${empresa?.whatsapp_contato}`}
+            className="whatsapp-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <MessageCircle size={15} />
+            {empresa?.whatsapp_contato}
+          </a>
+        </div>
       </header>
 
+      <ProgressBar steps={progressSteps} />
+
       <div className="public-body">
-        {/* Passo 1 — Escolher serviço */}
-        <section className="public-services">
-          <h2>1. Escolha o serviço</h2>
+        {/* Passo 1 — Serviço */}
+        <Step num={1} title="Escolha o serviço">
           <div className="service-cards">
             {servicos.map((s) => (
               <div
@@ -226,19 +272,21 @@ export function PublicPage() {
                 className={`service-card${servicoId === s.id ? ' selected' : ''}`}
                 onClick={() => handleSelecionarServico(s.id)}
               >
-                <p className="service-name">{s.nome}</p>
-                <p className="service-detail">
-                  {s.duracao_min} min · R$ {Number(s.preco).toFixed(2)}
-                </p>
+                <div className="service-card-info">
+                  <p className="service-name">{s.nome}</p>
+                  <p className="service-detail">{s.duracao_min} min</p>
+                </div>
+                <span className="service-price">
+                  {Number(s.preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </span>
               </div>
             ))}
           </div>
-        </section>
+        </Step>
 
-        {/* Passo 2 (condicional) — Escolher profissional */}
+        {/* Passo 2 (condicional) — Profissional */}
         {mostrarPassoProfissional && (
-          <section className="public-slot-picker">
-            <h2>2. Escolha o profissional</h2>
+          <Step num={2} title="Escolha o profissional">
             <div className="profissional-cards">
               {profissionais.map((p) => (
                 <div
@@ -246,7 +294,7 @@ export function PublicPage() {
                   className={`profissional-card${profissionalId === p.id ? ' selected' : ''}`}
                   onClick={() => handleSelecionarProfissional(p.id)}
                 >
-                  <div className="profissional-avatar">👤</div>
+                  <div className="profissional-avatar">{initials(p.nome)}</div>
                   <div>
                     <p className="profissional-nome">{p.nome}</p>
                     {p.especialidade && (
@@ -256,13 +304,12 @@ export function PublicPage() {
                 </div>
               ))}
             </div>
-          </section>
+          </Step>
         )}
 
         {/* Passo de data e horário */}
         {passoDataLiberado && (
-          <section className="public-slot-picker">
-            <h2>{numeroPasso.data}. Escolha a data</h2>
+          <Step num={numData} title="Escolha a data e horário">
             <input
               type="date"
               className="slot-date-input"
@@ -275,7 +322,11 @@ export function PublicPage() {
               <>
                 <h3 className="slot-day-label">{labelDia(dataSelecionada)}</h3>
                 {loadingSlots ? (
-                  <p className="slot-loading">Carregando horários...</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                    {[0,1,2,3,4,5].map((i) => (
+                      <div key={i} className="skeleton" style={{ width: 72, height: 40, borderRadius: 8 }} />
+                    ))}
+                  </div>
                 ) : diaClosed ? (
                   <div className="slot-closed">
                     <p>
@@ -303,51 +354,64 @@ export function PublicPage() {
                 )}
               </>
             )}
-          </section>
+          </Step>
         )}
 
         {/* Passo final — Dados pessoais */}
         {slotSelecionado && (
-          <form className="public-form" onSubmit={handleSubmit}>
-            <h2>{numeroPasso.dados}. Seus dados</h2>
+          <Step num={numDados} title="Seus dados">
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div className="booking-summary">
+                <div className="booking-summary-item">
+                  ✂️ <strong>{servicoAtual?.nome}</strong>
+                </div>
+                {profAtual && (
+                  <div className="booking-summary-item">
+                    👤 {profAtual.nome}
+                  </div>
+                )}
+                <div className="booking-summary-item">
+                  📅 {labelDia(dataSelecionada)} às{' '}
+                  {slots.find((s) => s.datetime === slotSelecionado)?.hora}
+                </div>
+                <div className="booking-summary-item">
+                  💰 {Number(servicoAtual?.preco ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </div>
+              </div>
 
-            <div className="booking-summary">
-              <span>🪒 {servicoAtual?.nome}</span>
-              {profAtual && <span>👤 {profAtual.nome}</span>}
-              <span>
-                📅 {labelDia(dataSelecionada)} às{' '}
-                {slots.find((s) => s.datetime === slotSelecionado)?.hora}
-              </span>
-            </div>
+              <div className="form-group">
+                <label>Seu nome</label>
+                <input
+                  value={nomeCliente}
+                  onChange={(e) => setNomeCliente(e.target.value)}
+                  required
+                  placeholder="Como você se chama?"
+                />
+              </div>
+              <div className="form-group">
+                <label>WhatsApp</label>
+                <input
+                  value={whatsappCliente}
+                  onChange={(e) => setWhatsappCliente(e.target.value)}
+                  required
+                  placeholder="85999990000"
+                />
+              </div>
 
-            <div className="form-group">
-              <label>Seu nome</label>
-              <input
-                value={nomeCliente}
-                onChange={(e) => setNomeCliente(e.target.value)}
-                required
-                placeholder="Como você se chama?"
-              />
-            </div>
-            <div className="form-group">
-              <label>WhatsApp</label>
-              <input
-                value={whatsappCliente}
-                onChange={(e) => setWhatsappCliente(e.target.value)}
-                required
-                placeholder="85999990000"
-              />
-            </div>
-            {formError && <p className="form-error">{formError}</p>}
-            <button
-              type="submit"
-              className="btn btn-primary btn-full"
-              disabled={submitting}
-            >
-              {submitting ? 'Agendando...' : 'Solicitar agendamento'}
-            </button>
-          </form>
+              {formError && <p className="form-error">{formError}</p>}
+
+              <button
+                type="submit"
+                className="btn btn-primary btn-full btn-lg"
+                disabled={submitting}
+              >
+                {submitting && <span className="btn-spinner" />}
+                {submitting ? 'Agendando...' : 'Confirmar agendamento'}
+              </button>
+            </form>
+          </Step>
         )}
+
       </div>
     </div>
   );

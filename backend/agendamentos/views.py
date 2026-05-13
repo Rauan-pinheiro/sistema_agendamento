@@ -175,13 +175,26 @@ class HorarioFuncionamentoViewSet(viewsets.ModelViewSet):
 class FinanceiroResumoView(APIView):
     """
     GET /api/v1/financeiro/resumo/
-    Retorna métricas do mês corrente sem nenhum model extra.
+    Parâmetro opcional: ?mes=YYYY-MM  (padrão: mês corrente)
+    Retorna métricas detalhadas do mês sem nenhum model extra.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         empresa = get_empresa_do_usuario(request.user)
-        resumo = calcular_resumo_financeiro(empresa)
+
+        mes_param = request.query_params.get('mes')
+        mes_ref = None
+        if mes_param:
+            try:
+                mes_ref = datetime.strptime(mes_param, '%Y-%m').date()
+            except ValueError:
+                return Response(
+                    {'erro': 'Formato inválido para ?mes. Use YYYY-MM.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        resumo = calcular_resumo_financeiro(empresa, mes_ref)
         return Response(resumo)
 
 

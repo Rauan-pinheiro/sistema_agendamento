@@ -195,6 +195,23 @@ Ao resolver horários disponíveis para um profissional:
 - [x] **[v1.1]** `PublicPage.tsx` — passo de seleção de profissional condicional: suprimido se `profissionais.length <= 1`; auto-seleciona o único profissional; numeração dos passos ajustada dinamicamente; profissional aparece no resumo do booking
 - [x] **[v1.1]** `FinanceiroPage.tsx` — 3 cards com receita bruta, confirmados e ticket médio; formata valores com `Intl.NumberFormat` em BRL; rota `/dashboard/financeiro`
 - [x] **[v1.1]** `DashboardLayout.tsx` — nav link "Financeiro" com ícone `TrendingUp` (lucide-react)
+- [x] **[v1.2]** `ThemeContext.tsx` — provider de tema dark/light com persistência em `localStorage`; aplica `data-theme="dark"` no `<html>` para ativar as variáveis CSS do tema escuro; `useTheme()` expõe `theme` e `toggleTheme()`
+- [x] **[v1.2]** `index.css` reescrito — CSS custom properties separadas em paleta de tema (`:root` / `[data-theme="dark"]`) e paleta de marca (compartilhada); variáveis: `--bg`, `--surface`, `--surface-hover`, `--border`, `--text`, `--text-muted`, `--primary`, `--primary-soft`, `--accent`, `--accent-soft`, `--success`, `--danger`, `--warning`; radius `12px`/`8px`; sombras e transições centralizadas em `--shadow-sm/md/lg` e `--t`
+- [x] **[v1.2]** Tipografia: `Inter` (Google Fonts) via `<link>` no `index.html`; `lang="pt-BR"` aplicado
+- [x] **[v1.2]** Design System — `components/Button.tsx` (variantes: primary/success/accent/ghost/danger/secondary/whatsapp; tamanhos: sm/md/lg; prop `loading` com spinner inline); `components/Badge.tsx` (todos os 4 status + `novo`); `components/Modal.tsx` (backdrop blur, animação slideUp, botão de fechar, slot de footer)
+- [x] **[v1.2]** Dashboard — 4 KPI cards no topo (receita bruta, confirmados, ticket médio, hoje); consumem `GET /api/v1/financeiro/resumo/` em paralelo com a lista de agendamentos; skeleton loader nos cards enquanto carrega
+- [x] **[v1.2]** Sidebar premium — logo com gradiente linear (azul→roxo), indicador lateral no item ativo, toggle sol/lua no rodapé da sidebar, seção `sidebar-bottom` separada com borda sutil
+- [x] **[v1.2]** Bottom navigation mobile — `<nav class="mobile-nav">` fixo na parte inferior; sidebar ocultada em viewport ≤768px; `padding-bottom` no conteúdo para não cobrir cards
+- [x] **[v1.2]** Skeleton loaders em todas as listagens (cards de agendamento, linhas de tabela, KPIs, cards de financeiro) — nunca mais spinner de página inteira
+- [x] **[v1.2]** Empty states com ícone lucide em todas as listas vazias (Agendamentos, Serviços, Horários, Financeiro)
+- [x] **[v1.2]** Progress bar dinâmica na página pública — etapas: Serviço → (Profissional) → Data e hora → Seus dados; estado `done/current/pending` calculado a partir do estado de seleção; ícone `<Check>` substitui número nas etapas concluídas
+- [x] **[v1.2]** Cards de serviço redesenhados — preço destacado à direita, `hover: translateX(3px)`, borda colorida ao selecionar
+- [x] **[v1.2]** Avatar de profissional com iniciais geradas dinamicamente (substitui emoji 👤)
+- [x] **[v1.2]** Cards de agendamento com ícones lucide (Calendar, Phone, DollarSign) nas informações
+- [x] **[v1.2]** FinanceiroPage com ícones nos cards (DollarSign, CheckCircle, TrendingUp) e skeleton loader
+- [x] **[v1.2]** Auth pages (Login e Registro) com logo gradiente, layout premium e placeholders descritivos
+- [x] **[v1.2]** Micro-animações: `fadeIn` na troca de página (`.page`), `slideUp` em modais e cards públicos, `translateY(-2px)` em hover de cards, `shimmer` nos skeleton loaders
+- [x] **[v1.2]** `tsc --noEmit` — zero erros TypeScript após o redesign
 
 ## 8. Decisões técnicas e armadilhas conhecidas
 
@@ -242,15 +259,69 @@ Nenhum bug conhecido no momento.
 - [x] **Página de Financeiro no dashboard** — 3 cards (receita bruta, confirmados, ticket médio); valores formatados em BRL via `Intl.NumberFormat`; rota `/dashboard/financeiro`
 - [x] **Seleção de Profissional na página pública** — passo condicional: suprimido se `profissionais.length <= 1` (auto-seleciona único ou envia `null`); exibido como Passo 2 se `> 1`; numeração dinâmica dos passos seguintes; profissional listado no resumo do agendamento
 
-## 12. Melhorias planejadas (v1.2)
+## 12. Melhorias implementadas (v1.2) ✅
 
-### Backend
-- [ ] **Página de Profissionais no dashboard** — tabela com nome e especialidade, modal de criação/edição, toggle de ativo/inativo; padrão visual igual às páginas de Serviços e Horários
+### Identidade e tema
+
+- [x] **Tema escuro como padrão** — `ThemeContext` usa `'dark'` quando não há valor no `localStorage`; primeiro acesso ao sistema já inicia no modo escuro
+- [x] **Título do app** — `<title>` alterado para `DevFlow - Agenda` em `index.html`
+- [x] **Sistema de temas dark/light** — `ThemeContext` com persistência em `localStorage`; `data-theme` no `<html>`; toggle sol/lua visível na sidebar e no bottom nav mobile
+
+### Design System e UI base
+
+- [x] **Design System** — componentes `Button`, `Badge` e `Modal` centralizados em `src/components/`; reutilizados em todas as páginas do dashboard
+- [x] **CSS Variables completo** — `index.css` reescrito com paleta light/dark separada e paleta de marca compartilhada; sem cor hardcoded fora das variáveis
+- [x] **Tipografia Inter** — fonte carregada via Google Fonts; `lang="pt-BR"` no `index.html`
+- [x] **Sidebar premium** — logo com gradiente, indicador lateral no item ativo, seção de utilitários separada no rodapé
+- [x] **Bottom navigation mobile** — sidebar oculta em ≤768px; nav fixo na parte inferior com os mesmos itens
+- [x] **Skeleton loaders** — em KPIs, cards de agendamento, linhas de tabela e cards de financeiro; sem spinner de página inteira
+- [x] **Empty states com ícone** — em todas as listas do dashboard (Agendamentos, Serviços, Horários, Financeiro)
+- [x] **Micro-animações** — `fadeIn` em páginas, `slideUp` em modais, `shimmer` em skeletons, `translateY(-2px)` em hover de cards
+- [x] **Auth pages premium** — logo gradiente, layout com hierarquia visual clara, placeholders descritivos
+
+### Dashboard de Agendamentos
+
+- [x] **KPI cards no topo** — 4 cards (Receita bruta, Confirmados, Ticket médio, Hoje) consumindo `GET /api/v1/financeiro/resumo/` em paralelo com a lista de agendamentos; skeleton enquanto carrega
+- [x] **Cards de agendamento redesenhados** — ícones lucide (Calendar, Phone, DollarSign) em lugar de emojis; Badge de status com ponto colorido; layout refinado
+- [x] **Mensagem de lembrete WhatsApp** — formato premium e personalizado; inclui nome da empresa (via `AuthContext`), nome do profissional (quando houver), data por extenso com dia da semana, valor formatado em BRL; assinatura `— {nome da empresa}` ao final; usa `encodeURIComponent` para garantir emojis e acentos corretos no `wa.me`
+
+### Financeiro — overhaul completo
+
+#### Backend
+- [x] **`service.py` estendido** — `calcular_resumo_financeiro(empresa, mes_ref?)` aceita mês arbitrário; retorna 10 campos: `total_agendamentos`, `confirmados`, `cancelados`, `pendentes`, `receita_bruta`, `ticket_medio`, `taxa_confirmacao`, `por_dia[]`, `por_servico[]`; isolamento tenant mantido
+- [x] **`FinanceiroResumoView` com seletor de mês** — aceita `?mes=YYYY-MM`; valida o formato antes de processar; padrão continua sendo o mês corrente
+- [x] **Tipo `FinanceiroResumo` atualizado** — 10 campos em `types/index.ts`; `api/profissionais.ts` passa `params: { mes }` quando fornecido
+
+#### Frontend
+- [x] **Seletor de período** — dropdown com os últimos 13 meses no cabeçalho da página; ao trocar o mês todos os dados e gráficos atualizam
+- [x] **6 KPI cards** — Receita bruta, Confirmados, Ticket médio, Total, Cancelados, Pendentes; cada um com ícone lucide, cor semântica e borda lateral colorida
+- [x] **Barra de progresso** da taxa de confirmação — visual inline com porcentagem, texto descritivo e barra animada em CSS
+- [x] **Bar chart** (`recharts BarChart`) — receita por dia do mês; eixos e grid adaptativos ao tema via `useTheme()`; tooltip customizado (fundo `var(--surface)`, borda `var(--border)`)
+- [x] **Donut chart** (`recharts PieChart`) — distribuição da receita por serviço; rosca com `innerRadius`; legenda customizada com cor, nome e percentual; 8 cores distintas
+- [x] **`recharts` instalado** como dependência do projeto frontend
+
+### Página pública
+- [x] **Progress bar dinâmica** — etapas: Serviço → Profissional (condicional) → Data e hora → Seus dados; estado `done/current/pending` atualiza conforme o usuário avança
+- [x] **Cards de serviço e profissional redesenhados** — preço destacado à direita, avatar com iniciais do profissional (substitui emoji 👤), hover com deslocamento lateral (`translateX(3px)`)
+
+## 13. Melhorias planejadas (v1.3)
 
 ### Frontend
-- [ ] **Horários por profissional no dashboard** — ao cadastrar/editar horários, permitir selecionar se o horário é da empresa (grade geral) ou de um profissional específico; hoje a FK `profissional` já existe no modelo mas a UI de Horários ainda não expõe essa opção
+- [ ] **Página de Profissionais no dashboard** — tabela com nome, especialidade e toggle ativo/inativo; modal de criação/edição usando `Button` e `Modal` do design system; padrão visual idêntico às páginas de Serviços e Horários
+- [ ] **Horários por profissional no dashboard** — seletor de "Grade geral da empresa" vs. "Profissional específico" no modal de horários; a FK `profissional` já existe no backend (`HorarioFuncionamento`) mas a UI ainda não expõe essa opção
+- [ ] **Gráfico de agendamentos no dashboard principal** — bar/line chart na `AgendamentosPage` mostrando volume por dia da semana ou por hora; `recharts` já está instalado, só falta o endpoint e o componente
+- [ ] **Calendário visual na página pública** — substituir `<input type="date">` por calendário mensal clicável; dias sem horário aparecem desabilitados (cinza); dias com slots disponíveis em destaque (verde); navegar entre meses sem recarregar
+- [ ] **Seleção múltipla de serviços** — cliente pode selecionar mais de um serviço por agendamento; duração total = soma das durações; preço total = soma dos preços; definir arquitetura: M2M em `Agendamento` ou agendamentos sequenciais criados atomicamente
+- [ ] **Descrição opcional nos serviços** — campo `descricao` (text, opcional) exibido abaixo do nome na página pública e no modal de criação/edição; ajuda o cliente a entender o que está contratando
+- [ ] **Validação de telefone WhatsApp** — frontend: máscara DDD + número (aceita `(85) 99999-0000` ou `85999990000`); backend: validator em `Agendamento.whatsapp_cliente` e `Empresa.whatsapp_contato` garantindo formato numérico para `wa.me`; rejeita entradas inválidas antes de gravar e impede que o lembrete manual falhe silenciosamente
 
-## 13. Funcionalidades Premium (planos avançados / atualizações futuras)
+### Backend (necessário para features acima)
+- [ ] Migration: campo `descricao` em `Servico` (TextField, blank=True)
+- [ ] Endpoint de agendamentos por dia/hora para alimentar o gráfico na `AgendamentosPage`
+- [ ] Definir e implementar arquitetura de múltiplos serviços por agendamento
+- [ ] Validators de telefone em `Agendamento.whatsapp_cliente` e `Empresa.whatsapp_contato`
+
+## 14. Funcionalidades Premium (planos avançados / atualizações futuras)
 
 > Esta seção registra funcionalidades que exigem custo operacional, integrações externas pagas ou infraestrutura adicional — adequadas para um plano pago mais completo ou releases futuras após validação do produto. Sempre que uma ideia de feature "premium" surgir durante o desenvolvimento, ela é documentada aqui antes de ser priorizada.
 
@@ -309,9 +380,10 @@ O sistema de planos **não deve ser implementado antes das features premium esta
 ```
 v1.0 → deploy com todas as features básicas gratuitas (custo = só hospedagem ~R$80–150/mês)
 v1.1 → profissionais, financeiro, paleta revisada ✅ (implementado)
-v1.2 → UI de profissionais no dashboard + horários por profissional na UI
-v1.3 → features premium funcionando (WhatsApp automático, pagamento online)
-v1.4 → implementar sistema de planos e começar a cobrar
+v1.2 → redesign frontend premium, design system, dark/light, KPIs, skeleton, mobile nav ✅ (implementado)
+v1.3 → UI profissionais, horários por profissional, gráficos, calendário visual, multi-serviço, validação telefone
+v1.4 → features premium funcionando (WhatsApp automático, pagamento online)
+v1.5 → implementar sistema de planos e começar a cobrar
 ```
 
 **Como implementar tecnicamente (quando chegar a hora):**

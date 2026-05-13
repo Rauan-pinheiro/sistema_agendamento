@@ -91,8 +91,14 @@ export interface PaginatedResponse<T> {
 }
 
 export interface FinanceiroResumo {
-  mes_referencia: string;       // "YYYY-MM"
+  mes_referencia: string;            // "YYYY-MM"
+  total_agendamentos: number;
   agendamentos_confirmados: number;
-  receita_bruta: string;        // "1250.00"
-  ticket_medio: string;         // "250.00"
+  agendamentos_cancelados: number;
+  agendamentos_pendentes: number;
+  receita_bruta: string;             // "1250.00"
+  ticket_medio: string;              // "250.00"
+  taxa_confirmacao: number;          // 0–100
+  por_dia: Array<{ dia: string; total: number; receita: string }>;
+  por_servico: Array<{ servico: string; total: number; receita: string }>;
 }

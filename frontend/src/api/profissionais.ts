@@ -27,7 +27,7 @@ export async function deleteProfissional(id: number): Promise<void> {
   await api.delete(`/profissionais/${id}/`);
 }
 
-export async function getFinanceiroResumo() {
-  const { data } = await api.get('/financeiro/resumo/');
+export async function getFinanceiroResumo(mes?: string) {
+  const { data } = await api.get('/financeiro/resumo/', mes ? { params: { mes } } : undefined);
   return data;
 }

@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import {
   Calendar, Scissors, Clock, LogOut,
   ExternalLink, Copy, Check, TrendingUp,
+  Sun, Moon, CalendarDays,
 } from 'lucide-react';
 
 function CopyLinkButton({ slug }: { slug: string }) {
@@ -16,9 +18,7 @@ function CopyLinkButton({ slug }: { slug: string }) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       setCopied(true);
       timeoutRef.current = setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {
-      // falha silenciosa — não manipular o DOM fora do React
-    });
+    }).catch(() => {});
   }
 
   return (
@@ -35,8 +35,16 @@ function CopyLinkButton({ slug }: { slug: string }) {
   );
 }
 
+const NAV_ITEMS = [
+  { to: '/dashboard',            end: true,  icon: Calendar,    label: 'Agendamentos' },
+  { to: '/dashboard/servicos',   end: false, icon: Scissors,    label: 'Serviços' },
+  { to: '/dashboard/horarios',   end: false, icon: Clock,       label: 'Horários' },
+  { to: '/dashboard/financeiro', end: false, icon: TrendingUp,  label: 'Financeiro' },
+];
+
 export function DashboardLayout() {
   const { empresa, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -46,9 +54,12 @@ export function DashboardLayout() {
 
   return (
     <div className="dashboard">
+      {/* ── Sidebar (desktop) ─────────────────────────────────────────────── */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <span className="sidebar-icon">📅</span>
+          <div className="sidebar-logo">
+            <CalendarDays size={18} />
+          </div>
           <div className="sidebar-company-info">
             <p className="sidebar-company">{empresa?.nome_fantasia}</p>
             <a
@@ -57,52 +68,61 @@ export function DashboardLayout() {
               rel="noopener noreferrer"
               className="sidebar-slug"
             >
-              /{empresa?.slug} <ExternalLink size={11} />
+              /{empresa?.slug} <ExternalLink size={10} />
             </a>
             {empresa?.slug && <CopyLinkButton slug={empresa.slug} />}
           </div>
         </div>
 
         <nav className="sidebar-nav">
-          <NavLink
-            to="/dashboard"
-            end
-            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-          >
-            <Calendar size={17} />
-            Agendamentos
-          </NavLink>
-          <NavLink
-            to="/dashboard/servicos"
-            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-          >
-            <Scissors size={17} />
-            Serviços
-          </NavLink>
-          <NavLink
-            to="/dashboard/horarios"
-            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-          >
-            <Clock size={17} />
-            Horários
-          </NavLink>
-          <NavLink
-            to="/dashboard/financeiro"
-            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-          >
-            <TrendingUp size={17} />
-            Financeiro
-          </NavLink>
+          <span className="nav-section-label">Menu</span>
+          {NAV_ITEMS.map(({ to, end, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+            >
+              <Icon size={16} />
+              {label}
+            </NavLink>
+          ))}
         </nav>
 
-        <button className="sidebar-logout" onClick={handleLogout}>
-          <LogOut size={15} /> Sair
-        </button>
+        <div className="sidebar-bottom">
+          <button className="theme-toggle-btn" onClick={toggleTheme} title="Alternar tema">
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+            {theme === 'light' ? 'Modo escuro' : 'Modo claro'}
+          </button>
+          <button className="sidebar-logout" onClick={handleLogout}>
+            <LogOut size={16} /> Sair
+          </button>
+        </div>
       </aside>
 
+      {/* ── Main content ──────────────────────────────────────────────────── */}
       <main className="main-content">
         <Outlet />
       </main>
+
+      {/* ── Bottom nav (mobile) ───────────────────────────────────────────── */}
+      <nav className="mobile-nav">
+        {NAV_ITEMS.map(({ to, end, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}
+          >
+            <Icon size={20} />
+            {label}
+          </NavLink>
+        ))}
+        <button className="mobile-nav-item" onClick={toggleTheme}>
+          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          Tema
+        </button>
+      </nav>
     </div>
   );
 }

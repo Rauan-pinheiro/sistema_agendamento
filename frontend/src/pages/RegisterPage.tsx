@@ -1,7 +1,8 @@
-import { useState, type FormEvent, type ChangeEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { RegistroPayload } from '../types';
+import { CalendarDays } from 'lucide-react';
 
 const EMPTY: RegistroPayload = {
   username: '',
@@ -40,7 +41,7 @@ export function RegisterPage() {
     });
   }
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -62,19 +63,29 @@ export function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-card auth-card--wide">
-        <h1 className="auth-title">Cadastrar empresa</h1>
-        <p className="auth-subtitle">Crie a conta do seu negócio</p>
+        <div className="auth-logo">
+          <div className="auth-logo-icon">
+            <CalendarDays size={20} />
+          </div>
+          <span className="auth-logo-text">AgendaFácil</span>
+        </div>
+
+        <div>
+          <h1 className="auth-title">Crie sua conta</h1>
+          <p className="auth-subtitle">Configure o painel do seu negócio em minutos</p>
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="form-section">
             <p className="form-section-title">Dados de acesso</p>
             <div className="form-row">
               <div className="form-group">
                 <label>Usuário</label>
-                <input name="username" value={form.username} onChange={handleChange} required />
+                <input name="username" value={form.username} onChange={handleChange} required placeholder="seunome" />
               </div>
               <div className="form-group">
                 <label>E-mail</label>
-                <input type="email" name="email" value={form.email} onChange={handleChange} required />
+                <input type="email" name="email" value={form.email} onChange={handleChange} required placeholder="email@empresa.com" />
               </div>
             </div>
             <div className="form-row">
@@ -87,6 +98,7 @@ export function RegisterPage() {
                   onChange={handleChange}
                   required
                   minLength={8}
+                  placeholder="mín. 8 caracteres"
                 />
               </div>
               <div className="form-group">
@@ -97,16 +109,19 @@ export function RegisterPage() {
                   value={form.password_confirm}
                   onChange={handleChange}
                   required
+                  placeholder="repita a senha"
                 />
               </div>
             </div>
           </div>
 
+          <div className="form-divider" />
+
           <div className="form-section">
             <p className="form-section-title">Dados da empresa</p>
             <div className="form-group">
               <label>Nome da empresa</label>
-              <input name="nome_fantasia" value={form.nome_fantasia} onChange={handleChange} required />
+              <input name="nome_fantasia" value={form.nome_fantasia} onChange={handleChange} required placeholder="Ex: Barbearia do João" />
             </div>
             <div className="form-row">
               <div className="form-group">
@@ -118,6 +133,7 @@ export function RegisterPage() {
                   required
                   pattern="[a-z0-9-]+"
                   title="Apenas letras minúsculas, números e hífens"
+                  placeholder="barbearia-joao"
                 />
                 <span className="form-hint">/{form.slug || 'sua-empresa'}</span>
               </div>
@@ -135,10 +151,12 @@ export function RegisterPage() {
           </div>
 
           {error && <p className="form-error">{error}</p>}
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+          <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading}>
+            {loading && <span className="btn-spinner" />}
             {loading ? 'Criando conta...' : 'Criar conta'}
           </button>
         </form>
+
         <p className="auth-footer">
           Já tem conta? <Link to="/login">Entrar</Link>
         </p>
