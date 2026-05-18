@@ -296,6 +296,67 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
         return data
 
 
+# ── Perfil do usuário ─────────────────────────────────────────────────────────
+
+class PerfilUsuarioSerializer(serializers.Serializer):
+    """Leitura e atualização dos dados da conta do usuário logado."""
+    username             = serializers.CharField(required=False)
+    email                = serializers.EmailField(required=False)
+    password_atual       = serializers.CharField(write_only=True, required=False)
+    password_nova        = serializers.CharField(write_only=True, required=False, min_length=8)
+    password_nova_confirm = serializers.CharField(write_only=True, required=False)
+
+    def validate_username(self, value: str) -> str:
+        value = value.strip()
+        if len(value) < 3:
+            raise serializers.ValidationError(
+                'O nome de usuário deve ter pelo menos 3 caracteres.'
+            )
+        if not re.match(r'^[a-zA-Z0-9_]+$', value):
+            raise serializers.ValidationError(
+                'Apenas letras, números e underscores são permitidos.'
+            )
+        user = self.context['request'].user
+        if User.objects.filter(username=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError('Este nome de usuário já está em uso.')
+        return value
+
+    def validate_email(self, value: str) -> str:
+        value = value.strip().lower()
+        user = self.context['request'].user
+        if User.objects.filter(email=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError('Este e-mail já está cadastrado.')
+        return value
+
+    def validate(self, data: dict) -> dict:
+        password_nova         = data.get('password_nova')
+        password_nova_confirm = data.get('password_nova_confirm')
+        password_atual        = data.get('password_atual')
+
+        if any([password_nova, password_nova_confirm, password_atual]):
+            if not password_atual:
+                raise serializers.ValidationError(
+                    {'password_atual': 'Informe sua senha atual para alterá-la.'}
+                )
+            if not self.context['request'].user.check_password(password_atual):
+                raise serializers.ValidationError(
+                    {'password_atual': 'Senha atual incorreta.'}
+                )
+            if not password_nova:
+                raise serializers.ValidationError(
+                    {'password_nova': 'Informe a nova senha.'}
+                )
+            if len(password_nova) < 8:
+                raise serializers.ValidationError(
+                    {'password_nova': 'A senha deve ter pelo menos 8 caracteres.'}
+                )
+            if password_nova != password_nova_confirm:
+                raise serializers.ValidationError(
+                    {'password_nova_confirm': 'As senhas não conferem.'}
+                )
+        return data
+
+
 # ── Registro ──────────────────────────────────────────────────────────────────
 
 _USERNAME_RE = re.compile(r'^[a-zA-Z0-9_]+$')

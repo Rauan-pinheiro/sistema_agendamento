@@ -96,6 +96,11 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
+export interface PerfilUsuario {
+  username: string;
+  email: string;
+}
+
 export interface FinanceiroResumo {
   mes_referencia: string;            // "YYYY-MM"
   total_agendamentos: number;

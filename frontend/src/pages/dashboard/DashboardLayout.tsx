@@ -5,7 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import {
   Calendar, Scissors, Clock, LogOut,
   ExternalLink, Copy, Check, TrendingUp,
-  Sun, Moon, CalendarDays, Users,
+  Sun, Moon, CalendarDays, Users, Settings,
 } from 'lucide-react';
 
 function CopyLinkButton({ slug }: { slug: string }) {
@@ -36,11 +36,12 @@ function CopyLinkButton({ slug }: { slug: string }) {
 }
 
 const NAV_ITEMS = [
-  { to: '/dashboard',                 end: true,  icon: Calendar,   label: 'Agendamentos' },
-  { to: '/dashboard/servicos',        end: false, icon: Scissors,   label: 'Serviços' },
-  { to: '/dashboard/profissionais',   end: false, icon: Users,      label: 'Profissionais' },
-  { to: '/dashboard/horarios',        end: false, icon: Clock,      label: 'Horários' },
-  { to: '/dashboard/financeiro',      end: false, icon: TrendingUp, label: 'Financeiro' },
+  { to: '/dashboard',                   end: true,  icon: Calendar,   label: 'Agendamentos' },
+  { to: '/dashboard/servicos',          end: false, icon: Scissors,   label: 'Serviços' },
+  { to: '/dashboard/profissionais',     end: false, icon: Users,      label: 'Profissionais' },
+  { to: '/dashboard/horarios',          end: false, icon: Clock,      label: 'Horários' },
+  { to: '/dashboard/financeiro',        end: false, icon: TrendingUp, label: 'Financeiro' },
+  { to: '/dashboard/configuracoes',     end: false, icon: Settings,   label: 'Configurações' },
 ];
 
 export function DashboardLayout() {
@@ -62,6 +63,7 @@ export function DashboardLayout() {
             <CalendarDays size={18} />
           </div>
           <div className="sidebar-company-info">
+            <span className="sidebar-brand">DevFlow</span>
             <p className="sidebar-company">{empresa?.nome_fantasia}</p>
             <a
               href={`/${empresa?.slug}`}

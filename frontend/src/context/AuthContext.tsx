@@ -12,6 +12,7 @@ interface AuthContextType extends AuthState {
   login: (username: string, password: string) => Promise<void>;
   registrar: (payload: RegistroPayload) => Promise<void>;
   logout: () => void;
+  atualizarEmpresa: (novaEmpresa: Empresa) => void;
   isAuthenticated: boolean;
 }
 
@@ -60,9 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ access: null, empresa: null });
   }
 
+  function atualizarEmpresa(novaEmpresa: Empresa) {
+    localStorage.setItem('empresa', JSON.stringify(novaEmpresa));
+    setState(prev => ({ ...prev, empresa: novaEmpresa }));
+  }
+
   return (
     <AuthContext.Provider
-      value={{ ...state, login, registrar, logout, isAuthenticated: !!state.access }}
+      value={{ ...state, login, registrar, logout, atualizarEmpresa, isAuthenticated: !!state.access }}
     >
       {children}
     </AuthContext.Provider>

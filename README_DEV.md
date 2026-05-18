@@ -83,6 +83,7 @@ Ao resolver horários disponíveis para um profissional:
 | GET / POST | `api/v1/horarios/` | Listar (`?profissional_id=N` ou `?profissional_id=null`) e criar horários |
 | GET / PUT / PATCH / DELETE | `api/v1/horarios/{id}/` | Gerenciar um horário de funcionamento |
 | GET | `api/v1/financeiro/resumo/` | Resumo financeiro do mês corrente (receita bruta, confirmados, ticket médio) |
+| GET / PATCH | `api/v1/usuario/` | Perfil do usuário logado — lê e atualiza username, e-mail e senha |
 
 ### Área pública (sem autenticação, via slug)
 | Método | Rota | Descrição |
@@ -168,6 +169,7 @@ Ao resolver horários disponíveis para um profissional:
 - [x] **[v1.3]** `Servico.descricao` (TextField, blank=True) — migration `0004_servico_descricao`; campo opcional exibido na página pública abaixo do nome do serviço
 - [x] **[v1.3]** `GET /api/v1/agendamentos/volume/` — action no `AgendamentoViewSet`; `calcular_volume_agendamentos(empresa)` em `service.py` retorna volume por dia da semana (Seg–Dom) e por hora; agregação em Python com `Counter` para consistência SQLite↔MySQL
 - [x] **[v1.3]** Validação completa em todos os serializers — `_validar_telefone_br()` (DDD brasileiro + 10–11 dígitos), `nome_cliente` min 2 chars, `duracao_min` 5–480 min, `preco` ≥ 0, `intervalo_min` 5–240 min, `username` mín 3 chars alfanumérico, e-mail único, `data_hora` futura na criação; `.strip()` em todos os campos de texto
+- [x] **[v1.4]** `PerfilUsuarioSerializer` + `PerfilUsuarioView` — `GET/PATCH /api/v1/usuario/`; valida username único (mín 3 chars, alfanumérico), e-mail único, troca de senha com verificação da senha atual via `check_password()`
 
 ### Frontend
 - [x] Setup React + TypeScript + Vite com Axios e interceptor automático de JWT (refresh em fila)
@@ -222,6 +224,12 @@ Ao resolver horários disponíveis para um profissional:
 - [x] **[v1.3]** Descrição opcional nos cards de serviço — exibida abaixo do nome na página pública (`.service-desc`); textarea opcional no modal de criação/edição em `ServicosPage`
 - [x] **[v1.3]** `src/utils/phone.ts` — `formatPhone` (máscara `(XX) XXXXX-XXXX`), `normalizePhone` (extrai dígitos), `isValidPhone` (valida comprimento); aplicados em `RegisterPage` e `PublicPage`; normalização para dígitos puros antes de cada POST à API
 - [x] **[v1.3]** `ServicosPage` — função `validateForm` local com mensagens claras para nome < 2 chars, duração fora de 5–480 min e preço negativo; campo `descricao` com textarea; descrição exibida abaixo do nome na tabela
+- [x] **[v1.4]** `ConfiguracaoPage.tsx` — 3 seções independentes com save/feedback próprios: **Dados da Empresa** (nome_fantasia, slug + preview do link, whatsapp com máscara + aviso de quebra de bookmarks ao alterar o slug), **Dados da Conta** (username, e-mail) e **Alterar Senha** (senha atual + nova + confirmação); rota `/dashboard/configuracoes`; item "Configurações" com ícone `Settings` no `NAV_ITEMS` (sidebar + bottom nav)
+- [x] **[v1.4]** Cabeçalho de perfil — banner gradiente com avatar circular de iniciais, username, e-mail e empresa + slug; atualiza em tempo real após salvar qualquer seção
+- [x] **[v1.4]** `AuthContext.atualizarEmpresa()` — sincroniza estado global (sidebar, localStorage) após edição da empresa sem relogar
+- [x] **[v1.4]** Branding **DevFlow** na sidebar — texto gradiente azul→roxo acima do nome da empresa; logo com animação `float` (translação 5px, 4s, infinito)
+- [x] **[v1.4]** Novas animações CSS — `@keyframes float`, `fadeInUp`, `scaleIn`, `pulse-soft`, `gradient-shift`; classes `.stagger > *:nth-child(N)` para entradas em cascata; `will-change: transform` em `.kpi-card` e `.card`; `translateX(2px)` no hover dos `.nav-link`
+- [x] **[v1.4]** `api/usuario.ts` + tipo `PerfilUsuario` em `types/index.ts`
 
 ## 8. Decisões técnicas e armadilhas conhecidas
 
@@ -247,6 +255,20 @@ Ao resolver horários disponíveis para um profissional:
 ## 9. Bugs conhecidos (a corrigir)
 
 Nenhum bug conhecido no momento.
+
+## 14. Melhorias implementadas (v1.4) ✅
+
+### Backend
+- [x] **`GET/PATCH /api/v1/usuario/`** — endpoint de perfil do usuário logado; `PerfilUsuarioSerializer` valida username (único, mín 3 chars, alfanumérico), e-mail único, e troca de senha com verificação da senha atual; `PerfilUsuarioView` retorna `{ username, email }` no GET e atualiza o usuário no PATCH
+
+### Frontend
+- [x] **Página de Configurações no dashboard** — `ConfiguracaoPage.tsx`; 3 seções independentes: **Dados da Empresa** (nome_fantasia, slug com preview do link, whatsapp com máscara), **Dados da Conta** (username, e-mail) e **Alterar Senha** (senha atual + nova + confirmação); cada seção tem botão de salvar próprio e feedback inline de sucesso/erro animado; aviso laranja ao alterar o slug (quebra bookmarks dos clientes); rota `/dashboard/configuracoes`; item "Configurações" com ícone `Settings` adicionado ao `NAV_ITEMS` (sidebar + bottom nav mobile)
+- [x] **Perfil do usuário no cabeçalho** — banner gradiente com avatar circular de iniciais, username, e-mail e nome da empresa + slug; atualiza em tempo real após salvar
+- [x] **`atualizarEmpresa()`** no `AuthContext` — permite que a `ConfiguracaoPage` sincronize o estado global (sidebar, localStorage) após salvar novos dados da empresa sem precisar relogar
+- [x] **Branding DevFlow na sidebar** — nome "DevFlow" em texto gradiente (azul→roxo) acima do nome da empresa; logo com animação `float` suave (translação vertical 5px em 4s)
+- [x] **Novas animações CSS** — `@keyframes float` (logo da sidebar), `fadeInUp` (seções da config page com stagger 60ms), `scaleIn` (feedback inline), `pulse-soft`, `gradient-shift`; classes utilitárias `.stagger > *:nth-child(N)` para atrasar entradas de listas; `will-change` adicionado em `.kpi-card` e `.card` para otimizar GPU; `translateX(2px)` no hover dos `.nav-link`
+- [x] **`api/usuario.ts`** — `getPerfilUsuario()` e `updatePerfilUsuario(payload)` consumindo `/api/v1/usuario/`
+- [x] **Tipo `PerfilUsuario`** adicionado a `types/index.ts`
 
 ## 10. Pendente para v1.0 (antes do deploy)
 
@@ -329,10 +351,10 @@ Nenhum bug conhecido no momento.
 - [x] `GET /api/v1/agendamentos/volume/` — action no `AgendamentoViewSet`; delega para `calcular_volume_agendamentos(empresa)` em `service.py`; retorna `por_dia_semana[]` e `por_hora[]`; agregação em Python com `Counter` para consistência entre SQLite e MySQL
 - [x] Validators completos em todos os serializers — ver campo "Validação completa de dados" acima
 
-### Pendente (v1.4)
+### Pendente (v1.5 — antes do deploy)
 - [ ] **Seleção múltipla de serviços** — cliente pode selecionar mais de um serviço por agendamento; requer decisão de arquitetura: M2M em `Agendamento` (nova migration) ou agendamentos sequenciais criados atomicamente; duração total = soma; preço total = soma
 
-## 14. Funcionalidades Premium (planos avançados / atualizações futuras)
+## 15. Funcionalidades Premium (planos avançados / atualizações futuras)
 
 > Esta seção registra funcionalidades que exigem custo operacional, integrações externas pagas ou infraestrutura adicional — adequadas para um plano pago mais completo ou releases futuras após validação do produto. Sempre que uma ideia de feature "premium" surgir durante o desenvolvimento, ela é documentada aqui antes de ser priorizada.
 
@@ -394,8 +416,9 @@ v1.1 → profissionais, financeiro, paleta revisada ✅ (implementado)
 v1.2 → redesign frontend premium, design system, dark/light, KPIs, skeleton, mobile nav ✅ (implementado)
 v1.3 → página de profissionais, horários por profissional, gráfico de volume, calendário visual,
         descrição nos serviços, validação completa frontend + backend ✅ (implementado)
-v1.4 → seleção múltipla de serviços (pendente arquitetura M2M), features premium (WhatsApp automático, pagamento online)
-v1.5 → implementar sistema de planos e começar a cobrar
+v1.4 → página de Configurações (empresa + conta + senha), branding DevFlow, animações CSS, endpoint /api/v1/usuario/ ✅ (implementado)
+v1.5 → seleção múltipla de serviços (pendente arquitetura M2M), features premium (WhatsApp automático, pagamento online), deploy GCP
+v1.6 → implementar sistema de planos e começar a cobrar
 ```
 
 **Como implementar tecnicamente (quando chegar a hora):**

@@ -14,6 +14,7 @@ from .serializers import (
     ProfissionalSerializer, ProfissionalPublicSerializer,
     ServicoSerializer, AgendamentoSerializer,
     HorarioFuncionamentoSerializer, RegistroSerializer,
+    PerfilUsuarioSerializer,
 )
 from .service import calcular_resumo_financeiro, calcular_volume_agendamentos
 
@@ -375,6 +376,39 @@ class HorariosDisponiveisView(generics.GenericAPIView):
             )
         except HorarioFuncionamento.DoesNotExist:
             return None
+
+
+# ── Perfil do usuário logado ──────────────────────────────────────────────────
+
+class PerfilUsuarioView(APIView):
+    """
+    GET  /api/v1/usuario/ — retorna username e e-mail do usuário logado
+    PATCH /api/v1/usuario/ — atualiza username, e-mail e/ou senha
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({'username': user.username, 'email': user.email})
+
+    def patch(self, request):
+        serializer = PerfilUsuarioSerializer(
+            data=request.data,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        vd   = serializer.validated_data
+
+        if 'username' in vd:
+            user.username = vd['username']
+        if 'email' in vd:
+            user.email = vd['email']
+        if vd.get('password_nova'):
+            user.set_password(vd['password_nova'])
+
+        user.save()
+        return Response({'username': user.username, 'email': user.email})
 
 
 # ── Registro de novo prestador ────────────────────────────────────────────────

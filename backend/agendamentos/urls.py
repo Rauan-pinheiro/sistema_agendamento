@@ -8,6 +8,7 @@ from .views import (
     AgendamentoViewSet,
     HorarioFuncionamentoViewSet,
     FinanceiroResumoView,
+    PerfilUsuarioView,
     EmpresaPublicaView,
     ProfissionalPublicoViewSet,
     ServicoPublicoViewSet,
@@ -28,6 +29,9 @@ urlpatterns = [
 
     # Financeiro (autenticado)
     path('financeiro/resumo/', FinanceiroResumoView.as_view(), name='financeiro-resumo'),
+
+    # Perfil do usuário logado (autenticado)
+    path('usuario/', PerfilUsuarioView.as_view(), name='usuario-perfil'),
 
     # ── Rotas públicas (área do cliente, acessada via slug) ───────────────────
     path('public/<slug:slug>/',

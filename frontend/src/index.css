@@ -937,6 +937,245 @@ a:hover { text-decoration: underline; }
 .profissional-nome          { font-weight: 700; font-size: 15px; }
 .profissional-especialidade { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
 
+/* ── Novos keyframes ─────────────────────────────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-5px); }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(.93); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .55; }
+}
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── Stagger animation utilities ─────────────────────────────────────────── */
+.stagger > *:nth-child(1) { animation-delay:   0ms; }
+.stagger > *:nth-child(2) { animation-delay:  60ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 180ms; }
+.stagger > *:nth-child(5) { animation-delay: 240ms; }
+.stagger > *:nth-child(6) { animation-delay: 300ms; }
+
+/* ── Sidebar brand (DevFlow) ─────────────────────────────────────────────── */
+.sidebar-brand {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+  margin-bottom: 1px;
+}
+
+/* ── Sidebar logo animated gradient ─────────────────────────────────────── */
+.sidebar-logo {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* ── Config page ─────────────────────────────────────────────────────────── */
+.config-page { max-width: 760px; display: flex; flex-direction: column; gap: 24px; }
+
+.config-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  color: #fff;
+  box-shadow: var(--shadow-md);
+  animation: fadeInUp .3s ease;
+}
+
+.config-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.2);
+  border: 3px solid rgba(255,255,255,.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  backdrop-filter: blur(4px);
+  letter-spacing: -.02em;
+}
+
+.config-profile-name    { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 2px; }
+.config-profile-email   { font-size: 13px; color: rgba(255,255,255,.8); margin-bottom: 4px; }
+.config-profile-empresa { font-size: 12px; color: rgba(255,255,255,.65); font-style: italic; }
+
+.config-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  animation: fadeInUp .25s ease both;
+  transition: box-shadow var(--t);
+}
+.config-section:hover { box-shadow: var(--shadow-md); }
+.config-section:nth-child(2) { animation-delay:  60ms; }
+.config-section:nth-child(3) { animation-delay: 120ms; }
+.config-section:nth-child(4) { animation-delay: 180ms; }
+
+.config-section-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-hover);
+}
+.config-section-header h3  { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.config-section-desc       { font-size: 12px; color: var(--text-muted); }
+
+.config-section-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.config-section-icon--blue   { background: rgba(96,165,250,.14);  color: var(--primary); }
+.config-section-icon--purple { background: rgba(167,139,250,.14); color: var(--accent); }
+.config-section-icon--green  { background: rgba(74,222,128,.14);  color: var(--success-hover); }
+
+.config-section-body   { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.config-section-footer { display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--border); margin-top: 4px; }
+
+.config-slug-preview { margin-top: 2px; }
+.config-slug-preview strong { color: var(--primary); }
+
+.config-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(251,191,36,.1);
+  border: 1px solid rgba(251,191,36,.3);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: #92400e;
+}
+[data-theme="dark"] .config-alert { color: var(--warning); background: rgba(251,191,36,.1); }
+
+.config-feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  animation: scaleIn .18s ease;
+}
+.config-feedback--success {
+  background: rgba(74,222,128,.1);
+  border: 1px solid rgba(74,222,128,.3);
+  border-left: 3px solid var(--success-hover);
+  color: #166534;
+}
+.config-feedback--error {
+  background: rgba(248,113,113,.08);
+  border: 1px solid rgba(248,113,113,.25);
+  border-left: 3px solid var(--danger);
+  color: #991b1b;
+}
+[data-theme="dark"] .config-feedback--success { color: #4ade80; }
+[data-theme="dark"] .config-feedback--error   { color: #fca5a5; }
+
+/* ── Enhanced global interactions ────────────────────────────────────────── */
+.nav-link { will-change: background, color; }
+.nav-link:hover { transform: translateX(2px); }
+.nav-link { transition: background var(--t), color var(--t), transform var(--t); }
+
+.kpi-card  { will-change: transform, box-shadow; }
+.card      { will-change: transform, box-shadow; }
+
+/* ── Mobile nav Configurações icon ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .mobile-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .mobile-nav::-webkit-scrollbar { display: none; }
+}
+
+/* ── Calendar picker (PublicPage) ────────────────────────────────────────── */
+.calendar-picker { user-select: none; }
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.calendar-month-label { font-size: 14px; font-weight: 700; }
+.calendar-nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background var(--t), border-color var(--t);
+}
+.calendar-nav-btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--primary); }
+.calendar-nav-btn:disabled             { opacity: .35; cursor: not-allowed; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.calendar-day-name {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 4px 0;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--t), color var(--t), transform var(--t);
+  border: 1.5px solid transparent;
+}
+.calendar-day:hover:not(.calendar-day--disabled):not(.calendar-day--selected) {
+  background: var(--surface-hover);
+  border-color: var(--border);
+  transform: scale(1.05);
+}
+.calendar-day--today    { font-weight: 800; color: var(--primary); }
+.calendar-day--selected { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; box-shadow: 0 2px 8px rgba(96,165,250,.4); }
+.calendar-day--disabled { opacity: .3; cursor: not-allowed; pointer-events: none; }
+.calendar-day--empty    { cursor: default; }
+
 /* ── Misc ────────────────────────────────────────────────────────────────── */
 .divider   { height: 1px; background: var(--border); margin: 16px 0; }
 .text-muted{ color: var(--text-muted); }
