@@ -784,6 +784,7 @@ a:hover { text-decoration: underline; }
 }
 .service-card-info { flex: 1; min-width: 0; }
 .service-name   { font-weight: 700; font-size: 15px; }
+.service-desc   { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
 .service-detail { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
 .service-price  { font-size: 15px; font-weight: 700; color: var(--primary); white-space: nowrap; }
 
@@ -1088,4 +1089,147 @@ a:hover { text-decoration: underline; }
 
 @media (min-width: 769px) {
   .mobile-nav { display: none; }
+}
+
+/* ── Chart card ─────────────────────────────────────────────────────────── */
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.chart-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
+}
+
+/* ── Grade selector (HorariosPage) ──────────────────────────────────────── */
+.grade-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.grade-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--t);
+}
+.grade-btn:hover { border-color: var(--primary); color: var(--primary); }
+.grade-btn--active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ── Toggle btn (ProfissionaisPage) ─────────────────────────────────────── */
+.toggle-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* ── Calendar picker ─────────────────────────────────────────────────────── */
+.calendar-picker {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  user-select: none;
+  margin-bottom: 12px;
+}
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.calendar-month-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.calendar-nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--t), color var(--t);
+  line-height: 1;
+}
+.calendar-nav-btn:hover { background: var(--surface-hover); color: var(--text); }
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 6px 8px 2px;
+}
+.calendar-weekday {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 4px 8px 10px;
+}
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+  font-family: inherit;
+}
+.calendar-day:hover:not(:disabled):not(.calendar-day--selected) {
+  background: var(--surface-hover);
+}
+.calendar-day--past {
+  color: var(--text-muted);
+  opacity: 0.4;
+  cursor: default;
+}
+.calendar-day--today {
+  font-weight: 700;
+  color: var(--primary);
+}
+.calendar-day--selected {
+  background: var(--primary) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+.calendar-day--empty {
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .chart-card { margin-bottom: 16px; }
+  .calendar-day { font-size: 0.78rem; }
 }

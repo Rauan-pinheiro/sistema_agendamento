@@ -9,6 +9,7 @@ import {
 } from '../../api/public';
 import type { Empresa, Servico, ProfissionalPublico, SlotDisponivel } from '../../types';
 import { CheckCircle, MessageCircle, Check } from 'lucide-react';
+import { formatPhone, normalizePhone, isValidPhone } from '../../utils/phone';
 
 const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
@@ -38,6 +39,76 @@ function ProgressBar({ steps }: { steps: ProgressStep[] }) {
             <span className="progress-step-label">{step.label}</span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Calendar picker ─────────────────────────────────────────────────────── */
+const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const DOW_LABELS  = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+
+function CalendarPicker({ value, onChange, min }: {
+  value: string; onChange: (d: string) => void; min: string;
+}) {
+  const todayObj = new Date();
+  const [viewYear,  setViewYear]  = useState(todayObj.getFullYear());
+  const [viewMonth, setViewMonth] = useState(todayObj.getMonth());
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  }
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  // getDay() returns 0=Sun…6=Sat; convert to Mon=0…Sun=6
+  const rawDow = new Date(viewYear, viewMonth, 1).getDay();
+  const firstDow = rawDow === 0 ? 6 : rawDow - 1;
+  const minDateObj = new Date(min + 'T00:00:00');
+
+  return (
+    <div className="calendar-picker">
+      <div className="calendar-header">
+        <button type="button" className="calendar-nav-btn" onClick={prevMonth}>‹</button>
+        <span className="calendar-month-label">{MONTH_NAMES[viewMonth]} {viewYear}</span>
+        <button type="button" className="calendar-nav-btn" onClick={nextMonth}>›</button>
+      </div>
+      <div className="calendar-weekdays">
+        {DOW_LABELS.map(d => <span key={d} className="calendar-weekday">{d}</span>)}
+      </div>
+      <div className="calendar-days">
+        {Array.from({ length: firstDow }, (_, i) => (
+          <span key={`e${i}`} className="calendar-day calendar-day--empty" />
+        ))}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1;
+          const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+          const dateObj  = new Date(viewYear, viewMonth, day);
+          const isPast   = dateObj < minDateObj;
+          const isSelected = value === dateStr;
+          const isToday = dateObj.toDateString() === todayObj.toDateString();
+          return (
+            <button
+              key={day}
+              type="button"
+              disabled={isPast}
+              onClick={() => onChange(dateStr)}
+              className={[
+                'calendar-day',
+                isPast      ? 'calendar-day--past'     : '',
+                isSelected  ? 'calendar-day--selected'  : '',
+                isToday     ? 'calendar-day--today'      : '',
+              ].filter(Boolean).join(' ')}
+            >
+              {day}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -151,6 +222,11 @@ export function PublicPage() {
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
     if (!slotSelecionado) return;
+
+    const nomeErr = nomeCliente.trim().length < 2 ? 'Informe seu nome (mínimo 2 caracteres).' : '';
+    const foneErr = !isValidPhone(whatsappCliente) ? 'Informe um WhatsApp válido com DDD. Ex: (85) 99999-0000.' : '';
+    if (nomeErr || foneErr) { setFormError(nomeErr || foneErr); return; }
+
     setFormError('');
     setSubmitting(true);
     const profId = profissionalId === undefined ? null : profissionalId;
@@ -159,8 +235,8 @@ export function PublicPage() {
         servico: servicoId!,
         profissional: profId,
         data_hora: slotSelecionado,
-        nome_cliente: nomeCliente,
-        whatsapp_cliente: whatsappCliente,
+        nome_cliente: nomeCliente.trim(),
+        whatsapp_cliente: normalizePhone(whatsappCliente),
       });
       setSuccess(true);
     } catch (err: unknown) {
@@ -274,6 +350,7 @@ export function PublicPage() {
               >
                 <div className="service-card-info">
                   <p className="service-name">{s.nome}</p>
+                  {s.descricao && <p className="service-desc">{s.descricao}</p>}
                   <p className="service-detail">{s.duracao_min} min</p>
                 </div>
                 <span className="service-price">
@@ -310,12 +387,10 @@ export function PublicPage() {
         {/* Passo de data e horário */}
         {passoDataLiberado && (
           <Step num={numData} title="Escolha a data e horário">
-            <input
-              type="date"
-              className="slot-date-input"
-              min={hoje()}
+            <CalendarPicker
               value={dataSelecionada}
-              onChange={(e) => setDataSelecionada(e.target.value)}
+              onChange={setDataSelecionada}
+              min={hoje()}
             />
 
             {dataSelecionada && (
@@ -392,9 +467,10 @@ export function PublicPage() {
                 <label>WhatsApp</label>
                 <input
                   value={whatsappCliente}
-                  onChange={(e) => setWhatsappCliente(e.target.value)}
+                  onChange={(e) => setWhatsappCliente(formatPhone(e.target.value))}
                   required
-                  placeholder="85999990000"
+                  placeholder="(85) 99999-0000"
+                  inputMode="numeric"
                 />
               </div>
 

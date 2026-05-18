@@ -5,7 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import {
   Calendar, Scissors, Clock, LogOut,
   ExternalLink, Copy, Check, TrendingUp,
-  Sun, Moon, CalendarDays,
+  Sun, Moon, CalendarDays, Users,
 } from 'lucide-react';
 
 function CopyLinkButton({ slug }: { slug: string }) {
@@ -36,10 +36,11 @@ function CopyLinkButton({ slug }: { slug: string }) {
 }
 
 const NAV_ITEMS = [
-  { to: '/dashboard',            end: true,  icon: Calendar,    label: 'Agendamentos' },
-  { to: '/dashboard/servicos',   end: false, icon: Scissors,    label: 'Serviços' },
-  { to: '/dashboard/horarios',   end: false, icon: Clock,       label: 'Horários' },
-  { to: '/dashboard/financeiro', end: false, icon: TrendingUp,  label: 'Financeiro' },
+  { to: '/dashboard',                 end: true,  icon: Calendar,   label: 'Agendamentos' },
+  { to: '/dashboard/servicos',        end: false, icon: Scissors,   label: 'Serviços' },
+  { to: '/dashboard/profissionais',   end: false, icon: Users,      label: 'Profissionais' },
+  { to: '/dashboard/horarios',        end: false, icon: Clock,      label: 'Horários' },
+  { to: '/dashboard/financeiro',      end: false, icon: TrendingUp, label: 'Financeiro' },
 ];
 
 export function DashboardLayout() {

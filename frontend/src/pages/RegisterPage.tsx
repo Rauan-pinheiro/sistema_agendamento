@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { RegistroPayload } from '../types';
 import { CalendarDays } from 'lucide-react';
+import { formatPhone, normalizePhone, isValidPhone } from '../utils/phone';
 
 const EMPTY: RegistroPayload = {
   username: '',
@@ -23,6 +24,26 @@ function toSlug(value: string) {
     .replace(/[^a-z0-9-]/g, '');
 }
 
+function validateLocal(form: RegistroPayload): string {
+  if (form.username.trim().length < 3)
+    return 'O nome de usuário deve ter pelo menos 3 caracteres.';
+  if (!/^[a-zA-Z0-9_]+$/.test(form.username))
+    return 'Usuário: use apenas letras, números e underscores.';
+  if (!form.email.includes('@'))
+    return 'Informe um e-mail válido.';
+  if (form.password.length < 8)
+    return 'A senha deve ter pelo menos 8 caracteres.';
+  if (form.password !== form.password_confirm)
+    return 'As senhas não conferem.';
+  if (form.nome_fantasia.trim().length < 2)
+    return 'O nome da empresa deve ter pelo menos 2 caracteres.';
+  if (form.slug.length < 3)
+    return 'O link público deve ter pelo menos 3 caracteres.';
+  if (!isValidPhone(form.whatsapp_contato))
+    return 'Informe um WhatsApp válido com DDD. Ex: (85) 99999-0000.';
+  return '';
+}
+
 export function RegisterPage() {
   const { registrar } = useAuth();
   const navigate = useNavigate();
@@ -41,12 +62,22 @@ export function RegisterPage() {
     });
   }
 
+  function handleWhatsapp(e: ChangeEvent<HTMLInputElement>) {
+    setForm((f) => ({ ...f, whatsapp_contato: formatPhone(e.target.value) }));
+  }
+
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
+    const localError = validateLocal(form);
+    if (localError) { setError(localError); return; }
     setError('');
     setLoading(true);
     try {
-      await registrar(form);
+      const payload: RegistroPayload = {
+        ...form,
+        whatsapp_contato: normalizePhone(form.whatsapp_contato),
+      };
+      await registrar(payload);
       navigate('/dashboard');
     } catch (err: unknown) {
       const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
@@ -81,11 +112,25 @@ export function RegisterPage() {
             <div className="form-row">
               <div className="form-group">
                 <label>Usuário</label>
-                <input name="username" value={form.username} onChange={handleChange} required placeholder="seunome" />
+                <input
+                  name="username"
+                  value={form.username}
+                  onChange={handleChange}
+                  required
+                  minLength={3}
+                  placeholder="seunome"
+                />
               </div>
               <div className="form-group">
                 <label>E-mail</label>
-                <input type="email" name="email" value={form.email} onChange={handleChange} required placeholder="email@empresa.com" />
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  required
+                  placeholder="email@empresa.com"
+                />
               </div>
             </div>
             <div className="form-row">
@@ -121,7 +166,14 @@ export function RegisterPage() {
             <p className="form-section-title">Dados da empresa</p>
             <div className="form-group">
               <label>Nome da empresa</label>
-              <input name="nome_fantasia" value={form.nome_fantasia} onChange={handleChange} required placeholder="Ex: Barbearia do João" />
+              <input
+                name="nome_fantasia"
+                value={form.nome_fantasia}
+                onChange={handleChange}
+                required
+                minLength={2}
+                placeholder="Ex: Barbearia do João"
+              />
             </div>
             <div className="form-row">
               <div className="form-group">
@@ -131,6 +183,7 @@ export function RegisterPage() {
                   value={form.slug}
                   onChange={handleChange}
                   required
+                  minLength={3}
                   pattern="[a-z0-9-]+"
                   title="Apenas letras minúsculas, números e hífens"
                   placeholder="barbearia-joao"
@@ -142,10 +195,12 @@ export function RegisterPage() {
                 <input
                   name="whatsapp_contato"
                   value={form.whatsapp_contato}
-                  onChange={handleChange}
+                  onChange={handleWhatsapp}
                   required
-                  placeholder="85999990000"
+                  placeholder="(85) 99999-0000"
+                  inputMode="numeric"
                 />
+                <span className="form-hint">Com DDD, somente números</span>
               </div>
             </div>
           </div>

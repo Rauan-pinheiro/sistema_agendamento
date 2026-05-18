@@ -1,7 +1,7 @@
 import api from './client';
 import type { Servico, PaginatedResponse } from '../types';
 
-type ServicoPayload = Pick<Servico, 'nome' | 'duracao_min' | 'preco'>;
+type ServicoPayload = Pick<Servico, 'nome' | 'descricao' | 'duracao_min' | 'preco'>;
 
 export async function listServicos(): Promise<Servico[]> {
   const { data } = await api.get<PaginatedResponse<Servico>>('/servicos/');

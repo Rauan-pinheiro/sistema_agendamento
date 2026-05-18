@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Pencil, Trash2, Plus, Check, Clock } from 'lucide-react';
 import { listHorarios, createHorario, updateHorario, deleteHorario } from '../../api/horarios';
-import type { HorarioFuncionamento } from '../../types';
+import { listAllProfissionais } from '../../api/profissionais';
+import type { HorarioFuncionamento, Profissional } from '../../types';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 
@@ -18,6 +19,10 @@ const DIAS = [
 const FORM_VAZIO = { dia_semana: 0, hora_inicio: '08:00', hora_fim: '18:00', intervalo_min: 30 };
 
 export function HorariosPage() {
+  const [profissionais, setProfissionais] = useState<Profissional[]>([]);
+  // null = grade geral da empresa; number = id do profissional selecionado
+  const [gradeSelecionada, setGradeSelecionada] = useState<number | null>(null);
+
   const [horarios, setHorarios] = useState<HorarioFuncionamento[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
@@ -26,13 +31,21 @@ export function HorariosPage() {
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
 
+  useEffect(() => {
+    listAllProfissionais().then(setProfissionais).catch(() => {});
+  }, []);
+
   async function carregar() {
     setLoading(true);
-    try { setHorarios(await listHorarios()); }
-    finally { setLoading(false); }
+    try {
+      const profId = gradeSelecionada === null ? 'null' : gradeSelecionada;
+      setHorarios(await listHorarios(profId));
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => { carregar(); }, [gradeSelecionada]);
 
   function abrirCriar() {
     const diasUsados = new Set(horarios.map((h) => h.dia_semana));
@@ -56,10 +69,22 @@ export function HorariosPage() {
   }
 
   async function salvar() {
+    if (form.hora_inicio >= form.hora_fim) {
+      setErro('Hora fim deve ser posterior à hora início.');
+      return;
+    }
+    if (form.intervalo_min < 5 || form.intervalo_min > 240) {
+      setErro('Intervalo deve estar entre 5 e 240 minutos.');
+      return;
+    }
     setErro('');
     setSalvando(true);
     try {
-      editando ? await updateHorario(editando.id, form) : await createHorario(form);
+      const payload = {
+        ...form,
+        profissional: gradeSelecionada,
+      };
+      editando ? await updateHorario(editando.id, payload) : await createHorario(payload);
       setModalAberto(false);
       carregar();
     } catch (err: unknown) {
@@ -81,16 +106,40 @@ export function HorariosPage() {
     (d) => !horarios.some((h) => h.dia_semana === d.value && h.id !== editando?.id),
   );
 
+  const gradeSelecionadaNome =
+    gradeSelecionada === null
+      ? 'Empresa (geral)'
+      : profissionais.find((p) => p.id === gradeSelecionada)?.nome ?? 'Profissional';
+
   return (
     <div className="page">
       <div className="page-header">
         <div>
           <h2>Horários de Funcionamento</h2>
-          <p className="page-subtitle">{horarios.length} de 7 dias configurados</p>
+          <p className="page-subtitle">{horarios.length} de 7 dias configurados — {gradeSelecionadaNome}</p>
         </div>
         <Button onClick={abrirCriar} disabled={horarios.length >= 7}>
           <Plus size={15} /> Adicionar dia
         </Button>
+      </div>
+
+      {/* Seletor de grade */}
+      <div className="grade-selector">
+        <button
+          className={`grade-btn${gradeSelecionada === null ? ' grade-btn--active' : ''}`}
+          onClick={() => setGradeSelecionada(null)}
+        >
+          Empresa (geral)
+        </button>
+        {profissionais.map((p) => (
+          <button
+            key={p.id}
+            className={`grade-btn${gradeSelecionada === p.id ? ' grade-btn--active' : ''}`}
+            onClick={() => setGradeSelecionada(p.id)}
+          >
+            {p.nome}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -116,7 +165,9 @@ export function HorariosPage() {
           <div className="empty-state-icon"><Clock size={28} /></div>
           <h3>Nenhum horário cadastrado</h3>
           <p className="empty-hint">
-            Configure os dias e faixas de atendimento para que seus clientes vejam os slots disponíveis na página de agendamento.
+            {gradeSelecionada === null
+              ? 'Configure os dias e faixas de atendimento gerais da empresa.'
+              : `Configure os dias e faixas de atendimento de ${gradeSelecionadaNome}.`}
           </p>
           <Button onClick={abrirCriar}><Plus size={15} /> Configurar horários</Button>
         </div>
@@ -157,7 +208,7 @@ export function HorariosPage() {
       <Modal
         open={modalAberto}
         onClose={() => setModalAberto(false)}
-        title={editando ? 'Editar horário' : 'Novo horário'}
+        title={editando ? 'Editar horário' : `Novo horário — ${gradeSelecionadaNome}`}
         footer={
           <>
             <Button variant="ghost" onClick={() => setModalAberto(false)}>Cancelar</Button>
@@ -204,7 +255,7 @@ export function HorariosPage() {
           <input
             type="number"
             min={5}
-            max={120}
+            max={240}
             step={5}
             value={form.intervalo_min}
             onChange={(e) => setForm((f) => ({ ...f, intervalo_min: Number(e.target.value) }))}

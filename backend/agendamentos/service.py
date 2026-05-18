@@ -3,6 +3,7 @@ Camada de serviço: lógica de negócio desacoplada das Views.
 Todas as funções recebem um objeto `Empresa` e operam exclusivamente
 nos dados daquele tenant — nunca expõem dados cross-tenant.
 """
+from collections import Counter
 from datetime import datetime, date
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -117,4 +118,43 @@ def calcular_resumo_financeiro(empresa: Empresa, mes_ref: date | None = None) ->
         'taxa_confirmacao':         taxa_confirmacao,
         'por_dia':                  por_dia,
         'por_servico':              por_servico,
+    }
+
+
+def calcular_volume_agendamentos(empresa: Empresa) -> dict:
+    """
+    Retorna o volume total de agendamentos agrupado por dia da semana e por hora do dia.
+    Exclui arquivados. Usa Python para agregação a fim de garantir consistência
+    entre SQLite (desenvolvimento) e MySQL (produção).
+
+    Retorno:
+        por_dia_semana — list[{dia: str, total: int}]  0=Seg...6=Dom
+        por_hora       — list[{hora: int, total: int}]
+    """
+    DIAS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+
+    datas = (
+        Agendamento.objects
+        .filter(empresa=empresa)
+        .exclude(status='arquivado')
+        .values_list('data_hora', flat=True)
+    )
+
+    dia_counter: Counter = Counter()
+    hora_counter: Counter = Counter()
+
+    for dt in datas:
+        local_dt = timezone.localtime(dt)
+        dia_counter[local_dt.weekday()] += 1   # 0=Seg, 6=Dom
+        hora_counter[local_dt.hour] += 1
+
+    por_dia_semana = [{'dia': DIAS[i], 'total': dia_counter[i]} for i in range(7)]
+    por_hora = [
+        {'hora': h, 'total': hora_counter[h]}
+        for h in sorted(hora_counter)
+    ]
+
+    return {
+        'por_dia_semana': por_dia_semana,
+        'por_hora': por_hora,
     }

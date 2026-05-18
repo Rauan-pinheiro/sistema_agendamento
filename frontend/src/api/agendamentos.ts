@@ -1,5 +1,5 @@
 import api from './client';
-import type { Agendamento, AgendamentoStatus, PaginatedResponse } from '../types';
+import type { Agendamento, AgendamentoStatus, AgendamentoVolume, PaginatedResponse } from '../types';
 
 export async function listAgendamentos(status?: AgendamentoStatus): Promise<Agendamento[]> {
   const { data } = await api.get<PaginatedResponse<Agendamento>>('/agendamentos/', {
@@ -15,4 +15,9 @@ export async function updateStatus(id: number, status: AgendamentoStatus): Promi
 
 export async function deleteAgendamento(id: number): Promise<void> {
   await api.delete(`/agendamentos/${id}/`);
+}
+
+export async function getAgendamentosVolume(): Promise<AgendamentoVolume> {
+  const { data } = await api.get<AgendamentoVolume>('/agendamentos/volume/');
+  return data;
 }

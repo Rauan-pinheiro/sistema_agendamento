@@ -1,10 +1,14 @@
 import api from './client';
 import type { HorarioFuncionamento } from '../types';
 
-type HorarioPayload = Pick<HorarioFuncionamento, 'dia_semana' | 'hora_inicio' | 'hora_fim' | 'intervalo_min'>;
+type HorarioPayload = Pick<HorarioFuncionamento, 'dia_semana' | 'hora_inicio' | 'hora_fim' | 'intervalo_min'> & {
+  profissional?: number | null;
+};
 
-export async function listHorarios(): Promise<HorarioFuncionamento[]> {
-  const { data } = await api.get<HorarioFuncionamento[]>('/horarios/');
+export async function listHorarios(profissionalId?: number | 'null'): Promise<HorarioFuncionamento[]> {
+  const params: Record<string, unknown> = {};
+  if (profissionalId !== undefined) params.profissional_id = profissionalId;
+  const { data } = await api.get<HorarioFuncionamento[]>('/horarios/', { params });
   return data;
 }
 

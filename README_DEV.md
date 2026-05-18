@@ -165,6 +165,9 @@ Ao resolver horários disponíveis para um profissional:
 - [x] **[v1.1]** `HorariosDisponiveisView` aceita `?profissional_id=N`; resolve a grade com prioridade: grade do profissional → grade geral da empresa; conflitos de slot filtrados pelo profissional correto
 - [x] **[v1.1]** Endpoint público `GET /api/v1/public/{slug}/profissionais/` — lista profissionais ativos (sem paginação, sem autenticação)
 - [x] **[v1.1]** Management command `arquivar_agendamentos` — flags `--dias N` (padrão 90) e `--dry-run`; isolamento por tenant garantido pela FK `empresa` em cada `Agendamento` (query nunca filtra por empresa explicitamente — cada registro já pertence a um tenant)
+- [x] **[v1.3]** `Servico.descricao` (TextField, blank=True) — migration `0004_servico_descricao`; campo opcional exibido na página pública abaixo do nome do serviço
+- [x] **[v1.3]** `GET /api/v1/agendamentos/volume/` — action no `AgendamentoViewSet`; `calcular_volume_agendamentos(empresa)` em `service.py` retorna volume por dia da semana (Seg–Dom) e por hora; agregação em Python com `Counter` para consistência SQLite↔MySQL
+- [x] **[v1.3]** Validação completa em todos os serializers — `_validar_telefone_br()` (DDD brasileiro + 10–11 dígitos), `nome_cliente` min 2 chars, `duracao_min` 5–480 min, `preco` ≥ 0, `intervalo_min` 5–240 min, `username` mín 3 chars alfanumérico, e-mail único, `data_hora` futura na criação; `.strip()` em todos os campos de texto
 
 ### Frontend
 - [x] Setup React + TypeScript + Vite com Axios e interceptor automático de JWT (refresh em fila)
@@ -212,6 +215,13 @@ Ao resolver horários disponíveis para um profissional:
 - [x] **[v1.2]** Auth pages (Login e Registro) com logo gradiente, layout premium e placeholders descritivos
 - [x] **[v1.2]** Micro-animações: `fadeIn` na troca de página (`.page`), `slideUp` em modais e cards públicos, `translateY(-2px)` em hover de cards, `shimmer` nos skeleton loaders
 - [x] **[v1.2]** `tsc --noEmit` — zero erros TypeScript após o redesign
+- [x] **[v1.3]** `ProfissionaisPage.tsx` — tabela com avatar de iniciais, nome, especialidade e badge de status clicável (toggle ativo/inativo direto da tabela); modal de criação/edição com `Button` e `Modal` do design system; rota `/dashboard/profissionais`; item "Profissionais" com ícone `Users` adicionado ao `NAV_ITEMS` (sidebar + bottom nav mobile)
+- [x] **[v1.3]** `HorariosPage` — barra de seleção de grade (`grade-selector`): botão "Empresa (geral)" e um por profissional ativo; ao trocar a grade a lista filtra os horários corretos e o modal cria com o `profissional` adequado; `api/horarios.ts` atualizado para aceitar `profissionalId`; `listAllProfissionais()` adicionado a `api/profissionais.ts`
+- [x] **[v1.3]** `VolumeChart` em `AgendamentosPage` — bar chart `recharts` mostrando volume total por dia da semana (Seg–Dom); cores e grid adaptativos ao tema via `useTheme()`; skeleton enquanto carrega; consumido de `GET /api/v1/agendamentos/volume/`
+- [x] **[v1.3]** `CalendarPicker` na `PublicPage` — substituiu `<input type="date">`; grade mensal 7×N com navegação mês anterior/próximo via `‹`/`›`; dias passados desabilitados; dia selecionado destacado em `--primary`; hoje em negrito; zero dependências externas
+- [x] **[v1.3]** Descrição opcional nos cards de serviço — exibida abaixo do nome na página pública (`.service-desc`); textarea opcional no modal de criação/edição em `ServicosPage`
+- [x] **[v1.3]** `src/utils/phone.ts` — `formatPhone` (máscara `(XX) XXXXX-XXXX`), `normalizePhone` (extrai dígitos), `isValidPhone` (valida comprimento); aplicados em `RegisterPage` e `PublicPage`; normalização para dígitos puros antes de cada POST à API
+- [x] **[v1.3]** `ServicosPage` — função `validateForm` local com mensagens claras para nome < 2 chars, duração fora de 5–480 min e preço negativo; campo `descricao` com textarea; descrição exibida abaixo do nome na tabela
 
 ## 8. Decisões técnicas e armadilhas conhecidas
 
@@ -304,22 +314,23 @@ Nenhum bug conhecido no momento.
 - [x] **Progress bar dinâmica** — etapas: Serviço → Profissional (condicional) → Data e hora → Seus dados; estado `done/current/pending` atualiza conforme o usuário avança
 - [x] **Cards de serviço e profissional redesenhados** — preço destacado à direita, avatar com iniciais do profissional (substitui emoji 👤), hover com deslocamento lateral (`translateX(3px)`)
 
-## 13. Melhorias planejadas (v1.3)
+## 13. Melhorias implementadas (v1.3) ✅
 
 ### Frontend
-- [ ] **Página de Profissionais no dashboard** — tabela com nome, especialidade e toggle ativo/inativo; modal de criação/edição usando `Button` e `Modal` do design system; padrão visual idêntico às páginas de Serviços e Horários
-- [ ] **Horários por profissional no dashboard** — seletor de "Grade geral da empresa" vs. "Profissional específico" no modal de horários; a FK `profissional` já existe no backend (`HorarioFuncionamento`) mas a UI ainda não expõe essa opção
-- [ ] **Gráfico de agendamentos no dashboard principal** — bar/line chart na `AgendamentosPage` mostrando volume por dia da semana ou por hora; `recharts` já está instalado, só falta o endpoint e o componente
-- [ ] **Calendário visual na página pública** — substituir `<input type="date">` por calendário mensal clicável; dias sem horário aparecem desabilitados (cinza); dias com slots disponíveis em destaque (verde); navegar entre meses sem recarregar
-- [ ] **Seleção múltipla de serviços** — cliente pode selecionar mais de um serviço por agendamento; duração total = soma das durações; preço total = soma dos preços; definir arquitetura: M2M em `Agendamento` ou agendamentos sequenciais criados atomicamente
-- [ ] **Descrição opcional nos serviços** — campo `descricao` (text, opcional) exibido abaixo do nome na página pública e no modal de criação/edição; ajuda o cliente a entender o que está contratando
-- [ ] **Validação de telefone WhatsApp** — frontend: máscara DDD + número (aceita `(85) 99999-0000` ou `85999990000`); backend: validator em `Agendamento.whatsapp_cliente` e `Empresa.whatsapp_contato` garantindo formato numérico para `wa.me`; rejeita entradas inválidas antes de gravar e impede que o lembrete manual falhe silenciosamente
+- [x] **Página de Profissionais no dashboard** — `ProfissionaisPage.tsx`; tabela com avatar de iniciais, nome, especialidade e badge de status clicável (toggle ativo/inativo); modal de criação/edição com `Button` e `Modal` do design system; rota `/dashboard/profissionais`; item "Profissionais" adicionado ao `NAV_ITEMS` do `DashboardLayout` (sidebar + mobile nav)
+- [x] **Horários por profissional no dashboard** — `HorariosPage` ganhou barra de seleção de grade (`grade-selector`): botões "Empresa (geral)" e um por profissional; ao trocar a grade, lista e modal filtram/criam horários para o profissional correto (ou `null` = grade geral); `api/horarios.ts` atualizado para aceitar `profissionalId`; `listAllProfissionais()` adicionado a `api/profissionais.ts`
+- [x] **Gráfico de volume de agendamentos** — `VolumeChart` em `AgendamentosPage` (bar chart `recharts`); exibe total por dia da semana (Seg–Dom); cores e grid adaptativos ao tema via `useTheme()`; skeleton enquanto carrega; dados via `GET /api/v1/agendamentos/volume/`
+- [x] **Calendário visual na página pública** — componente `CalendarPicker` substituiu `<input type="date">`; grade mensal 7×N com navegação mês anterior/próximo; dias passados desabilitados (opacidade reduzida); dia selecionado destacado em `--primary`; hoje em negrito; sem dependências externas
+- [x] **Descrição opcional nos serviços** — campo `descricao` (TextField, blank=True) em `Servico`; migration `0004_servico_descricao`; exibido abaixo do nome na página pública (`.service-desc`) e como textarea opcional no modal de criação/edição; validação frontend inclui trim antes de salvar
+- [x] **Validação completa de dados** — frontend: máscara `(XX) XXXXX-XXXX` em todos os campos WhatsApp (`RegisterPage`, `PublicPage`); utilitário `src/utils/phone.ts` (`formatPhone`, `normalizePhone`, `isValidPhone`); normalização para dígitos antes de enviar à API; validação local antes do POST (nome, telefone, senha, slug, ranges numéricos); backend: `_validar_telefone_br()` valida DDD + comprimento 10–11 dígitos + DDDs brasileiros válidos em todos os serializers que recebem telefone; `nome_cliente` min 2 chars; `duracao_min` 5–480 min; `preco` ≥ 0; `intervalo_min` 5–240 min; `username` min 3 chars, alfanumérico; e-mail único no registro; `data_hora` deve ser futura (criação de agendamento); todos os campos de texto têm `.strip()` no backend
 
-### Backend (necessário para features acima)
-- [ ] Migration: campo `descricao` em `Servico` (TextField, blank=True)
-- [ ] Endpoint de agendamentos por dia/hora para alimentar o gráfico na `AgendamentosPage`
-- [ ] Definir e implementar arquitetura de múltiplos serviços por agendamento
-- [ ] Validators de telefone em `Agendamento.whatsapp_cliente` e `Empresa.whatsapp_contato`
+### Backend
+- [x] Migration `0004_servico_descricao` — `descricao` (TextField, blank=True) em `Servico`
+- [x] `GET /api/v1/agendamentos/volume/` — action no `AgendamentoViewSet`; delega para `calcular_volume_agendamentos(empresa)` em `service.py`; retorna `por_dia_semana[]` e `por_hora[]`; agregação em Python com `Counter` para consistência entre SQLite e MySQL
+- [x] Validators completos em todos os serializers — ver campo "Validação completa de dados" acima
+
+### Pendente (v1.4)
+- [ ] **Seleção múltipla de serviços** — cliente pode selecionar mais de um serviço por agendamento; requer decisão de arquitetura: M2M em `Agendamento` (nova migration) ou agendamentos sequenciais criados atomicamente; duração total = soma; preço total = soma
 
 ## 14. Funcionalidades Premium (planos avançados / atualizações futuras)
 
@@ -381,8 +392,9 @@ O sistema de planos **não deve ser implementado antes das features premium esta
 v1.0 → deploy com todas as features básicas gratuitas (custo = só hospedagem ~R$80–150/mês)
 v1.1 → profissionais, financeiro, paleta revisada ✅ (implementado)
 v1.2 → redesign frontend premium, design system, dark/light, KPIs, skeleton, mobile nav ✅ (implementado)
-v1.3 → UI profissionais, horários por profissional, gráficos, calendário visual, multi-serviço, validação telefone
-v1.4 → features premium funcionando (WhatsApp automático, pagamento online)
+v1.3 → página de profissionais, horários por profissional, gráfico de volume, calendário visual,
+        descrição nos serviços, validação completa frontend + backend ✅ (implementado)
+v1.4 → seleção múltipla de serviços (pendente arquitetura M2M), features premium (WhatsApp automático, pagamento online)
 v1.5 → implementar sistema de planos e começar a cobrar
 ```
 

@@ -5,8 +5,19 @@ import { Plus, Pencil, Trash2, Scissors } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 
-type FormData = { nome: string; duracao_min: string; preco: string };
-const EMPTY: FormData = { nome: '', duracao_min: '', preco: '' };
+type FormData = { nome: string; descricao: string; duracao_min: string; preco: string };
+const EMPTY: FormData = { nome: '', descricao: '', duracao_min: '', preco: '' };
+
+function validateForm(form: FormData): string {
+  if (form.nome.trim().length < 2) return 'O nome do serviço deve ter pelo menos 2 caracteres.';
+  const dur = Number(form.duracao_min);
+  if (!form.duracao_min || isNaN(dur) || dur < 5) return 'A duração mínima é de 5 minutos.';
+  if (dur > 480) return 'A duração máxima é de 480 minutos (8 horas).';
+  const preco = Number(form.preco);
+  if (form.preco === '' || isNaN(preco)) return 'Informe um preço válido.';
+  if (preco < 0) return 'O preço não pode ser negativo.';
+  return '';
+}
 
 export function ServicosPage() {
   const [servicos, setServicos] = useState<Servico[]>([]);
@@ -35,20 +46,23 @@ export function ServicosPage() {
 
   function openEdit(s: Servico) {
     setEditing(s);
-    setForm({ nome: s.nome, duracao_min: String(s.duracao_min), preco: s.preco });
+    setForm({ nome: s.nome, descricao: s.descricao ?? '', duracao_min: String(s.duracao_min), preco: s.preco });
     setError('');
     setModalOpen(true);
   }
 
   async function handleSave() {
-    if (!form.nome || !form.duracao_min || !form.preco) {
-      setError('Preencha todos os campos.');
-      return;
-    }
+    const err = validateForm(form);
+    if (err) { setError(err); return; }
     setSaving(true);
     setError('');
     try {
-      const payload = { nome: form.nome, duracao_min: Number(form.duracao_min), preco: form.preco };
+      const payload = {
+        nome: form.nome.trim(),
+        descricao: form.descricao.trim(),
+        duracao_min: Number(form.duracao_min),
+        preco: form.preco,
+      };
       editing ? await updateServico(editing.id, payload) : await createServico(payload);
       setModalOpen(false);
       fetchServicos();
@@ -122,7 +136,10 @@ export function ServicosPage() {
             <tbody>
               {servicos.map((s) => (
                 <tr key={s.id}>
-                  <td style={{ fontWeight: 600 }}>{s.nome}</td>
+                  <td>
+                    <span style={{ fontWeight: 600 }}>{s.nome}</span>
+                    {s.descricao && <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{s.descricao}</p>}
+                  </td>
                   <td>{s.duracao_min} min</td>
                   <td>{Number(s.preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                   <td className="table-actions">
@@ -166,12 +183,23 @@ export function ServicosPage() {
             placeholder="Ex: Corte masculino"
           />
         </div>
+        <div className="form-group">
+          <label>Descrição <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</span></label>
+          <textarea
+            value={form.descricao}
+            onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+            placeholder="Descreva o serviço para o cliente..."
+            rows={2}
+            style={{ resize: 'vertical' }}
+          />
+        </div>
         <div className="form-row">
           <div className="form-group">
             <label>Duração (minutos)</label>
             <input
               type="number"
-              min="1"
+              min="5"
+              max="480"
               value={form.duracao_min}
               onChange={(e) => setForm((f) => ({ ...f, duracao_min: e.target.value }))}
               placeholder="30"

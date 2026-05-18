@@ -40,6 +40,7 @@ class Profissional(BaseModel):
 
 class Servico(BaseModel):
     nome = models.CharField(max_length=100)
+    descricao = models.TextField(blank=True)
     duracao_min = models.PositiveIntegerField()
     preco = models.DecimalField(max_digits=8, decimal_places=2)
 

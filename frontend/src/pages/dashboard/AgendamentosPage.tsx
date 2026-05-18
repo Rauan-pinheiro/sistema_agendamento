@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { listAgendamentos, updateStatus, deleteAgendamento } from '../../api/agendamentos';
+import { listAgendamentos, updateStatus, deleteAgendamento, getAgendamentosVolume } from '../../api/agendamentos';
 import { getFinanceiroResumo } from '../../api/profissionais';
-import type { Agendamento, AgendamentoStatus, FinanceiroResumo } from '../../types';
+import type { Agendamento, AgendamentoStatus, AgendamentoVolume, FinanceiroResumo } from '../../types';
 import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import {
   Calendar, Phone, DollarSign, TrendingUp,
   CheckCircle, CalendarDays, Clock,
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid,
+} from 'recharts';
 
 type TabValue = AgendamentoStatus | 'todos' | 'hoje';
 
@@ -145,6 +150,48 @@ function KpiSection({ todayCount }: { todayCount: number }) {
   );
 }
 
+/* ── Volume chart ────────────────────────────────────────────────────────── */
+function VolumeChart() {
+  const { theme } = useTheme();
+  const [volume, setVolume] = useState<AgendamentoVolume | null>(null);
+
+  useEffect(() => {
+    getAgendamentosVolume().then(setVolume).catch(() => {});
+  }, []);
+
+  const axisColor = theme === 'dark' ? 'var(--text-muted)' : '#888';
+  const gridColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+
+  if (!volume) {
+    return (
+      <div className="chart-card">
+        <p className="chart-title">Volume por dia da semana</p>
+        <div className="skeleton" style={{ height: 160, borderRadius: 8, marginTop: 8 }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="chart-card">
+      <p className="chart-title">Volume por dia da semana</p>
+      <ResponsiveContainer width="100%" height={160}>
+        <BarChart data={volume.por_dia_semana} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+          <XAxis dataKey="dia" tick={{ fill: axisColor, fontSize: 12 }} axisLine={false} tickLine={false} />
+          <YAxis allowDecimals={false} tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+          <Tooltip
+            contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }}
+            labelStyle={{ color: 'var(--text)', fontWeight: 600 }}
+            itemStyle={{ color: 'var(--primary)' }}
+            formatter={(v) => [v ?? 0, 'Agendamentos']}
+          />
+          <Bar dataKey="total" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 /* ── Main component ──────────────────────────────────────────────────────── */
 export function AgendamentosPage() {
   const { empresa } = useAuth();
@@ -215,6 +262,8 @@ export function AgendamentosPage() {
       </div>
 
       <KpiSection todayCount={todayCount} />
+
+      <VolumeChart />
 
       <div className="tabs">
         {TABS.map((t) => (

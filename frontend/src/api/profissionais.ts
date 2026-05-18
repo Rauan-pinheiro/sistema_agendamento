@@ -27,6 +27,13 @@ export async function deleteProfissional(id: number): Promise<void> {
   await api.delete(`/profissionais/${id}/`);
 }
 
+export async function listAllProfissionais(): Promise<Profissional[]> {
+  const { data } = await api.get<PaginatedResponse<Profissional>>('/profissionais/', {
+    params: { page_size: 100 },
+  });
+  return data.results;
+}
+
 export async function getFinanceiroResumo(mes?: string) {
   const { data } = await api.get('/financeiro/resumo/', mes ? { params: { mes } } : undefined);
   return data;

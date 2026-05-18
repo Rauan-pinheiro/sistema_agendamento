@@ -15,7 +15,7 @@ from .serializers import (
     ServicoSerializer, AgendamentoSerializer,
     HorarioFuncionamentoSerializer, RegistroSerializer,
 )
-from .service import calcular_resumo_financeiro
+from .service import calcular_resumo_financeiro, calcular_volume_agendamentos
 
 
 # ── Paginação ─────────────────────────────────────────────────────────────────
@@ -121,6 +121,11 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(empresa=self._empresa())
+
+    @action(detail=False, methods=['get'], url_path='volume')
+    def volume(self, request):
+        """GET /api/v1/agendamentos/volume/ — volume por dia da semana e por hora."""
+        return Response(calcular_volume_agendamentos(self._empresa()))
 
     @action(detail=True, methods=['patch'], url_path='status')
     def atualizar_status(self, request, pk=None):

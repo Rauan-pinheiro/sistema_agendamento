@@ -26,10 +26,16 @@ export interface Servico {
   id: number;
   empresa: number;
   nome: string;
+  descricao: string;
   duracao_min: number;
   preco: string;
   criado_em: string;
   atualizado_em: string;
+}
+
+export interface AgendamentoVolume {
+  por_dia_semana: Array<{ dia: string; total: number }>;
+  por_hora: Array<{ hora: number; total: number }>;
 }
 
 export type AgendamentoStatus = 'pendente' | 'confirmado' | 'cancelado' | 'arquivado';
