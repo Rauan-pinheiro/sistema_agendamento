@@ -251,6 +251,7 @@ Ao resolver horários disponíveis para um profissional:
 | **[v1.1]** Passo de profissional na `PublicPage` pode quebrar o `useEffect` de slots | Ao trocar de profissional após já ter selecionado data + slot, o estado `profissionalId` muda mas `dataSelecionada` não é zerada — o `useEffect` de slots não seria re-disparado se a dependência fosse só `dataSelecionada` | `profissionalId` foi adicionado ao array de dependências do `useEffect` de slots. Ao trocar de profissional, `dataSelecionada` e `slotSelecionado` são zerados em `handleSelecionarProfissional`, garantindo que o usuário refaça a escolha de data com a grade correta do novo profissional |
 | **[v1.1]** `profissionalId = undefined` vs `null` na `PublicPage` | O componente usa `undefined` para "passo suprimido (sem profissionais)" e `null` para "profissional ainda não escolhido (passo ativo)". Enviar `undefined` no payload de criação do agendamento causaria campos omitidos vs `null` no JSON | No `handleSubmit` e no `useEffect` de slots: `profId = profissionalId === undefined ? null : profissionalId`. O payload enviado ao backend sempre tem `profissional: null` (sem profissional específico) ou `profissional: <id>` (profissional selecionado) — nunca `profissional: undefined` |
 | **[v1.1]** `management command` + `auto_now=True` em `atualizado_em` | `QuerySet.update()` não dispara o `.save()` dos registros e portanto não aciona `auto_now=True`. Incluir `atualizado_em=timezone.now()` no `update()` funcionaria no SQLite, mas em Django a semântica canônica é que `auto_now` só roda via `.save()` | O comando usa apenas `qs.update(status='arquivado')` sem tentar setar `atualizado_em`. O campo reflete a última edição manual do registro, não o arquivamento em lote — comportamento aceitável para uma operação de manutenção |
+| **[v1.3]** Migration `0004_servico_descricao` não aplicada → página pública retorna 500 | `GET /api/v1/public/{slug}/servicos/` retornava `Internal Server Error: no such column: agendamentos_servico.descricao`. O Django exibe o aviso `You have N unapplied migration(s)` na inicialização, mas o servidor sobe normalmente — o erro só aparece em tempo de requisição. No frontend, o `catch` genérico do `Promise.all` capturava o 500 e exibia "Empresa não encontrada", ocultando a causa real | Executar `python manage.py migrate` sempre que o Django avisar sobre migrations pendentes. O aviso na inicialização (`You have N unapplied migration(s)`) é bloqueante para qualquer endpoint que acesse o model alterado — nunca ignorá-lo |
 
 ## 9. Bugs conhecidos (a corrigir)
 
@@ -354,6 +355,25 @@ Nenhum bug conhecido no momento.
 ### Pendente (v1.5 — antes do deploy)
 - [ ] **Seleção múltipla de serviços** — cliente pode selecionar mais de um serviço por agendamento; requer decisão de arquitetura: M2M em `Agendamento` (nova migration) ou agendamentos sequenciais criados atomicamente; duração total = soma; preço total = soma
 
+## 16. Melhorias planejadas (v1.5) 🔜
+
+### Dashboard — cards de agendamento mais informativos
+- [ ] **Exibir profissional no card de agendamento** — o campo `profissional_nome` já vem no serializer (`AgendamentoSerializer`), mas não é renderizado visualmente nos cards da `AgendamentosPage`; adicionar linha com ícone `User` e nome do profissional abaixo do nome do cliente, com fallback "Sem profissional definido" quando `profissional_nome` for `null`; manter consistência visual com os ícones de `Calendar`, `Phone` e `DollarSign` já existentes
+- [ ] **Resumo completo do agendamento no card** — revisar layout dos cards para garantir que todas as informações relevantes (serviço, profissional, data/hora, status, valor) sejam visíveis de forma hierárquica e intuitiva sem precisar abrir nenhuma tela adicional
+- [ ] **Badge de status com ação rápida integrada** — clicar no badge `Pendente` diretamente confirma o agendamento (com micro-confirmação inline), sem precisar rolar até os botões de ação
+
+### Auto-refresh aprimorado
+- [ ] **Polling inteligente** — o intervalo fixo de 30s atual não distingue inatividade real de aba ativa; implementar backoff exponencial: inicia em 15s e dobra a cada 3 ciclos sem novos dados até máximo de 60s; reset para 15s ao detectar novo agendamento ou ação do usuário
+- [ ] **Indicador de "novo agendamento"** — ao detectar agendamentos novos no polling (comparando `criado_em` com o timestamp do último fetch), exibir toast/badge de notificação discreta no topo da lista antes de atualizar silenciosamente
+- [ ] **Atualização em tempo real via WebSocket (premium)** — substituir polling por Django Channels + WebSocket para push de novos agendamentos instantâneo; classificado como feature premium pois requer infraestrutura adicional (ASGI, Redis)
+
+### Responsividade 100%
+- [ ] **Auditoria de breakpoints** — mapear todos os componentes que apresentam overflow ou layout quebrado abaixo de 375px (iPhone SE); priorizar: tabela de Serviços, tabela de Profissionais, cards de Agendamentos, sidebar em telas intermediárias (768px–1024px)
+- [ ] **Tabelas → cards em mobile** — converter as tabelas de `ServicosPage` e `ProfissionaisPage` para layout de cards empilhados em viewport ≤ 640px (mesma abordagem já usada em Agendamentos); manter tabela apenas em desktop
+- [ ] **Modal responsivo** — o componente `Modal` tem largura fixa; adaptar para `width: min(480px, 95vw)` e garantir que o conteúdo interno não extrapole em celulares pequenos
+- [ ] **Bottom nav completo** — adicionar itens de Financeiro e Configurações ao `mobile-nav` (atualmente só mostra Agendamentos, Serviços, Profissionais, Horários e Tema)
+- [ ] **Teclado virtual no mobile** — campos de formulário dentro de modais devem fazer scroll para não ficarem ocultos pelo teclado virtual do iOS/Android; usar `scroll-padding-bottom` ou `scrollIntoView` no `onFocus`
+
 ## 15. Funcionalidades Premium (planos avançados / atualizações futuras)
 
 > Esta seção registra funcionalidades que exigem custo operacional, integrações externas pagas ou infraestrutura adicional — adequadas para um plano pago mais completo ou releases futuras após validação do produto. Sempre que uma ideia de feature "premium" surgir durante o desenvolvimento, ela é documentada aqui antes de ser priorizada.
@@ -417,8 +437,9 @@ v1.2 → redesign frontend premium, design system, dark/light, KPIs, skeleton, m
 v1.3 → página de profissionais, horários por profissional, gráfico de volume, calendário visual,
         descrição nos serviços, validação completa frontend + backend ✅ (implementado)
 v1.4 → página de Configurações (empresa + conta + senha), branding DevFlow, animações CSS, endpoint /api/v1/usuario/ ✅ (implementado)
-v1.5 → seleção múltipla de serviços (pendente arquitetura M2M), features premium (WhatsApp automático, pagamento online), deploy GCP
-v1.6 → implementar sistema de planos e começar a cobrar
+v1.5 → cards de agendamento completos (profissional visível), auto-refresh inteligente, responsividade 100%, seleção múltipla de serviços
+v1.6 → deploy GCP (Cloud Run + Cloud SQL), WhiteNoise, Dockerfile, variáveis de ambiente
+v1.7 → features premium (WhatsApp automático, pagamento online), sistema de planos e cobrança
 ```
 
 **Como implementar tecnicamente (quando chegar a hora):**
