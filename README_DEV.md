@@ -37,7 +37,8 @@ Cloud SQL — MySQL (mesma região southamerica-east1)
 | `BaseModel` | `empresa` (FK), `criado_em`, `atualizado_em` | `Model` (abstract) |
 | `Profissional` | `nome`, `especialidade`, `ativo` | `BaseModel` |
 | `Servico` | `nome`, `duracao_min`, `preco` | `BaseModel` |
-| `Agendamento` | `servico`, `profissional` (nullable FK), `nome_cliente`, `whatsapp_cliente`, `data_hora`, `status` | `BaseModel` |
+| `Agendamento` | `servico` (nullable FK, legado), `servicos` (M2M via `AgendamentoServico`), `profissional` (nullable FK), `nome_cliente`, `whatsapp_cliente`, `data_hora`, `status`, `duracao_total_min`, `preco_total` | `BaseModel` |
+| `AgendamentoServico` | `agendamento` (FK), `servico` (FK), `ordem` | `Model` |
 | `HorarioFuncionamento` | `profissional` (nullable FK), `dia_semana` (0–6), `hora_inicio`, `hora_fim`, `intervalo_min` | `BaseModel` |
 
 ### Grades de horário — lógica de prioridade
@@ -92,7 +93,7 @@ Ao resolver horários disponíveis para um profissional:
 | GET | `api/v1/public/{slug}/profissionais/` | Profissionais ativos da empresa (sem paginação) |
 | GET | `api/v1/public/{slug}/servicos/` | Serviços disponíveis da empresa (paginado) |
 | POST | `api/v1/public/{slug}/agendamentos/` | Cliente cria um agendamento (`profissional` é opcional no body) |
-| GET | `api/v1/public/{slug}/horarios-disponiveis/?data=YYYY-MM-DD[&servico_id=N][&profissional_id=N]` | Retorna slots livres do dia respeitando a grade do profissional (ou a geral); inclui `fechado: true` quando nenhuma grade se aplica |
+| GET | `api/v1/public/{slug}/horarios-disponiveis/?data=YYYY-MM-DD[&servicos_ids=1,2,3][&profissional_id=N]` | Retorna slots livres do dia; `servicos_ids` é CSV de IDs — duração do slot = soma das durações; backward compat: `&servico_id=N` (único); inclui `fechado: true` quando nenhuma grade se aplica |
 
 > **Paginação:** as listagens de serviços, agendamentos e profissionais retornam `{ count, next, previous, results: [...] }` com `page_size=20` padrão. O cliente pode passar `?page_size=N` (máx 100) e `?page=N`.
 > `GET /api/v1/empresa/` e `GET /api/v1/horarios/` e `GET /api/v1/public/{slug}/profissionais/` são **exceções** com `pagination_class = None` — retornam lista simples (regra: qualquer endpoint com número fixo ou pequeno de registros por tenant deve sobrescrever a paginação).
@@ -100,13 +101,15 @@ Ao resolver horários disponíveis para um profissional:
 ### Payload do `POST /api/v1/public/{slug}/agendamentos/`
 ```json
 {
-  "servico": 1,
+  "servicos_ids": [1, 3],   // lista de IDs em ordem de seleção; mínimo 1
   "profissional": 3,        // opcional; null ou omitido = sem profissional específico
   "nome_cliente": "João",
   "whatsapp_cliente": "85999990000",
   "data_hora": "2025-06-10T09:00:00-03:00"
 }
 ```
+
+> O serializer auto-popula `servico` (FK legada) com o primeiro item de `servicos_ids` para manter compatibilidade com dados anteriores à v1.5. Campos calculados `duracao_total_min` e `preco_total` são gravados no banco na criação e não devem ser enviados pelo cliente.
 
 ### Resposta do `GET /api/v1/financeiro/resumo/`
 ```json
@@ -131,10 +134,10 @@ Ao resolver horários disponíveis para um profissional:
 
 ### Cliente (página pública)
 1. Acessa `/{slug}` sem login.
-2. **Passo 1:** vê os cards de serviços e seleciona um.
+2. **Passo 1:** vê os cards de serviços e seleciona **um ou mais** (multi-select com toggle). Cada card selecionado exibe badge "Selecionado". Um painel flutuante abaixo dos cards mostra o total de serviços, duração somada e preço total. O botão "Continuar →" libera os passos seguintes.
 3. **Passo 2 (condicional):** se a empresa tiver mais de 1 profissional ativo, exibe cards para escolha do profissional. Se tiver exatamente 1, seleciona automaticamente e pula o passo. Se não tiver nenhum, pula o passo.
-4. **Passo 3:** escolhe a data num seletor; a interface busca os slots disponíveis via API (respeitando a grade do profissional escolhido) e exibe botões de horário — slots ocupados aparecem riscados e desabilitados.
-5. **Passo 4:** preenche nome e WhatsApp e confirma o agendamento.
+4. **Passo 3:** escolhe a data num seletor; a interface busca os slots disponíveis via API (passando a duração total de todos os serviços selecionados) e exibe botões de horário — slots sem espaço suficiente para o conjunto de serviços aparecem riscados e desabilitados.
+5. **Passo 4:** preenche nome e WhatsApp e confirma o agendamento; o resumo lista cada serviço escolhido com sua duração, mais o total de tempo e valor.
 
 ## 7. O que foi implementado
 
@@ -170,6 +173,14 @@ Ao resolver horários disponíveis para um profissional:
 - [x] **[v1.3]** `GET /api/v1/agendamentos/volume/` — action no `AgendamentoViewSet`; `calcular_volume_agendamentos(empresa)` em `service.py` retorna volume por dia da semana (Seg–Dom) e por hora; agregação em Python com `Counter` para consistência SQLite↔MySQL
 - [x] **[v1.3]** Validação completa em todos os serializers — `_validar_telefone_br()` (DDD brasileiro + 10–11 dígitos), `nome_cliente` min 2 chars, `duracao_min` 5–480 min, `preco` ≥ 0, `intervalo_min` 5–240 min, `username` mín 3 chars alfanumérico, e-mail único, `data_hora` futura na criação; `.strip()` em todos os campos de texto
 - [x] **[v1.4]** `PerfilUsuarioSerializer` + `PerfilUsuarioView` — `GET/PATCH /api/v1/usuario/`; valida username único (mín 3 chars, alfanumérico), e-mail único, troca de senha com verificação da senha atual via `check_password()`
+- [x] **[v1.5]** `AgendamentoServico` (through model) com campo `ordem` — tabela intermediária M2M `Agendamento↔Servico` que preserva a ordem de seleção do cliente
+- [x] **[v1.5]** `Agendamento.servicos` (ManyToManyField through `AgendamentoServico`) — suporte a múltiplos serviços por agendamento
+- [x] **[v1.5]** `Agendamento.duracao_total_min` e `Agendamento.preco_total` — campos desnormalizados gravados na criação; evitam N+1 na detecção de conflitos e garantem precisão no financeiro mesmo que o preço do serviço mude depois
+- [x] **[v1.5]** Migration `0005_agendamento_multi_servico` — torna `servico` FK nullable, cria `AgendamentoServico`, adiciona `servicos` M2M, `duracao_total_min` e `preco_total`; backfill automático dos registros existentes
+- [x] **[v1.5]** `AgendamentoSerializer` aceita `servicos_ids: [id, ...]` na escrita; preserva ordem, valida pertença à empresa, auto-popula `servico` FK (primeiro da lista) e calcula totais; `_validar_conflito_horario` usa `duracao_total_min` dos agendamentos existentes para detectar sobreposição corretamente com multi-serviço
+- [x] **[v1.5]** `servicos_info` (read-only) no `AgendamentoSerializer` — lista `[{id, nome, duracao_min, preco}]` de todos os serviços vinculados; fallback para `servico` FK em dados legados
+- [x] **[v1.5]** `HorariosDisponiveisView` aceita `?servicos_ids=1,2,3` (CSV) — calcula `duracao_total` como soma e usa como janela de slot; backward compat com `?servico_id=N`; detecção de conflito de slots usa `ag.duracao_total_min`
+- [x] **[v1.5]** `service.py` — `calcular_resumo_financeiro` usa `Sum('preco_total')` em vez de `Sum('servico__preco')`, garantindo valor correto para agendamentos multi-serviço
 
 ### Frontend
 - [x] Setup React + TypeScript + Vite com Axios e interceptor automático de JWT (refresh em fila)
@@ -230,6 +241,11 @@ Ao resolver horários disponíveis para um profissional:
 - [x] **[v1.4]** Branding **DevFlow** na sidebar — texto gradiente azul→roxo acima do nome da empresa; logo com animação `float` (translação 5px, 4s, infinito)
 - [x] **[v1.4]** Novas animações CSS — `@keyframes float`, `fadeInUp`, `scaleIn`, `pulse-soft`, `gradient-shift`; classes `.stagger > *:nth-child(N)` para entradas em cascata; `will-change: transform` em `.kpi-card` e `.card`; `translateX(2px)` no hover dos `.nav-link`
 - [x] **[v1.4]** `api/usuario.ts` + tipo `PerfilUsuario` em `types/index.ts`
+- [x] **[v1.5]** `PublicPage.tsx` — Passo 1 reescrito como multi-select: cada card tem toggle (clique adiciona/remove); badge "Selecionado" com ícone Check aparece no card ativo; painel `.service-selection-summary` exibe contagem, duração total e preço total; botão "Continuar →" confirma a seleção e libera os passos seguintes; ao mudar a seleção a confirmação é desfeita e os passos seguintes são resetados
+- [x] **[v1.5]** `AgendamentosPage.tsx` — cards do dashboard exibem todos os serviços separados por " + " via `servicos_info`; valor exibido e usado na mensagem WhatsApp é `preco_total`
+- [x] **[v1.5]** `api/public.ts` — `createAgendamentoPublico` envia `servicos_ids[]`; `getHorariosDisponiveis` envia `servicos_ids` como CSV no param `servicos_ids`
+- [x] **[v1.5]** `types/index.ts` — novo `ServicoInfo`; `Agendamento` atualizado com `servicos_info`, `duracao_total_min`, `preco_total`; `servico`/`servico_nome`/`servico_preco` tornados nullable
+- [x] **[v1.5]** `index.css` — `.service-check-badge` (badge "Selecionado" no card) e `.service-selection-summary` / `.service-selection-info` / `.service-selection-count` / `.service-selection-details` (painel de resumo da seleção)
 
 ## 8. Decisões técnicas e armadilhas conhecidas
 
@@ -252,6 +268,9 @@ Ao resolver horários disponíveis para um profissional:
 | **[v1.1]** `profissionalId = undefined` vs `null` na `PublicPage` | O componente usa `undefined` para "passo suprimido (sem profissionais)" e `null` para "profissional ainda não escolhido (passo ativo)". Enviar `undefined` no payload de criação do agendamento causaria campos omitidos vs `null` no JSON | No `handleSubmit` e no `useEffect` de slots: `profId = profissionalId === undefined ? null : profissionalId`. O payload enviado ao backend sempre tem `profissional: null` (sem profissional específico) ou `profissional: <id>` (profissional selecionado) — nunca `profissional: undefined` |
 | **[v1.1]** `management command` + `auto_now=True` em `atualizado_em` | `QuerySet.update()` não dispara o `.save()` dos registros e portanto não aciona `auto_now=True`. Incluir `atualizado_em=timezone.now()` no `update()` funcionaria no SQLite, mas em Django a semântica canônica é que `auto_now` só roda via `.save()` | O comando usa apenas `qs.update(status='arquivado')` sem tentar setar `atualizado_em`. O campo reflete a última edição manual do registro, não o arquivamento em lote — comportamento aceitável para uma operação de manutenção |
 | **[v1.3]** Migration `0004_servico_descricao` não aplicada → página pública retorna 500 | `GET /api/v1/public/{slug}/servicos/` retornava `Internal Server Error: no such column: agendamentos_servico.descricao`. O Django exibe o aviso `You have N unapplied migration(s)` na inicialização, mas o servidor sobe normalmente — o erro só aparece em tempo de requisição. No frontend, o `catch` genérico do `Promise.all` capturava o 500 e exibia "Empresa não encontrada", ocultando a causa real | Executar `python manage.py migrate` sempre que o Django avisar sobre migrations pendentes. O aviso na inicialização (`You have N unapplied migration(s)`) é bloqueante para qualquer endpoint que acesse o model alterado — nunca ignorá-lo |
+| **[v1.5]** `preco_total` / `duracao_total_min` desnormalizados vs propriedades computadas | Usar `@property` no model para calcular os totais causaria N+1 queries na detecção de conflitos (um SELECT de `servicos` por agendamento existente no loop) e impossibilitaria `Sum('preco_total')` no ORM para o financeiro | Campos armazenados no banco, calculados e gravados em `AgendamentoSerializer.create()` e `update()`. Backfill automático na migration `0005` copia `servico.duracao_min` e `servico.preco` para todos os registros anteriores. Limitação conhecida: o `preco_total` reflete o preço **no momento do agendamento**, não muda se o serviço for editado depois — comportamento aceitável e até desejado (preço bloqueado na reserva) |
+| **[v1.5]** `unique_together` em `AgendamentoServico` com `(agendamento, servico)` | Um cliente não deve poder selecionar o mesmo serviço duas vezes no mesmo agendamento | `unique_together = [('agendamento', 'servico')]` em `AgendamentoServico.Meta`. No frontend, `toggleServico` usa `Set`-like: adiciona se ausente, remove se presente — impossível duplicar pelo client. A constraint no banco é a linha de defesa final |
+| **[v1.5]** `servicos_ids` write field vs `servicos` M2M no serializer | `servicos` é o nome do campo M2M no model. Se o serializer declarasse um campo `servicos = PrimaryKeyRelatedField(many=True)`, o DRF tentaria gerir o M2M automaticamente via `field.set()`, o que não funciona com through model customizado (`AgendamentoServico` com `ordem`) | Campo de escrita nomeado `servicos_ids` (ListField de ints) — nome diferente do campo M2M evita conflito com o DRF. Em `validate()`, os IDs são resolvidos e armazenados em `_servicos_list` (chave temporária no `validated_data`). Em `create()`, esse valor é popped antes de chamar `super().create()` e os `AgendamentoServico` são criados manualmente com o campo `ordem` |
 
 ## 9. Bugs conhecidos (a corrigir)
 
@@ -353,9 +372,31 @@ Nenhum bug conhecido no momento.
 - [x] Validators completos em todos os serializers — ver campo "Validação completa de dados" acima
 
 ### Pendente (v1.5 — antes do deploy)
-- [ ] **Seleção múltipla de serviços** — cliente pode selecionar mais de um serviço por agendamento; requer decisão de arquitetura: M2M em `Agendamento` (nova migration) ou agendamentos sequenciais criados atomicamente; duração total = soma; preço total = soma
 
-## 16. Melhorias planejadas (v1.5) 🔜
+Todos os itens v1.5 foram implementados. ✅
+
+## 17. Melhorias implementadas (v1.5) ✅
+
+### Backend
+- [x] **`AgendamentoServico` (through model)** — tabela intermediária M2M com campo `ordem`; `unique_together (agendamento, servico)` impede duplicatas; ordering por `ordem` preserva a sequência de seleção do cliente
+- [x] **`Agendamento.servicos` (ManyToManyField)** — vincula múltiplos serviços a um único agendamento via `AgendamentoServico`; `servico` FK original mantida (nullable) para backward compat com dados anteriores à v1.5
+- [x] **`Agendamento.duracao_total_min` e `preco_total`** — campos desnormalizados gravados na criação; eliminam N+1 na detecção de conflitos; `service.py` usa `Sum('preco_total')` para receita financeira correta em agendamentos multi-serviço
+- [x] **Migration `0005_agendamento_multi_servico`** — altera `servico` para nullable, cria `AgendamentoServico`, adiciona `servicos` M2M e os dois campos calculados; inclui `RunPython` de backfill que popula `duracao_total_min` e `preco_total` em todos os registros existentes
+- [x] **`AgendamentoSerializer` multi-serviço** — campo de escrita `servicos_ids` (ListField) aceita lista ordenada de IDs; valida que todos pertencem à empresa; auto-popula `servico` FK com o primeiro ID (backward compat); `create()` e `update()` criam/substituem `AgendamentoServico` e calculam os totais; `_validar_conflito_horario` usa `ag.duracao_total_min` dos agendamentos existentes
+- [x] **`servicos_info` (read-only)** no `AgendamentoSerializer` — retorna `[{id, nome, duracao_min, preco}]` de todos os serviços vinculados; fallback para `servico` FK em dados legados
+- [x] **`HorariosDisponiveisView` multi-serviço** — aceita `?servicos_ids=1,2,3` (CSV de IDs); soma as durações para calcular a janela mínima de cada slot; backward compat com `?servico_id=N`; detecção de slots ocupados usa `ag.duracao_total_min`
+
+### Frontend
+- [x] **`PublicPage.tsx` — Passo 1 multi-select** — cards de serviço funcionam como toggle (clique adiciona ou remove da seleção); badge azul "Selecionado" aparece no card ativo; painel `.service-selection-summary` mostra contagem, duração somada e preço total; botão "Continuar →" confirma e libera passos seguintes; ao mudar a seleção o passo é revertido e slots/data são limpos
+- [x] **Resumo do agendamento multi-serviço** — Step 4 (dados pessoais) lista cada serviço selecionado com duração individual; exibe duração total e preço total destacados
+- [x] **`AgendamentosPage.tsx`** — cards do dashboard mostram todos os serviços separados por " + " via `servicos_info`; valor exibido e mensagem WhatsApp usam `preco_total`
+- [x] **`api/public.ts`** — `createAgendamentoPublico` envia `servicos_ids[]`; `getHorariosDisponiveis` passa `servicos_ids` como CSV no query param
+- [x] **`types/index.ts`** — novo `ServicoInfo`; `Agendamento` atualizado com `servicos_info`, `duracao_total_min`, `preco_total`; campos legados `servico`/`servico_nome`/`servico_preco` tornados nullable
+- [x] **`index.css`** — `.service-check-badge` (badge no card selecionado) e bloco `.service-selection-summary` com variáveis CSS do tema
+
+---
+
+## 16. Melhorias planejadas (v1.6) 🔜
 
 ### Dashboard — cards de agendamento mais informativos
 - [ ] **Exibir profissional no card de agendamento** — o campo `profissional_nome` já vem no serializer (`AgendamentoSerializer`), mas não é renderizado visualmente nos cards da `AgendamentosPage`; adicionar linha com ícone `User` e nome do profissional abaixo do nome do cliente, com fallback "Sem profissional definido" quando `profissional_nome` for `null`; manter consistência visual com os ícones de `Calendar`, `Phone` e `DollarSign` já existentes
@@ -437,9 +478,10 @@ v1.2 → redesign frontend premium, design system, dark/light, KPIs, skeleton, m
 v1.3 → página de profissionais, horários por profissional, gráfico de volume, calendário visual,
         descrição nos serviços, validação completa frontend + backend ✅ (implementado)
 v1.4 → página de Configurações (empresa + conta + senha), branding DevFlow, animações CSS, endpoint /api/v1/usuario/ ✅ (implementado)
-v1.5 → cards de agendamento completos (profissional visível), auto-refresh inteligente, responsividade 100%, seleção múltipla de serviços
-v1.6 → deploy GCP (Cloud Run + Cloud SQL), WhiteNoise, Dockerfile, variáveis de ambiente
-v1.7 → features premium (WhatsApp automático, pagamento online), sistema de planos e cobrança
+v1.5 → seleção múltipla de serviços (M2M com ordem, duracao_total_min, preco_total, multi-select na página pública) ✅ (implementado)
+v1.6 → cards de agendamento completos (profissional visível), auto-refresh inteligente, responsividade 100%
+v1.7 → deploy GCP (Cloud Run + Cloud SQL), WhiteNoise, Dockerfile, variáveis de ambiente
+v1.8 → features premium (WhatsApp automático, pagamento online), sistema de planos e cobrança
 ```
 
 **Como implementar tecnicamente (quando chegar a hora):**
