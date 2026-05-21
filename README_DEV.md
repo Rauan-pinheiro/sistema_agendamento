@@ -398,10 +398,36 @@ Todos os itens v1.5 foram implementados. ✅
 
 ## 16. Melhorias planejadas (v1.6) 🔜
 
+### Separação de contexto: Agendamentos × Financeiro
+
+> **Motivação:** a aba de Agendamentos é usada no dia a dia operacional — o prestador a abre na frente de clientes, recepcionistas e profissionais. Exibir receita bruta, KPIs financeiros e gráficos de volume nessa tela cria um risco de privacidade real. Toda informação sensível ao negócio deve viver exclusivamente na aba Financeiro, que o prestador acessa em separado e com mais intencionalidade.
+
+#### Página de Agendamentos — limpeza e interface premium
+
+- [ ] **Remover dados financeiros e gráfico de volume da `AgendamentosPage`** — os 4 KPI cards (Receita bruta, Confirmados, Ticket médio, Hoje) e o `VolumeChart` (recharts, volume por dia da semana) devem ser excluídos desta página; a chamada a `GET /api/v1/financeiro/resumo/` e a `GET /api/v1/agendamentos/volume/` também devem ser removidas do componente — esses dados passam a existir apenas em `FinanceiroPage`
+- [ ] **Interface "focus mode" para agendamentos** — com a remoção dos KPIs e do gráfico, o topo da página fica disponível para um cabeçalho de contexto enxuto: data atual por extenso (ex: "Quarta-feira, 21 de maio"), contagem inline discreta ("X agendamentos hoje · Y pendentes") e o indicador de polling "atualizando..." já existente; sem cards grandes, sem números financeiros
+- [ ] **Timeline vertical para a aba "Hoje"** — substituir a grade de cards por uma linha do tempo vertical com marcadores de hora (08:00, 09:00, …) no eixo esquerdo; cada agendamento ocupa a faixa de tempo correspondente à sua `data_hora` + `duracao_total_min`; slots vagos entre agendamentos exibem um espaço vazio sutil ("disponível"); aba "Todos" e abas de status continuam como grade de cards (comportamento atual)
+- [ ] **Card de agendamento expandido** — ao clicar no card (em qualquer aba), ele expande inline (sem modal) revelando: lista completa de serviços com duração individual, profissional atribuído com avatar de iniciais, link direto para WhatsApp e os botões de ação (Confirmar / Cancelar / Excluir); colapsa ao clicar novamente; apenas um card pode estar expandido por vez
+- [ ] **Exibir profissional no card resumido** — o campo `profissional_nome` já vem no serializer mas não aparece no card fechado; adicionar linha com ícone `User` e nome do profissional (ou texto muted "Sem profissional" quando `null`), mantendo alinhamento visual com `Calendar`, `Phone` e `DollarSign`
+- [ ] **Badge de status com ação rápida integrada** — clicar no badge `Pendente` diretamente confirma o agendamento com micro-confirmação inline, sem precisar rolar até os botões de ação; badge `Confirmado` oferece ação rápida "Cancelar" no mesmo padrão
+
+#### Página Financeiro — cards informativos com tooltips explicativos
+
+> **Motivação:** os 6 KPI cards (Receita bruta, Confirmados, Ticket médio, Total no período, Cancelados, Pendentes) são exibidos lado a lado, mas os termos são opacos para um prestador sem background financeiro. A solução é contextualizar cada métrica com uma explicação acessível, sem poluir o layout.
+
+- [ ] **Ícone `?` com tooltip em cada KPI card** — cada card recebe um ícone de interrogação (`HelpCircle` do lucide-react) posicionado no canto superior direito; ao passar o mouse (desktop) ou tocar (mobile) o tooltip aparece com a definição da métrica em linguagem simples:
+  - **Receita bruta** → _"Total em R$ de todos os agendamentos confirmados no período. Não desconta custos ou cancelamentos."_
+  - **Confirmados** → _"Quantidade de agendamentos que você confirmou no período."_
+  - **Ticket médio** → _"Valor médio por agendamento confirmado. Calculado dividindo a receita bruta pelo número de confirmados."_
+  - **Total no período** → _"Todos os agendamentos criados no período, independentemente do status."_
+  - **Cancelados** → _"Agendamentos que foram cancelados por você ou pelo cliente no período."_
+  - **Pendentes** → _"Agendamentos aguardando sua confirmação até o momento da consulta."_
+- [ ] **Tooltip acessível** — implementado como componente `Tooltip` reutilizável em `components/Tooltip.tsx`; usa `position: absolute` com `z-index` alto para não vazar do card; suporta `role="tooltip"` e `aria-describedby` para leitores de tela; desaparece ao pressionar `Esc` ou clicar fora
+- [ ] **Layout em grade responsiva para os KPIs** — reposicionar os 6 cards de `display: flex / flex-wrap` para `CSS Grid` com `grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))`; em desktop largo (≥1280px) os 6 cards cabem em uma linha; em tablet (768px–1279px) 3 × 2; em mobile ≤767px 2 × 3 (dois por linha); padding interno aumentado para dar mais respiro ao número e ao label
+- [ ] **Hierarquia visual nos cards** — valor principal em fonte grande e bold (`--text`, 2rem); label abaixo em fonte menor e muted (`--text-muted`, 0.75rem, uppercase, letter-spacing); borda lateral colorida semântica mantida; ícone da métrica (já existente) deslocado para o lado direito do card como elemento decorativo em opacidade reduzida (0.15), criando profundidade sem poluir
+
 ### Dashboard — cards de agendamento mais informativos
-- [ ] **Exibir profissional no card de agendamento** — o campo `profissional_nome` já vem no serializer (`AgendamentoSerializer`), mas não é renderizado visualmente nos cards da `AgendamentosPage`; adicionar linha com ícone `User` e nome do profissional abaixo do nome do cliente, com fallback "Sem profissional definido" quando `profissional_nome` for `null`; manter consistência visual com os ícones de `Calendar`, `Phone` e `DollarSign` já existentes
 - [ ] **Resumo completo do agendamento no card** — revisar layout dos cards para garantir que todas as informações relevantes (serviço, profissional, data/hora, status, valor) sejam visíveis de forma hierárquica e intuitiva sem precisar abrir nenhuma tela adicional
-- [ ] **Badge de status com ação rápida integrada** — clicar no badge `Pendente` diretamente confirma o agendamento (com micro-confirmação inline), sem precisar rolar até os botões de ação
 
 ### Auto-refresh aprimorado
 - [ ] **Polling inteligente** — o intervalo fixo de 30s atual não distingue inatividade real de aba ativa; implementar backoff exponencial: inicia em 15s e dobra a cada 3 ciclos sem novos dados até máximo de 60s; reset para 15s ao detectar novo agendamento ou ação do usuário
@@ -479,7 +505,7 @@ v1.3 → página de profissionais, horários por profissional, gráfico de volum
         descrição nos serviços, validação completa frontend + backend ✅ (implementado)
 v1.4 → página de Configurações (empresa + conta + senha), branding DevFlow, animações CSS, endpoint /api/v1/usuario/ ✅ (implementado)
 v1.5 → seleção múltipla de serviços (M2M com ordem, duracao_total_min, preco_total, multi-select na página pública) ✅ (implementado)
-v1.6 → cards de agendamento completos (profissional visível), auto-refresh inteligente, responsividade 100%
+v1.6 → separação Agendamentos × Financeiro (privacidade), timeline diária, cards expandíveis, tooltips explicativos nos KPIs financeiros, layout grid responsivo, auto-refresh inteligente, responsividade 100%
 v1.7 → deploy GCP (Cloud Run + Cloud SQL), WhiteNoise, Dockerfile, variáveis de ambiente
 v1.8 → features premium (WhatsApp automático, pagamento online), sistema de planos e cobrança
 ```
