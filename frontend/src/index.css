@@ -787,6 +787,32 @@ a:hover { text-decoration: underline; }
 .service-desc   { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
 .service-detail { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
 .service-price  { font-size: 15px; font-weight: 700; color: var(--primary); white-space: nowrap; }
+.service-check-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(96,165,250,.12);
+  border-radius: 20px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.service-selection-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: rgba(96,165,250,.08);
+  border: 1.5px solid var(--primary);
+  border-radius: 12px;
+}
+.service-selection-info { display: flex; flex-direction: column; gap: 2px; }
+.service-selection-count { font-weight: 700; font-size: 14px; color: var(--primary); }
+.service-selection-details { font-size: 13px; color: var(--text-muted); }
 
 .public-form {
   background: var(--surface);

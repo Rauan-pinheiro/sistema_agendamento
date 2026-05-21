@@ -57,7 +57,7 @@ def calcular_resumo_financeiro(empresa: Empresa, mes_ref: date | None = None) ->
     confirmados_qs = qs.filter(status='confirmado')
     confirmados_agg = confirmados_qs.aggregate(
         count=Count('id'),
-        receita=Sum('servico__preco'),
+        receita=Sum('preco_total'),
     )
     count   = confirmados_agg['count'] or 0
     receita = confirmados_agg['receita'] or Decimal('0.00')
@@ -85,7 +85,7 @@ def calcular_resumo_financeiro(empresa: Empresa, mes_ref: date | None = None) ->
             confirmados_qs
             .annotate(dia=TruncDate('data_hora'))
             .values('dia')
-            .annotate(total=Count('id'), receita=Sum('servico__preco'))
+            .annotate(total=Count('id'), receita=Sum('preco_total'))
             .order_by('dia')
         )
     ]
@@ -102,7 +102,7 @@ def calcular_resumo_financeiro(empresa: Empresa, mes_ref: date | None = None) ->
         for item in (
             confirmados_qs
             .values('servico__nome')
-            .annotate(total=Count('id'), receita=Sum('servico__preco'))
+            .annotate(total=Count('id'), receita=Sum('preco_total'))
             .order_by('-receita')
         )
     ]

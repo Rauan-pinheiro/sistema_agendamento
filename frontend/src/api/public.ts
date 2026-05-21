@@ -29,7 +29,7 @@ export async function listProfissionaisPublicos(slug: string): Promise<Profissio
 export async function createAgendamentoPublico(
   slug: string,
   payload: {
-    servico: number;
+    servicos_ids: number[];
     profissional?: number | null;
     nome_cliente: string;
     whatsapp_cliente: string;
@@ -43,11 +43,11 @@ export async function createAgendamentoPublico(
 export async function getHorariosDisponiveis(
   slug: string,
   data: string,
-  servico_id?: number,
+  servicos_ids?: number[],
   profissional_id?: number | null,
 ): Promise<{ data: string; slots: SlotDisponivel[]; fechado?: boolean }> {
   const params: Record<string, string> = { data };
-  if (servico_id) params.servico_id = String(servico_id);
+  if (servicos_ids && servicos_ids.length > 0) params.servicos_ids = servicos_ids.join(',');
   if (profissional_id) params.profissional_id = String(profissional_id);
   const { data: response } = await publicApi.get(
     `/public/${slug}/horarios-disponiveis/`,

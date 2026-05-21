@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -56,7 +58,15 @@ class Agendamento(BaseModel):
         ('arquivado',  'Arquivado'),
     ]
 
-    servico = models.ForeignKey(Servico, on_delete=models.PROTECT)
+    # Serviço primário — mantido para compatibilidade com dados antigos.
+    # Novos agendamentos também populam o M2M `servicos` e os campos calculados abaixo.
+    servico = models.ForeignKey(Servico, on_delete=models.PROTECT, null=True, blank=True)
+    servicos = models.ManyToManyField(
+        Servico,
+        through='AgendamentoServico',
+        related_name='agendamentos_multi',
+        blank=True,
+    )
     # Nullable: None = nenhum profissional específico (empresa genérica)
     profissional = models.ForeignKey(
         Profissional,
@@ -73,9 +83,25 @@ class Agendamento(BaseModel):
         choices=STATUS_CHOICES,
         default='pendente',
     )
+    # Campos desnormalizados calculados na criação — evitam N+1 em conflitos e financeiro
+    duracao_total_min = models.PositiveIntegerField(default=0)
+    preco_total = models.DecimalField(max_digits=9, decimal_places=2, default=Decimal('0.00'))
 
     def __str__(self) -> str:
         return f"{self.nome_cliente} - {self.data_hora}"
+
+
+class AgendamentoServico(models.Model):
+    """Tabela intermediária M2M Agendamento↔Servico preservando ordem de seleção."""
+    agendamento = models.ForeignKey(
+        'Agendamento', on_delete=models.CASCADE, related_name='agendamento_servicos'
+    )
+    servico = models.ForeignKey(Servico, on_delete=models.PROTECT)
+    ordem = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['ordem']
+        unique_together = [('agendamento', 'servico')]
 
 
 class HorarioFuncionamento(BaseModel):

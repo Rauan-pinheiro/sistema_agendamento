@@ -296,10 +296,21 @@ class HorariosDisponiveisView(generics.GenericAPIView):
         if horario is None:
             return Response({'data': data_str, 'slots': [], 'fechado': True})
 
-        # Duração do slot
+        # Duração total do slot — suporta múltiplos serviços (servicos_ids=1,2,3)
+        # ou serviço único legado (servico_id=N)
         duracao_min = horario.intervalo_min
+        servicos_ids_param = request.query_params.get('servicos_ids')
         servico_id = request.query_params.get('servico_id')
-        if servico_id:
+        if servicos_ids_param:
+            ids = [int(x) for x in servicos_ids_param.split(',') if x.strip().isdigit()]
+            if ids:
+                total = sum(
+                    s.duracao_min
+                    for s in Servico.objects.filter(pk__in=ids, empresa=empresa)
+                )
+                if total > 0:
+                    duracao_min = total
+        elif servico_id:
             try:
                 servico = Servico.objects.get(pk=servico_id, empresa=empresa)
                 duracao_min = servico.duracao_min
@@ -319,7 +330,6 @@ class HorariosDisponiveisView(generics.GenericAPIView):
             Agendamento.objects
             .filter(empresa=empresa, data_hora__gte=dia_inicio, data_hora__lte=dia_fim)
             .exclude(status__in=['cancelado', 'arquivado'])
-            .select_related('servico')
         )
         if profissional is not None:
             ags_qs = ags_qs.filter(profissional=profissional)
@@ -337,7 +347,7 @@ class HorariosDisponiveisView(generics.GenericAPIView):
             slot_fim = current + duracao
             disponivel = all(
                 not (
-                    current < ag.data_hora + timedelta(minutes=ag.servico.duracao_min)
+                    current < ag.data_hora + timedelta(minutes=ag.duracao_total_min)
                     and slot_fim > ag.data_hora
                 )
                 for ag in agendamentos

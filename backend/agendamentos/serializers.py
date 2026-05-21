@@ -1,10 +1,14 @@
 import re
+from decimal import Decimal
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
-from .models import Empresa, Profissional, Servico, Agendamento, HorarioFuncionamento
+from .models import (
+    Empresa, Profissional, Servico, Agendamento,
+    AgendamentoServico, HorarioFuncionamento,
+)
 
 
 # ── Helpers de validação ───────────────────────────────────────────────────────
@@ -27,7 +31,6 @@ _VALID_DDDS = {
 def _validar_telefone_br(valor: str) -> str:
     """Normaliza e valida número de WhatsApp brasileiro. Retorna apenas dígitos."""
     digitos = re.sub(r'\D', '', valor)
-    # Remove prefixo internacional +55 ou 55 quando presente
     if digitos.startswith('55') and len(digitos) in (12, 13):
         digitos = digitos[2:]
     if not _PHONE_DIGITS_RE.match(digitos):
@@ -89,7 +92,6 @@ class ProfissionalSerializer(serializers.ModelSerializer):
 
 
 class ProfissionalPublicSerializer(serializers.ModelSerializer):
-    """Serializer público — expõe apenas os campos necessários para a página de agendamento."""
     class Meta:
         model = Profissional
         fields = ['id', 'nome', 'especialidade']
@@ -106,20 +108,14 @@ class ServicoSerializer(serializers.ModelSerializer):
     def validate_nome(self, value: str) -> str:
         value = value.strip()
         if len(value) < 2:
-            raise serializers.ValidationError(
-                'O nome do serviço deve ter pelo menos 2 caracteres.'
-            )
+            raise serializers.ValidationError('O nome do serviço deve ter pelo menos 2 caracteres.')
         return value
 
     def validate_duracao_min(self, value: int) -> int:
         if value < 5:
-            raise serializers.ValidationError(
-                'A duração mínima do serviço é de 5 minutos.'
-            )
+            raise serializers.ValidationError('A duração mínima do serviço é de 5 minutos.')
         if value > 480:
-            raise serializers.ValidationError(
-                'A duração máxima do serviço é de 480 minutos (8 horas).'
-            )
+            raise serializers.ValidationError('A duração máxima do serviço é de 480 minutos (8 horas).')
         return value
 
     def validate_preco(self, value) -> object:
@@ -131,25 +127,58 @@ class ServicoSerializer(serializers.ModelSerializer):
 # ── Agendamento ───────────────────────────────────────────────────────────────
 
 class AgendamentoSerializer(serializers.ModelSerializer):
-    servico_nome = serializers.CharField(source='servico.nome', read_only=True)
+    # Campos legados de serviço único (read-only, backward compat)
+    servico_nome = serializers.CharField(source='servico.nome', read_only=True, default=None)
     servico_preco = serializers.DecimalField(
-        source='servico.preco', max_digits=8, decimal_places=2, read_only=True
+        source='servico.preco', max_digits=8, decimal_places=2, read_only=True, default=None
     )
     profissional_nome = serializers.CharField(
         source='profissional.nome', read_only=True, default=None
     )
 
+    # Multi-serviço: campo de escrita (lista de IDs enviada pelo cliente)
+    servicos_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        write_only=True,
+        required=False,
+    )
+    # Multi-serviço: campo de leitura (detalhes dos serviços vinculados)
+    servicos_info = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Agendamento
         fields = [
-            'id', 'empresa', 'servico', 'servico_nome', 'servico_preco',
+            'id', 'empresa',
+            'servico', 'servico_nome', 'servico_preco',
+            'servicos_ids', 'servicos_info',
             'profissional', 'profissional_nome',
             'nome_cliente', 'whatsapp_cliente', 'data_hora', 'status',
+            'duracao_total_min', 'preco_total',
             'criado_em', 'atualizado_em',
         ]
         read_only_fields = [
-            'id', 'empresa', 'servico_nome', 'servico_preco',
-            'profissional_nome', 'status', 'criado_em', 'atualizado_em',
+            'id', 'empresa',
+            'servico_nome', 'servico_preco', 'profissional_nome',
+            'status', 'servicos_info', 'duracao_total_min', 'preco_total',
+            'criado_em', 'atualizado_em',
+        ]
+        extra_kwargs = {
+            'servico': {'required': False, 'allow_null': True},
+        }
+
+    def get_servicos_info(self, obj) -> list:
+        """Retorna os serviços do M2M; fallback para servico FK em dados legados."""
+        servicos = list(obj.servicos.all())
+        if not servicos and obj.servico:
+            servicos = [obj.servico]
+        return [
+            {
+                'id': s.id,
+                'nome': s.nome,
+                'duracao_min': s.duracao_min,
+                'preco': str(s.preco),
+            }
+            for s in servicos
         ]
 
     def validate_nome_cliente(self, value: str) -> str:
@@ -159,9 +188,7 @@ class AgendamentoSerializer(serializers.ModelSerializer):
                 'Informe seu nome completo (mínimo 2 caracteres).'
             )
         if len(value) > 100:
-            raise serializers.ValidationError(
-                'O nome não pode ter mais de 100 caracteres.'
-            )
+            raise serializers.ValidationError('O nome não pode ter mais de 100 caracteres.')
         return value
 
     def validate_whatsapp_cliente(self, value: str) -> str:
@@ -169,13 +196,35 @@ class AgendamentoSerializer(serializers.ModelSerializer):
 
     def validate(self, data: dict) -> dict:
         empresa = self.context.get('empresa') or getattr(self.instance, 'empresa', None)
-        servico = data.get('servico') or getattr(self.instance, 'servico', None)
+        servicos_ids = data.pop('servicos_ids', [])
+        servico = data.get('servico')
         data_hora = data.get('data_hora') or getattr(self.instance, 'data_hora', None)
         profissional = data.get('profissional', getattr(self.instance, 'profissional', None))
 
-        if servico and empresa and servico.empresa_id != empresa.pk:
+        # ── Resolve a lista de serviços ──────────────────────────────────────
+        if servicos_ids:
+            servicos = list(Servico.objects.filter(pk__in=servicos_ids, empresa=empresa))
+            if len(servicos) != len(servicos_ids):
+                raise serializers.ValidationError(
+                    {'servicos_ids': 'Um ou mais serviços não pertencem a esta empresa.'}
+                )
+            # Preserva a ordem em que o cliente selecionou
+            ordem_map = {sid: i for i, sid in enumerate(servicos_ids)}
+            servicos.sort(key=lambda s: ordem_map[s.pk])
+            # Mantém servico FK apontando para o primeiro (backward compat)
+            data['servico'] = servicos[0]
+        elif servico:
+            if empresa and servico.empresa_id != empresa.pk:
+                raise serializers.ValidationError(
+                    {'servico': 'O serviço não pertence à empresa informada.'}
+                )
+            servicos = [servico]
+        elif self.instance:
+            # PATCH sem mudança de serviço — usa estado atual do registro
+            servicos = []
+        else:
             raise serializers.ValidationError(
-                {'servico': 'O serviço não pertence à empresa informada.'}
+                {'servicos_ids': 'Selecione pelo menos um serviço.'}
             )
 
         if profissional and empresa and profissional.empresa_id != empresa.pk:
@@ -183,37 +232,43 @@ class AgendamentoSerializer(serializers.ModelSerializer):
                 {'profissional': 'O profissional não pertence à empresa informada.'}
             )
 
-        # Agendamento deve ser no futuro (apenas na criação)
+        # ── Agendamento deve ser no futuro (apenas na criação) ────────────────
         if data_hora and not self.instance:
             if data_hora <= timezone.now():
                 raise serializers.ValidationError(
                     {'data_hora': 'O agendamento deve ser para uma data e hora futuras.'}
                 )
 
-        if data_hora and servico and empresa:
-            self._validar_conflito_horario(empresa, servico, data_hora, profissional)
+        # ── Duração total para verificação de conflito ────────────────────────
+        if servicos:
+            duracao_total = sum(s.duracao_min for s in servicos)
+        else:
+            duracao_total = self.instance.duracao_total_min if self.instance else 0
+
+        if data_hora and empresa and duracao_total > 0:
+            self._validar_conflito_horario(empresa, duracao_total, data_hora, profissional)
+
+        data['_servicos_list'] = servicos
+        data['_duracao_total'] = duracao_total
 
         return data
 
     def _validar_conflito_horario(
         self,
         empresa: Empresa,
-        servico: Servico,
+        duracao_total: int,
         data_hora,
-        profissional: Profissional | None,
+        profissional,
     ) -> None:
         novo_inicio = data_hora
-        novo_fim = data_hora + timedelta(minutes=servico.duracao_min)
+        novo_fim = data_hora + timedelta(minutes=duracao_total)
 
         qs = (
             Agendamento.objects
             .filter(empresa=empresa, data_hora__lt=novo_fim)
             .exclude(status__in=['cancelado', 'arquivado'])
-            .select_related('servico')
         )
 
-        # Conflito por profissional: se há profissional definido, verifica apenas
-        # agendamentos do mesmo profissional; caso contrário, verifica empresa inteira.
         if profissional is not None:
             qs = qs.filter(profissional=profissional)
         else:
@@ -223,7 +278,7 @@ class AgendamentoSerializer(serializers.ModelSerializer):
             qs = qs.exclude(pk=self.instance.pk)
 
         for ag in qs:
-            existente_fim = ag.data_hora + timedelta(minutes=ag.servico.duracao_min)
+            existente_fim = ag.data_hora + timedelta(minutes=ag.duracao_total_min)
             if existente_fim > novo_inicio:
                 raise serializers.ValidationError({
                     'data_hora': (
@@ -232,6 +287,44 @@ class AgendamentoSerializer(serializers.ModelSerializer):
                         f'{existente_fim.strftime("%H:%M")}.'
                     )
                 })
+
+    @transaction.atomic
+    def create(self, validated_data: dict) -> Agendamento:
+        servicos = validated_data.pop('_servicos_list', [])
+        duracao_total = validated_data.pop('_duracao_total', 0)
+
+        validated_data['duracao_total_min'] = duracao_total
+        validated_data['preco_total'] = (
+            sum(s.preco for s in servicos) if servicos else Decimal('0.00')
+        )
+
+        agendamento = super().create(validated_data)
+
+        for ordem, s in enumerate(servicos):
+            AgendamentoServico.objects.create(
+                agendamento=agendamento, servico=s, ordem=ordem
+            )
+
+        return agendamento
+
+    @transaction.atomic
+    def update(self, instance: Agendamento, validated_data: dict) -> Agendamento:
+        servicos = validated_data.pop('_servicos_list', [])
+        validated_data.pop('_duracao_total', None)
+
+        instance = super().update(instance, validated_data)
+
+        if servicos:
+            AgendamentoServico.objects.filter(agendamento=instance).delete()
+            for ordem, s in enumerate(servicos):
+                AgendamentoServico.objects.create(
+                    agendamento=instance, servico=s, ordem=ordem
+                )
+            instance.duracao_total_min = sum(s.duracao_min for s in servicos)
+            instance.preco_total = sum(s.preco for s in servicos)
+            instance.save(update_fields=['duracao_total_min', 'preco_total'])
+
+        return instance
 
 
 # ── HorarioFuncionamento ──────────────────────────────────────────────────────
@@ -248,13 +341,9 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
 
     def validate_intervalo_min(self, value: int) -> int:
         if value < 5:
-            raise serializers.ValidationError(
-                'O intervalo mínimo entre slots é de 5 minutos.'
-            )
+            raise serializers.ValidationError('O intervalo mínimo entre slots é de 5 minutos.')
         if value > 240:
-            raise serializers.ValidationError(
-                'O intervalo máximo entre slots é de 240 minutos (4 horas).'
-            )
+            raise serializers.ValidationError('O intervalo máximo entre slots é de 240 minutos (4 horas).')
         return value
 
     def validate(self, data: dict) -> dict:
@@ -265,17 +354,12 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
                 {'hora_fim': 'Hora fim deve ser posterior à hora início.'}
             )
 
-        # Unicidade (empresa, profissional, dia_semana) aplicada aqui porque
-        # MySQL não garante unicidade de colunas com NULL em unique index.
         empresa = self.context.get('empresa') or getattr(self.instance, 'empresa', None)
         profissional = data.get('profissional', getattr(self.instance, 'profissional', None))
         dia_semana = data.get('dia_semana') or getattr(self.instance, 'dia_semana', None)
 
         if empresa and dia_semana is not None:
-            qs = HorarioFuncionamento.objects.filter(
-                empresa=empresa,
-                dia_semana=dia_semana,
-            )
+            qs = HorarioFuncionamento.objects.filter(empresa=empresa, dia_semana=dia_semana)
             if profissional is not None:
                 qs = qs.filter(profissional=profissional)
             else:
@@ -288,8 +372,7 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
                 quem = f'o profissional #{profissional.pk}' if profissional else 'a empresa'
                 raise serializers.ValidationError({
                     'dia_semana': (
-                        f'Já existe um horário cadastrado para {quem} '
-                        f'neste dia da semana.'
+                        f'Já existe um horário cadastrado para {quem} neste dia da semana.'
                     )
                 })
 
@@ -299,23 +382,18 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
 # ── Perfil do usuário ─────────────────────────────────────────────────────────
 
 class PerfilUsuarioSerializer(serializers.Serializer):
-    """Leitura e atualização dos dados da conta do usuário logado."""
-    username             = serializers.CharField(required=False)
-    email                = serializers.EmailField(required=False)
-    password_atual       = serializers.CharField(write_only=True, required=False)
-    password_nova        = serializers.CharField(write_only=True, required=False, min_length=8)
+    username              = serializers.CharField(required=False)
+    email                 = serializers.EmailField(required=False)
+    password_atual        = serializers.CharField(write_only=True, required=False)
+    password_nova         = serializers.CharField(write_only=True, required=False, min_length=8)
     password_nova_confirm = serializers.CharField(write_only=True, required=False)
 
     def validate_username(self, value: str) -> str:
         value = value.strip()
         if len(value) < 3:
-            raise serializers.ValidationError(
-                'O nome de usuário deve ter pelo menos 3 caracteres.'
-            )
+            raise serializers.ValidationError('O nome de usuário deve ter pelo menos 3 caracteres.')
         if not re.match(r'^[a-zA-Z0-9_]+$', value):
-            raise serializers.ValidationError(
-                'Apenas letras, números e underscores são permitidos.'
-            )
+            raise serializers.ValidationError('Apenas letras, números e underscores são permitidos.')
         user = self.context['request'].user
         if User.objects.filter(username=value).exclude(pk=user.pk).exists():
             raise serializers.ValidationError('Este nome de usuário já está em uso.')
@@ -343,9 +421,7 @@ class PerfilUsuarioSerializer(serializers.Serializer):
                     {'password_atual': 'Senha atual incorreta.'}
                 )
             if not password_nova:
-                raise serializers.ValidationError(
-                    {'password_nova': 'Informe a nova senha.'}
-                )
+                raise serializers.ValidationError({'password_nova': 'Informe a nova senha.'})
             if len(password_nova) < 8:
                 raise serializers.ValidationError(
                     {'password_nova': 'A senha deve ter pelo menos 8 caracteres.'}
@@ -375,9 +451,7 @@ class RegistroSerializer(serializers.Serializer):
     def validate_username(self, value: str) -> str:
         value = value.strip()
         if len(value) < 3:
-            raise serializers.ValidationError(
-                'O nome de usuário deve ter pelo menos 3 caracteres.'
-            )
+            raise serializers.ValidationError('O nome de usuário deve ter pelo menos 3 caracteres.')
         if not _USERNAME_RE.match(value):
             raise serializers.ValidationError(
                 'O nome de usuário deve conter apenas letras, números e underscores.'
@@ -395,16 +469,12 @@ class RegistroSerializer(serializers.Serializer):
     def validate_nome_fantasia(self, value: str) -> str:
         value = value.strip()
         if len(value) < 2:
-            raise serializers.ValidationError(
-                'O nome da empresa deve ter pelo menos 2 caracteres.'
-            )
+            raise serializers.ValidationError('O nome da empresa deve ter pelo menos 2 caracteres.')
         return value
 
     def validate_slug(self, value: str) -> str:
         if len(value) < 3:
-            raise serializers.ValidationError(
-                'O link público deve ter pelo menos 3 caracteres.'
-            )
+            raise serializers.ValidationError('O link público deve ter pelo menos 3 caracteres.')
         if Empresa.objects.filter(slug=value).exists():
             raise serializers.ValidationError('Este slug já está em uso.')
         return value

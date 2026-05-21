@@ -58,7 +58,10 @@ function buildWhatsappUrl(ag: Agendamento, empresaNome: string): string {
     weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
   });
   const horario = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const preco = formatPreco(ag.servico_preco);
+  const preco = formatPreco(ag.preco_total);
+  const nomesServicos = ag.servicos_info?.length
+    ? ag.servicos_info.map((s) => s.nome).join(', ')
+    : (ag.servico_nome ?? '—');
 
   const linhas = [
     `✅ *Agendamento Confirmado!*`,
@@ -66,7 +69,7 @@ function buildWhatsappUrl(ag: Agendamento, empresaNome: string): string {
     `Olá, *${ag.nome_cliente}*! Tudo certo para o seu horário. 🎉`,
     ``,
     `*Detalhes do seu agendamento:*`,
-    `✂️ *Serviço:* ${ag.servico_nome}`,
+    `✂️ *Serviço:* ${nomesServicos}`,
     ...(ag.profissional_nome ? [`👤 *Profissional:* ${ag.profissional_nome}`] : []),
     `📅 *Data:* ${dataFormatada}`,
     `⏰ *Horário:* ${horario}`,
@@ -310,7 +313,11 @@ export function AgendamentosPage() {
               <div className="agendamento-header">
                 <div>
                   <p className="agendamento-cliente">{ag.nome_cliente}</p>
-                  <p className="agendamento-servico">{ag.servico_nome}</p>
+                  <p className="agendamento-servico">
+                    {ag.servicos_info?.length
+                      ? ag.servicos_info.map((s) => s.nome).join(' + ')
+                      : (ag.servico_nome ?? '—')}
+                  </p>
                 </div>
                 <Badge status={ag.status} />
               </div>
@@ -326,7 +333,7 @@ export function AgendamentosPage() {
                 </span>
                 <span className="agendamento-info-item">
                   <DollarSign size={13} />
-                  {formatPreco(ag.servico_preco)}
+                  {formatPreco(ag.preco_total)}
                 </span>
               </div>
 

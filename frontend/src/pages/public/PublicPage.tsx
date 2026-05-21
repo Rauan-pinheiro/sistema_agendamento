@@ -21,6 +21,10 @@ function initials(nome: string): string {
   return nome.split(' ').slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase();
 }
 
+function fmtBRL(valor: number): string {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 /* ── Progress bar ────────────────────────────────────────────────────────── */
 interface ProgressStep {
   label: string;
@@ -66,7 +70,6 @@ function CalendarPicker({ value, onChange, min }: {
   }
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  // getDay() returns 0=Sun…6=Sat; convert to Mon=0…Sun=6
   const rawDow = new Date(viewYear, viewMonth, 1).getDay();
   const firstDow = rawDow === 0 ? 6 : rawDow - 1;
   const minDateObj = new Date(min + 'T00:00:00');
@@ -140,8 +143,9 @@ export function PublicPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // Passo 1 — serviço
-  const [servicoId, setServicoId] = useState<number | null>(null);
+  // Passo 1 — seleção múltipla de serviços
+  const [servicosIds, setServicosIds] = useState<number[]>([]);
+  const [step1Confirmado, setStep1Confirmado] = useState(false);
 
   // Passo 2 (condicional) — profissional
   // null = nenhum selecionado; undefined = passo suprimido
@@ -175,7 +179,7 @@ export function PublicPage() {
   }, [slug]);
 
   useEffect(() => {
-    if (!slug || !dataSelecionada) {
+    if (!slug || !dataSelecionada || !step1Confirmado) {
       setSlots([]);
       setSlotSelecionado('');
       setLoadingSlots(false);
@@ -186,21 +190,31 @@ export function PublicPage() {
     setSlotSelecionado('');
     setDiaClosed(false);
     const profId = profissionalId === undefined ? null : profissionalId;
-    getHorariosDisponiveis(slug, dataSelecionada, servicoId ?? undefined, profId)
+    getHorariosDisponiveis(slug, dataSelecionada, servicosIds, profId)
       .then((r) => {
         setSlots(r.slots);
         setDiaClosed(r.fechado ?? false);
       })
       .catch(() => { setSlots([]); setDiaClosed(false); })
       .finally(() => setLoadingSlots(false));
-  }, [slug, dataSelecionada, servicoId, profissionalId]);
+  }, [slug, dataSelecionada, servicosIds, profissionalId, step1Confirmado]);
 
-  function handleSelecionarServico(id: number) {
-    setServicoId(id);
+  function toggleServico(id: number) {
+    setServicosIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+    // Ao mudar a seleção, desfaz confirmação e limpa passos seguintes
+    setStep1Confirmado(false);
+    setProfissionalId(undefined);
     setDataSelecionada('');
     setSlots([]);
     setSlotSelecionado('');
     setDiaClosed(false);
+  }
+
+  function confirmarServicos() {
+    if (servicosIds.length === 0) return;
+    setStep1Confirmado(true);
 
     if (profissionais.length > 1) {
       setProfissionalId(null);
@@ -232,7 +246,7 @@ export function PublicPage() {
     const profId = profissionalId === undefined ? null : profissionalId;
     try {
       await createAgendamentoPublico(slug!, {
-        servico: servicoId!,
+        servicos_ids: servicosIds,
         profissional: profId,
         data_hora: slotSelecionado,
         nome_cliente: nomeCliente.trim(),
@@ -256,7 +270,8 @@ export function PublicPage() {
 
   function resetForm() {
     setSuccess(false);
-    setServicoId(null);
+    setServicosIds([]);
+    setStep1Confirmado(false);
     setProfissionalId(undefined);
     setDataSelecionada('');
     setSlots([]);
@@ -292,22 +307,37 @@ export function PublicPage() {
     );
   }
 
-  const servicoAtual = servicos.find((s) => s.id === servicoId);
-  const mostrarPassoProfissional = servicoId !== null && profissionais.length > 1;
+  // Serviços selecionados (em ordem de seleção)
+  const servicosSelecionados = servicosIds
+    .map((id) => servicos.find((s) => s.id === id))
+    .filter(Boolean) as Servico[];
+  const duracaoTotal = servicosSelecionados.reduce((acc, s) => acc + s.duracao_min, 0);
+  const precoTotal   = servicosSelecionados.reduce((acc, s) => acc + Number(s.preco), 0);
+
+  const mostrarPassoProfissional = step1Confirmado && profissionais.length > 1;
   const passoDataLiberado =
-    servicoId !== null && (profissionais.length === 0 || profissionalId !== null);
+    step1Confirmado && (profissionais.length === 0 || profissionalId !== null);
   const profAtual = profissionais.find((p) => p.id === profissionalId);
   const numData  = profissionais.length > 1 ? 3 : 2;
   const numDados = profissionais.length > 1 ? 4 : 3;
 
   // Progress bar state
   const progressSteps: ProgressStep[] = [
-    { label: 'Serviço',      state: servicoId !== null ? 'done' : 'current' },
+    { label: 'Serviços', state: step1Confirmado ? 'done' : 'current' },
     ...(profissionais.length > 1
-      ? [{ label: 'Profissional', state: (servicoId === null ? 'pending' : profissionalId !== null ? 'done' : 'current') as ProgressStep['state'] }]
+      ? [{
+          label: 'Profissional',
+          state: (!step1Confirmado ? 'pending' : profissionalId !== null ? 'done' : 'current') as ProgressStep['state'],
+        }]
       : []),
-    { label: 'Data e hora', state: (slotSelecionado ? 'done' : passoDataLiberado ? 'current' : 'pending') as ProgressStep['state'] },
-    { label: 'Seus dados',  state: (slotSelecionado ? 'current' : 'pending') as ProgressStep['state'] },
+    {
+      label: 'Data e hora',
+      state: (slotSelecionado ? 'done' : passoDataLiberado ? 'current' : 'pending') as ProgressStep['state'],
+    },
+    {
+      label: 'Seus dados',
+      state: (slotSelecionado ? 'current' : 'pending') as ProgressStep['state'],
+    },
   ];
 
   function labelDia(dateStr: string) {
@@ -339,26 +369,55 @@ export function PublicPage() {
       <ProgressBar steps={progressSteps} />
 
       <div className="public-body">
-        {/* Passo 1 — Serviço */}
-        <Step num={1} title="Escolha o serviço">
+        {/* Passo 1 — Serviços (multi-select) */}
+        <Step num={1} title="Escolha os serviços">
           <div className="service-cards">
-            {servicos.map((s) => (
-              <div
-                key={s.id}
-                className={`service-card${servicoId === s.id ? ' selected' : ''}`}
-                onClick={() => handleSelecionarServico(s.id)}
-              >
-                <div className="service-card-info">
-                  <p className="service-name">{s.nome}</p>
-                  {s.descricao && <p className="service-desc">{s.descricao}</p>}
-                  <p className="service-detail">{s.duracao_min} min</p>
+            {servicos.map((s) => {
+              const selecionado = servicosIds.includes(s.id);
+              return (
+                <div
+                  key={s.id}
+                  className={`service-card${selecionado ? ' selected' : ''}`}
+                  onClick={() => toggleServico(s.id)}
+                >
+                  <div className="service-card-info">
+                    <p className="service-name">{s.nome}</p>
+                    {s.descricao && <p className="service-desc">{s.descricao}</p>}
+                    <p className="service-detail">{s.duracao_min} min</p>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                    <span className="service-price">{fmtBRL(Number(s.preco))}</span>
+                    {selecionado && (
+                      <span className="service-check-badge">
+                        <Check size={12} /> Selecionado
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="service-price">
-                  {Number(s.preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              );
+            })}
+          </div>
+
+          {/* Resumo da seleção + botão Continuar */}
+          {servicosIds.length > 0 && (
+            <div className="service-selection-summary">
+              <div className="service-selection-info">
+                <span className="service-selection-count">
+                  {servicosIds.length} {servicosIds.length === 1 ? 'serviço' : 'serviços'}
+                </span>
+                <span className="service-selection-details">
+                  {duracaoTotal} min &bull; {fmtBRL(precoTotal)}
                 </span>
               </div>
-            ))}
-          </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={confirmarServicos}
+              >
+                Continuar →
+              </button>
+            </div>
+          )}
         </Step>
 
         {/* Passo 2 (condicional) — Profissional */}
@@ -437,9 +496,14 @@ export function PublicPage() {
           <Step num={numDados} title="Seus dados">
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div className="booking-summary">
-                <div className="booking-summary-item">
-                  ✂️ <strong>{servicoAtual?.nome}</strong>
-                </div>
+                {servicosSelecionados.map((s) => (
+                  <div key={s.id} className="booking-summary-item">
+                    ✂️ <strong>{s.nome}</strong>{' '}
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>
+                      {s.duracao_min} min
+                    </span>
+                  </div>
+                ))}
                 {profAtual && (
                   <div className="booking-summary-item">
                     👤 {profAtual.nome}
@@ -450,7 +514,12 @@ export function PublicPage() {
                   {slots.find((s) => s.datetime === slotSelecionado)?.hora}
                 </div>
                 <div className="booking-summary-item">
-                  💰 {Number(servicoAtual?.preco ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  💰 <strong>{fmtBRL(precoTotal)}</strong>
+                  {servicosSelecionados.length > 1 && (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85em', marginLeft: 4 }}>
+                      ({duracaoTotal} min no total)
+                    </span>
+                  )}
                 </div>
               </div>
 

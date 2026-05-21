@@ -40,12 +40,22 @@ export interface AgendamentoVolume {
 
 export type AgendamentoStatus = 'pendente' | 'confirmado' | 'cancelado' | 'arquivado';
 
+export interface ServicoInfo {
+  id: number;
+  nome: string;
+  duracao_min: number;
+  preco: string;
+}
+
 export interface Agendamento {
   id: number;
   empresa: number;
-  servico: number;
-  servico_nome: string;
-  servico_preco: string;
+  servico: number | null;
+  servico_nome: string | null;
+  servico_preco: string | null;
+  servicos_info: ServicoInfo[];
+  duracao_total_min: number;
+  preco_total: string;
   profissional: number | null;
   profissional_nome: string | null;
   nome_cliente: string;
