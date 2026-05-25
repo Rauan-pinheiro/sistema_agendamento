@@ -396,13 +396,22 @@ Todos os itens v1.5 foram implementados. ✅
 
 ---
 
-## 18. Melhorias implementadas (v1.6 — parcial) ✅
+## 18. Melhorias implementadas (v1.6) ✅
 
 ### Frontend
 - [x] **Emojis removidos da mensagem WhatsApp** — emojis apareciam como losango+`?` fora do WhatsApp Business API; substituídos por formatação nativa do WhatsApp (`*negrito*` e `_itálico_`) em `buildWhatsappUrl` em `AgendamentosPage.tsx`
 - [x] **Separação de contexto: dados financeiros removidos de `AgendamentosPage`** — `KpiSection` (4 cards: Receita bruta, Confirmados, Ticket médio, Hoje) e `VolumeChart` (bar chart recharts por dia da semana) excluídos do componente; removidos também os imports `getFinanceiroResumo`, `getAgendamentosVolume`, `FinanceiroResumo`, `AgendamentoVolume`, `useTheme`, todos os imports do `recharts` e o estado `todayCount`; dados financeiros acessíveis exclusivamente em `FinanceiroPage`
 - [x] **Interface "focus mode" para agendamentos** — `page-header` genérico substituído por `.focus-header` com: data atual por extenso e capitalizada (ex: `"Quarta-feira, 21 de maio"`) em `.focus-date`; contagem discreta `"X agendamentos hoje · Y pendentes"` em `.focus-stats` com o trecho de pendentes em `.focus-stats-pending` (`--warning`) visível apenas quando `pendingCount > 0`; indicador `atualizando...` mantido à direita; `fetchData` refatorado para sempre chamar `listAgendamentos()` sem filtro e filtrar por tab no frontend (evita perda de contexto das contagens ao trocar de aba); linha de profissional adicionada ao card com ícone `User` e texto `"Sem profissional"` em itálico quando `profissional_nome` é `null`; CSS em `index.css`: `.focus-header`, `.focus-date`, `.focus-stats`, `.focus-stats-pending`, `.agendamento-sem-profissional`
-- [~] **Timeline vertical para a aba "Hoje"** — implementada (`TodayTimeline`, escala 80px/hora, blocos por status) mas **revertida para redesign**: a abordagem de posicionamento absoluto com altura proporcional à duração gerava blocos muito pequenos para agendamentos curtos e tornava difícil identificar as informações e acionar os botões de ação; UI/UX insatisfatória — ver tarefa pendente na seção 16
+- [x] **Redesign premium da aba "Hoje"** — `TodayView` com interface de alta legibilidade operacional:
+  - **Separadores de período** — "Manhã", "Tarde", "Noite" com label `10px uppercase letter-spacing` + linha horizontal `var(--border)` estendida à direita; grupos calculados pela hora do agendamento
+  - **Borda lateral por status** — 4px solid: âmbar (`--warning`) para pendente, verde (`--success-hover`) para confirmado, cinza (`--border`) para cancelado/arquivado; opacidade reduzida para cancelado (`.8`) e arquivado (`.65`)
+  - **Pill de horário semântico** — badge pill com cor herdada do status: fundo âmbar/verde/azul suave + borda colorida; neutro para cancelados
+  - **Hierarquia de informação** — nome do cliente 15px bold; serviços 13px `--text-muted`; profissional 12px muted com ícone `User` sempre visível (mostra "Sem profissional" em itálico quando `null`)
+  - **Badge "Em atendimento"** — aparece quando `data_hora ≤ agora < data_hora + duracao_total_min`; animação `pulse-soft`; ponto pulsante via `::before`; cor `--primary`
+  - **Card em progresso** — recebe `animation: pulse-border` (glow azul 0→6px, 2.4s ease-in-out infinite) + borda `--primary`; detectável de relance
+  - **Linha meta** — duração · telefone · valor separados por `border-top: 1px solid var(--border)`; ícones `Clock`, `Phone`, `DollarSign` 12px
+  - **Footer de ações** — `justify-content: space-between`; ações principais (Confirmar / Cancelar / WhatsApp) à esquerda, Excluir à direita; acessíveis sem expansão
+  - `@keyframes pulse-border` adicionado ao CSS; CSS antigo da timeline (`.timeline-*`, ~70 linhas de dead code) removido; `tsc --noEmit` zero erros; 21 classes `.today-*` todas cobertas no CSS
 
 ---
 
@@ -416,14 +425,7 @@ Todos os itens v1.5 foram implementados. ✅
 
 - [x] **Remover dados financeiros e gráfico de volume da `AgendamentosPage`** — os 4 KPI cards (Receita bruta, Confirmados, Ticket médio, Hoje) e o `VolumeChart` (recharts, volume por dia da semana) foram excluídos desta página; as chamadas a `GET /api/v1/financeiro/resumo/` e `GET /api/v1/agendamentos/volume/` foram removidas do componente junto com os imports `getFinanceiroResumo`, `getAgendamentosVolume`, `FinanceiroResumo`, `AgendamentoVolume`, `useTheme` e todos os imports do `recharts`; esses dados existem apenas em `FinanceiroPage`
 - [x] **Interface "focus mode" para agendamentos** — cabeçalho enxuto substituiu o `page-header` genérico: data atual por extenso com `capitalize` (ex: "Quarta-feira, 21 de maio") em `focus-date`; contagem discreta `"X agendamentos hoje · Y pendentes"` em `focus-stats`, com `pendentes` destacado em `--warning` apenas quando `> 0`; indicador `atualizando...` mantido à direita; `fetchData` refatorado para sempre buscar todos os agendamentos sem filtro de status e filtrar localmente por tab (necessário para que `todayCount` e `pendingCount` sejam independentes da aba ativa); profissional adicionado ao card com ícone `User` e texto `"Sem profissional"` em itálico quando `profissional_nome` é `null`; zero chamadas extras à API
-- [ ] **Redesign da aba "Hoje" — UI/UX focada em legibilidade** — a implementação anterior (timeline com posicionamento absoluto proporcional à duração) foi descartada por prejudicar a UX: blocos de agendamentos curtos ficavam minúsculos, as informações eram difíceis de ler e os botões de ação inacessíveis; o redesign deve priorizar clareza e operação rápida no dia a dia; **requisitos do novo layout:**
-  - Manter estrutura de **cards** (mesma base do `AgendamentoCardList`) porém com identidade visual reforçada para a visão de "hoje"
-  - **Marcador de hora** discreto à esquerda de cada card (ex: faixa `09:30` em badge pill) — sem posicionamento absoluto, apenas visual inline acima ou ao lado do card
-  - **Indicador de status operacional** bem visível: badge colorido grande o suficiente para ser lido de relance (pendente = âmbar, confirmado = verde, cancelado = cinza)
-  - **Hierarquia de informação clara**: nome do cliente em destaque (maior, bold), serviço(s) em linha secundária, profissional em linha terciária muted — sempre visíveis sem precisar expandir
-  - **Linha do tempo implícita**: lista ordenada por `data_hora` ascendente com separador visual entre grupos de horas (ex: divisor "manhã / tarde / noite") — transmite a sensação de progressão do dia sem posicionamento absoluto
-  - **Agendamento "em andamento" destacado**: se `data_hora <= agora < data_hora + duracao_total_min`, o card recebe borda pulsante ou indicador `"Em atendimento"` — destaque visual imediato para o prestador saber qual atendimento está acontecendo agora
-  - Botões de ação mantidos no card (Confirmar / Cancelar / WhatsApp / Excluir) acessíveis sem precisar expandir
+- [x] **Redesign da aba "Hoje" — UI/UX focada em legibilidade** — implementado com cards premium, separadores Manhã/Tarde/Noite, pill de horário com cor semântica, hierarquia nome→serviço→profissional, badge "Em atendimento" pulsante, borda lateral colorida por status e `@keyframes pulse-border` para o card em progresso; todos os botões de ação acessíveis no footer sem expansão — ver seção 18
 - [ ] **Card de agendamento expandido** — ao clicar no card (em qualquer aba), ele expande inline (sem modal) revelando: lista completa de serviços com duração individual, profissional atribuído com avatar de iniciais, link direto para WhatsApp e os botões de ação (Confirmar / Cancelar / Excluir); colapsa ao clicar novamente; apenas um card pode estar expandido por vez
 - [ ] **Exibir profissional no card resumido** — o campo `profissional_nome` já vem no serializer mas não aparece no card fechado; adicionar linha com ícone `User` e nome do profissional (ou texto muted "Sem profissional" quando `null`), mantendo alinhamento visual com `Calendar`, `Phone` e `DollarSign`
 - [ ] **Badge de status com ação rápida integrada** — clicar no badge `Pendente` diretamente confirma o agendamento com micro-confirmação inline, sem precisar rolar até os botões de ação; badge `Confirmado` oferece ação rápida "Cancelar" no mesmo padrão
@@ -522,7 +524,7 @@ v1.3 → página de profissionais, horários por profissional, gráfico de volum
         descrição nos serviços, validação completa frontend + backend ✅ (implementado)
 v1.4 → página de Configurações (empresa + conta + senha), branding DevFlow, animações CSS, endpoint /api/v1/usuario/ ✅ (implementado)
 v1.5 → seleção múltipla de serviços (M2M com ordem, duracao_total_min, preco_total, multi-select na página pública) ✅ (implementado)
-v1.6 → separação Agendamentos × Financeiro (privacidade), timeline diária, cards expandíveis, tooltips explicativos nos KPIs financeiros, layout grid responsivo, auto-refresh inteligente, responsividade 100%
+v1.6 → separação Agendamentos × Financeiro (privacidade), redesign premium aba "Hoje" (cards com status, pill de horário, separadores manhã/tarde/noite, badge pulsante em atendimento) ✅; pendente: cards expandíveis, tooltips nos KPIs financeiros, layout grid responsivo, auto-refresh inteligente, responsividade 100%
 v1.7 → deploy GCP (Cloud Run + Cloud SQL), WhiteNoise, Dockerfile, variáveis de ambiente
 v1.8 → features premium (WhatsApp automático, pagamento online), sistema de planos e cobrança
 ```

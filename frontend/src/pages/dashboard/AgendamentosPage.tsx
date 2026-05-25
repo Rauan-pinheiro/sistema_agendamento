@@ -16,8 +16,6 @@ const TABS: { label: string; value: TabValue }[] = [
 ];
 
 const POLL_INTERVAL_MS = 30_000;
-const HOUR_HEIGHT = 80;   // px por hora
-const LABEL_WIDTH = 56;   // px da coluna de rótulos HH:00
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 
@@ -53,11 +51,6 @@ function formatPreco(preco: string) {
 function formatWhatsapp(numero: string): string {
   const digits = numero.replace(/\D/g, '');
   return digits.startsWith('55') ? digits : `55${digits}`;
-}
-
-function minutesOfDay(iso: string): number {
-  const d = new Date(iso);
-  return d.getHours() * 60 + d.getMinutes();
 }
 
 function buildWhatsappUrl(ag: Agendamento, empresaNome: string): string {
@@ -106,8 +99,25 @@ interface SharedCardProps {
   onDeleteCancel: () => void;
 }
 
-/* ── Timeline vertical (aba Hoje) ────────────────────────────────────────── */
-function TodayTimeline({
+/* ── Today view helpers ───────────────────────────────────────────────────── */
+function isInProgress(ag: Agendamento): boolean {
+  const now = Date.now();
+  const start = new Date(ag.data_hora).getTime();
+  const end = start + (ag.duracao_total_min || 30) * 60_000;
+  return start <= now && now < end;
+}
+
+type TimePeriod = 'Manhã' | 'Tarde' | 'Noite';
+
+function getTimePeriod(iso: string): TimePeriod {
+  const hour = new Date(iso).getHours();
+  if (hour < 12) return 'Manhã';
+  if (hour < 18) return 'Tarde';
+  return 'Noite';
+}
+
+/* ── Today card list (aba Hoje) ───────────────────────────────────────────── */
+function TodayView({
   agendamentos,
   empresa,
   confirmDeleteId,
@@ -120,129 +130,128 @@ function TodayTimeline({
     (a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime()
   );
 
-  const starts = sorted.map((ag) => minutesOfDay(ag.data_hora));
-  const ends   = sorted.map((ag, i) => starts[i] + (ag.duracao_total_min || 30));
-
-  const firstHour = Math.max(0,  Math.floor(Math.min(...starts) / 60));
-  const lastHour  = Math.min(23, Math.ceil(Math.max(...ends)    / 60));
-  const hours = Array.from({ length: lastHour - firstHour + 1 }, (_, i) => firstHour + i);
-
-  const originMin  = firstHour * 60;
-  const ppm        = HOUR_HEIGHT / 60;
-  const containerH = hours.length * HOUR_HEIGHT + 24;
-
-  const busyHours = new Set<number>();
-  sorted.forEach((_, i) => {
-    for (let h = Math.floor(starts[i] / 60); h <= Math.floor((ends[i] - 1) / 60); h++) {
-      busyHours.add(h);
-    }
-  });
+  const periods: TimePeriod[] = ['Manhã', 'Tarde', 'Noite'];
+  const groups: Record<TimePeriod, Agendamento[]> = { 'Manhã': [], 'Tarde': [], 'Noite': [] };
+  for (const ag of sorted) groups[getTimePeriod(ag.data_hora)].push(ag);
 
   return (
-    <div className="timeline-container" style={{ height: containerH }}>
-      {hours.map((h) => (
-        <div
-          key={h}
-          className={`timeline-hour-row${busyHours.has(h) ? '' : ' timeline-hour-row--free'}`}
-          style={{ top: (h * 60 - originMin) * ppm }}
-        >
-          <span className="timeline-hour-label">{String(h).padStart(2, '0')}:00</span>
-          <div className="timeline-hour-line" />
-          {!busyHours.has(h) && (
-            <span className="timeline-free-label">disponível</span>
-          )}
-        </div>
-      ))}
-
-      {sorted.map((ag, i) => {
-        const top     = (starts[i] - originMin) * ppm;
-        const height  = Math.max((ag.duracao_total_min || 30) * ppm, 60);
-        const compact = height < 72;
-
+    <div className="today-list">
+      {periods.map((period) => {
+        const items = groups[period];
+        if (items.length === 0) return null;
         return (
-          <div
-            key={ag.id}
-            className={`timeline-event timeline-event--${ag.status}`}
-            style={{ top, height, left: LABEL_WIDTH + 12 }}
-          >
-            <div className="timeline-event-header">
-              <span className="timeline-event-time">
-                {new Date(ag.data_hora).toLocaleTimeString('pt-BR', {
+          <div key={period} className="today-section">
+            <div className="today-section-divider">
+              <span className="today-section-label">{period}</span>
+              <div className="today-section-line" />
+            </div>
+            <div className="card-list">
+              {items.map((ag) => {
+                const inProgress = isInProgress(ag);
+                const timeLabel = new Date(ag.data_hora).toLocaleTimeString('pt-BR', {
                   hour: '2-digit', minute: '2-digit',
-                })}
-                {!compact && (
-                  <em className="timeline-event-duration"> · {ag.duracao_total_min}min</em>
-                )}
-              </span>
-              <Badge status={ag.status} />
-            </div>
+                });
+                const nomesServicos = ag.servicos_info?.length
+                  ? ag.servicos_info.map((s) => s.nome).join(' + ')
+                  : (ag.servico_nome ?? '—');
 
-            <div className="timeline-event-body">
-              <span className="timeline-event-cliente">{ag.nome_cliente}</span>
-              {!compact && (
-                <>
-                  <span className="timeline-event-servico">
-                    {ag.servicos_info?.length
-                      ? ag.servicos_info.map((s) => s.nome).join(' + ')
-                      : (ag.servico_nome ?? '—')}
-                  </span>
-                  {ag.profissional_nome && (
-                    <span className="timeline-event-profissional">
-                      <User size={11} /> {ag.profissional_nome}
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
+                return (
+                  <div
+                    key={ag.id}
+                    className={`card today-card today-card--${ag.status}${inProgress ? ' today-card--in-progress' : ''}`}
+                  >
+                    <div className="today-card-body">
+                      <div className="today-card-header">
+                        <div className="today-card-header-left">
+                          <span className="today-time-pill">{timeLabel}</span>
+                          <div className="today-card-identity">
+                            {inProgress && (
+                              <span className="today-in-progress-badge">Em atendimento</span>
+                            )}
+                            <p className="today-card-name">{ag.nome_cliente}</p>
+                            <p className="today-card-services">{nomesServicos}</p>
+                            <p className="today-card-professional">
+                              <User size={12} />
+                              {ag.profissional_nome
+                                ? ag.profissional_nome
+                                : <em className="agendamento-sem-profissional">Sem profissional</em>}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge status={ag.status} />
+                      </div>
 
-            {!compact && (
-              <div className="timeline-event-actions">
-                {ag.status === 'pendente' && (
-                  <>
-                    <button
-                      className="btn btn-success btn-sm"
-                      onClick={() => onStatus(ag.id, 'confirmado')}
-                    >
-                      Confirmar
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => onStatus(ag.id, 'cancelado')}
-                    >
-                      Cancelar
-                    </button>
-                  </>
-                )}
-                {(ag.status === 'pendente' || ag.status === 'confirmado') && (
-                  <button
-                    className="btn btn-whatsapp btn-sm"
-                    onClick={() => openWhatsApp(buildWhatsappUrl(ag, empresa?.nome_fantasia ?? ''))}
-                  >
-                    WhatsApp
-                  </button>
-                )}
-                {confirmDeleteId === ag.id ? (
-                  <>
-                    <span className="agendamento-delete-confirm-text" style={{ fontSize: 12 }}>
-                      Excluir?
-                    </span>
-                    <button className="btn btn-danger btn-sm" onClick={() => onDeleteConfirm(ag.id)}>
-                      Sim
-                    </button>
-                    <button className="btn btn-secondary btn-sm" onClick={onDeleteCancel}>
-                      Não
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    className="btn btn-ghost btn-sm agendamento-delete-btn"
-                    onClick={() => onDeleteRequest(ag.id)}
-                  >
-                    Excluir
-                  </button>
-                )}
-              </div>
-            )}
+                      <div className="today-card-meta">
+                        <span className="today-card-meta-item">
+                          <Clock size={12} /> {ag.duracao_total_min}min
+                        </span>
+                        <span className="today-card-meta-item">
+                          <Phone size={12} /> {ag.whatsapp_cliente}
+                        </span>
+                        <span className="today-card-meta-item">
+                          <DollarSign size={12} /> {formatPreco(ag.preco_total)}
+                        </span>
+                      </div>
+
+                      <div className="today-card-footer">
+                        <div className="today-card-actions-main">
+                          {ag.status === 'pendente' && (
+                            <>
+                              <button
+                                className="btn btn-success btn-sm"
+                                onClick={() => onStatus(ag.id, 'confirmado')}
+                              >
+                                Confirmar
+                              </button>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => onStatus(ag.id, 'cancelado')}
+                              >
+                                Cancelar
+                              </button>
+                            </>
+                          )}
+                          {(ag.status === 'pendente' || ag.status === 'confirmado') && (
+                            <button
+                              className="btn btn-whatsapp btn-sm"
+                              onClick={() => openWhatsApp(buildWhatsappUrl(ag, empresa?.nome_fantasia ?? ''))}
+                            >
+                              WhatsApp
+                            </button>
+                          )}
+                        </div>
+                        <div className="today-card-actions-delete">
+                          {confirmDeleteId === ag.id ? (
+                            <>
+                              <span className="today-card-delete-text">Excluir?</span>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => onDeleteConfirm(ag.id)}
+                              >
+                                Sim
+                              </button>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={onDeleteCancel}
+                              >
+                                Não
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="btn btn-ghost btn-sm agendamento-delete-btn"
+                              onClick={() => onDeleteRequest(ag.id)}
+                            >
+                              Excluir
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
       })}
@@ -483,7 +492,7 @@ export function AgendamentosPage() {
       ) : agendamentos.length === 0 ? (
         <EmptyState tab={tab} />
       ) : tab === 'hoje' ? (
-        <TodayTimeline agendamentos={agendamentos} {...sharedProps} />
+        <TodayView agendamentos={agendamentos} {...sharedProps} />
       ) : (
         <AgendamentoCardList agendamentos={agendamentos} {...sharedProps} />
       )}

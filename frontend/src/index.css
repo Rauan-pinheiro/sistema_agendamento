@@ -466,81 +466,6 @@ a:hover { text-decoration: underline; }
 [data-theme="dark"] .focus-stats-pending { color: #fbbf24; }
 .agendamento-sem-profissional { font-style: italic; opacity: .7; }
 
-/* ── Timeline vertical (aba Hoje) ────────────────────────────────────────── */
-.timeline-container {
-  position: relative;
-  margin-bottom: 24px;
-  user-select: none;
-}
-.timeline-hour-row {
-  position: absolute;
-  left: 0; right: 0;
-  display: flex;
-  align-items: flex-start;
-  height: 80px;
-  pointer-events: none;
-}
-.timeline-hour-label {
-  width: 52px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  padding-top: 3px;
-  letter-spacing: .03em;
-}
-.timeline-hour-line {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-  margin-top: 8px;
-}
-.timeline-hour-row--free .timeline-hour-line { border-top: 1px dashed var(--border); background: transparent; }
-.timeline-free-label {
-  position: absolute;
-  left: 68px;
-  top: 14px;
-  font-size: 11px;
-  color: var(--text-muted);
-  opacity: .45;
-  font-style: italic;
-  pointer-events: none;
-}
-.timeline-event {
-  position: absolute;
-  right: 0;
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  border-left: 3px solid transparent;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--t), transform var(--t);
-}
-.timeline-event:hover { box-shadow: var(--shadow-md); transform: translateX(1px); }
-.timeline-event--pendente   { background: rgba(251,191,36,.10); border-left-color: var(--warning); }
-.timeline-event--confirmado { background: rgba(74,222,128,.10);  border-left-color: var(--success); }
-.timeline-event--cancelado  { background: rgba(248,113,113,.08); border-left-color: var(--danger);  }
-.timeline-event--arquivado  { background: var(--surface-hover);  border-left-color: var(--border);  }
-[data-theme="dark"] .timeline-event--pendente   { background: rgba(251,191,36,.08); }
-[data-theme="dark"] .timeline-event--confirmado { background: rgba(74,222,128,.07); }
-[data-theme="dark"] .timeline-event--cancelado  { background: rgba(248,113,113,.06); }
-.timeline-event-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.timeline-event-time     { font-size: 12px; font-weight: 700; color: var(--text); }
-.timeline-event-duration { font-weight: 400; font-style: normal; color: var(--text-muted); font-size: 11px; }
-.timeline-event-body     { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.timeline-event-cliente  { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.timeline-event-servico  { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.timeline-event-profissional { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
-.timeline-event-actions  { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: auto; padding-top: 4px; }
-
 /* ── Tabs ────────────────────────────────────────────────────────────────── */
 .tabs {
   display: flex;
@@ -656,6 +581,155 @@ a:hover { text-decoration: underline; }
 .agendamento-delete-row { display: flex; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
 .agendamento-delete-btn { color: var(--text-muted); font-size: 12px; }
 .agendamento-delete-confirm-text { font-size: 13px; color: var(--danger); flex: 1; font-weight: 500; }
+
+/* ── Today view (aba Hoje) ───────────────────────────────────────────────── */
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(96,165,250,.35), var(--shadow-sm); }
+  50%       { box-shadow: 0 0 0 6px rgba(96,165,250,.1),  var(--shadow-md); }
+}
+
+.today-list { display: flex; flex-direction: column; gap: 20px; }
+
+.today-section { display: flex; flex-direction: column; gap: 10px; }
+
+.today-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.today-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding: 0 2px;
+}
+.today-section-line { flex: 1; height: 1px; background: var(--border); }
+
+/* Card base — combina com .card */
+.today-card { border-left: 4px solid var(--border); transition: box-shadow var(--t), transform var(--t); }
+.today-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+/* Status — borda lateral colorida */
+.today-card--pendente   { border-left-color: var(--warning); }
+.today-card--confirmado { border-left-color: var(--success-hover); }
+.today-card--cancelado  { border-left-color: var(--border); opacity: .8; }
+.today-card--arquivado  { border-left-color: var(--border); opacity: .65; }
+
+/* Em atendimento — borda pulsante azul */
+.today-card--in-progress {
+  border-left-color: var(--primary);
+  animation: pulse-border 2.4s ease-in-out infinite;
+}
+
+.today-card-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 11px; }
+
+/* Linha de cabeçalho: [pill + identidade] | [badge status] */
+.today-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.today-card-header-left { display: flex; align-items: flex-start; gap: 12px; min-width: 0; flex: 1; }
+
+/* Pill de horário */
+.today-time-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.today-card--pendente   .today-time-pill { background: rgba(251,191,36,.1);  color: #92400e; border-color: rgba(251,191,36,.3); }
+.today-card--confirmado .today-time-pill { background: rgba(74,222,128,.1);  color: #166534; border-color: rgba(74,222,128,.3); }
+.today-card--in-progress .today-time-pill { background: rgba(96,165,250,.1); color: var(--primary); border-color: rgba(96,165,250,.3); }
+[data-theme="dark"] .today-card--pendente   .today-time-pill { color: #fbbf24; }
+[data-theme="dark"] .today-card--confirmado .today-time-pill { color: #4ade80; }
+
+/* Bloco de identidade: nome, serviço, profissional */
+.today-card-identity { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* Badge "Em atendimento" com indicador pulsante */
+.today-in-progress-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--primary);
+  background: rgba(96,165,250,.1);
+  border-radius: 20px;
+  padding: 2px 8px;
+  width: fit-content;
+  margin-bottom: 3px;
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+.today-in-progress-badge::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse-soft 1.2s ease-in-out infinite;
+}
+
+/* Hierarquia de informação */
+.today-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today-card-services {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today-card-professional {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: .8;
+  margin-top: 2px;
+}
+
+/* Meta row: duração · telefone · valor */
+.today-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.today-card-meta-item { display: flex; align-items: center; gap: 4px; }
+
+/* Footer com ações */
+.today-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.today-card-actions-main { display: flex; gap: 6px; flex-wrap: wrap; }
+.today-card-actions-delete { display: flex; align-items: center; gap: 6px; }
+.today-card-delete-text { font-size: 12px; color: var(--danger); font-weight: 500; }
 
 /* ── Empty & loading states ──────────────────────────────────────────────── */
 .loading { color: var(--text-muted); padding: 40px 0; text-align: center; }
