@@ -458,6 +458,14 @@ a:hover { text-decoration: underline; }
 .page-subtitle  { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 .auto-refresh-label { font-size: 12px; color: var(--text-muted); font-style: italic; display: flex; align-items: center; gap: 5px; }
 
+/* ── Focus mode header ───────────────────────────────────────────────────── */
+.focus-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 10px; }
+.focus-date { font-size: 20px; font-weight: 700; color: var(--text); text-transform: capitalize; line-height: 1.2; }
+.focus-stats { font-size: 13px; color: var(--text-muted); margin-top: 5px; }
+.focus-stats-pending { color: var(--warning); font-weight: 600; }
+[data-theme="dark"] .focus-stats-pending { color: #fbbf24; }
+.agendamento-sem-profissional { font-style: italic; opacity: .7; }
+
 /* ── Tabs ────────────────────────────────────────────────────────────────── */
 .tabs {
   display: flex;

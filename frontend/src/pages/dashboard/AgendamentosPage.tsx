@@ -3,7 +3,7 @@ import { listAgendamentos, updateStatus, deleteAgendamento } from '../../api/age
 import type { Agendamento, AgendamentoStatus } from '../../types';
 import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Phone, DollarSign, Clock } from 'lucide-react';
+import { Calendar, Phone, DollarSign, Clock, User } from 'lucide-react';
 
 type TabValue = AgendamentoStatus | 'todos' | 'hoje';
 
@@ -25,6 +25,14 @@ function isToday(iso: string): boolean {
     data.getMonth()    === hoje.getMonth()    &&
     data.getFullYear() === hoje.getFullYear()
   );
+}
+
+function formatDataAtual(): string {
+  return new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 }
 
 function formatDataHora(iso: string) {
@@ -82,21 +90,31 @@ function openWhatsApp(url: string) {
 /* ── Main component ──────────────────────────────────────────────────────── */
 export function AgendamentosPage() {
   const { empresa } = useAuth();
+  const [allAgendamentos, setAllAgendamentos] = useState<Agendamento[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [tab, setTab] = useState<TabValue>('hoje');
   const [loading, setLoading] = useState(true);
   const [autoRefreshing, setAutoRefreshing] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
+  const todayCount   = allAgendamentos.filter((ag) => isToday(ag.data_hora)).length;
+  const pendingCount = allAgendamentos.filter((ag) => ag.status === 'pendente').length;
+
   const fetchData = useCallback(async (silent = false) => {
     silent ? setAutoRefreshing(true) : setLoading(true);
 
-    const statusFilter =
-      tab === 'todos' || tab === 'hoje' ? undefined : (tab as AgendamentoStatus);
+    const data = await listAgendamentos();
+    setAllAgendamentos(data);
 
-    const data = await listAgendamentos(statusFilter);
+    let resultado: Agendamento[];
+    if (tab === 'hoje') {
+      resultado = data.filter((ag) => isToday(ag.data_hora));
+    } else if (tab === 'todos') {
+      resultado = data;
+    } else {
+      resultado = data.filter((ag) => ag.status === tab);
+    }
 
-    const resultado = tab === 'hoje' ? data.filter((ag) => isToday(ag.data_hora)) : data;
     setAgendamentos(resultado);
     setLoading(false);
     setAutoRefreshing(false);
@@ -130,10 +148,17 @@ export function AgendamentosPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
+      <div className="focus-header">
         <div>
-          <h2>Dashboard</h2>
-          <p className="page-subtitle">Visão geral e agendamentos</p>
+          <h2 className="focus-date">{formatDataAtual()}</h2>
+          <p className="focus-stats">
+            <span>{todayCount} agendamento{todayCount !== 1 ? 's' : ''} hoje</span>
+            {pendingCount > 0 && (
+              <span className="focus-stats-pending">
+                {' '}· {pendingCount} pendente{pendingCount !== 1 ? 's' : ''}
+              </span>
+            )}
+          </p>
         </div>
         {autoRefreshing && (
           <span className="auto-refresh-label">
@@ -200,6 +225,12 @@ export function AgendamentosPage() {
                 <span className="agendamento-info-item">
                   <Calendar size={13} />
                   {formatDataHora(ag.data_hora)}
+                </span>
+                <span className="agendamento-info-item">
+                  <User size={13} />
+                  {ag.profissional_nome
+                    ? ag.profissional_nome
+                    : <em className="agendamento-sem-profissional">Sem profissional</em>}
                 </span>
                 <span className="agendamento-info-item">
                   <Phone size={13} />
