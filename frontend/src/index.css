@@ -466,6 +466,81 @@ a:hover { text-decoration: underline; }
 [data-theme="dark"] .focus-stats-pending { color: #fbbf24; }
 .agendamento-sem-profissional { font-style: italic; opacity: .7; }
 
+/* ── Timeline vertical (aba Hoje) ────────────────────────────────────────── */
+.timeline-container {
+  position: relative;
+  margin-bottom: 24px;
+  user-select: none;
+}
+.timeline-hour-row {
+  position: absolute;
+  left: 0; right: 0;
+  display: flex;
+  align-items: flex-start;
+  height: 80px;
+  pointer-events: none;
+}
+.timeline-hour-label {
+  width: 52px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  padding-top: 3px;
+  letter-spacing: .03em;
+}
+.timeline-hour-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  margin-top: 8px;
+}
+.timeline-hour-row--free .timeline-hour-line { border-top: 1px dashed var(--border); background: transparent; }
+.timeline-free-label {
+  position: absolute;
+  left: 68px;
+  top: 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: .45;
+  font-style: italic;
+  pointer-events: none;
+}
+.timeline-event {
+  position: absolute;
+  right: 0;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  border-left: 3px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--t), transform var(--t);
+}
+.timeline-event:hover { box-shadow: var(--shadow-md); transform: translateX(1px); }
+.timeline-event--pendente   { background: rgba(251,191,36,.10); border-left-color: var(--warning); }
+.timeline-event--confirmado { background: rgba(74,222,128,.10);  border-left-color: var(--success); }
+.timeline-event--cancelado  { background: rgba(248,113,113,.08); border-left-color: var(--danger);  }
+.timeline-event--arquivado  { background: var(--surface-hover);  border-left-color: var(--border);  }
+[data-theme="dark"] .timeline-event--pendente   { background: rgba(251,191,36,.08); }
+[data-theme="dark"] .timeline-event--confirmado { background: rgba(74,222,128,.07); }
+[data-theme="dark"] .timeline-event--cancelado  { background: rgba(248,113,113,.06); }
+.timeline-event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.timeline-event-time     { font-size: 12px; font-weight: 700; color: var(--text); }
+.timeline-event-duration { font-weight: 400; font-style: normal; color: var(--text-muted); font-size: 11px; }
+.timeline-event-body     { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.timeline-event-cliente  { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timeline-event-servico  { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timeline-event-profissional { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.timeline-event-actions  { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: auto; padding-top: 4px; }
+
 /* ── Tabs ────────────────────────────────────────────────────────────────── */
 .tabs {
   display: flex;

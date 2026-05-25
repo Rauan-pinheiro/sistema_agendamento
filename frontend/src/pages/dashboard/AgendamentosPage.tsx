@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { listAgendamentos, updateStatus, deleteAgendamento } from '../../api/agendamentos';
-import type { Agendamento, AgendamentoStatus } from '../../types';
+import type { Agendamento, AgendamentoStatus, Empresa } from '../../types';
 import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, Phone, DollarSign, Clock, User } from 'lucide-react';
@@ -16,6 +16,10 @@ const TABS: { label: string; value: TabValue }[] = [
 ];
 
 const POLL_INTERVAL_MS = 30_000;
+const HOUR_HEIGHT = 80;   // px por hora
+const LABEL_WIDTH = 56;   // px da coluna de rótulos HH:00
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
 
 function isToday(iso: string): boolean {
   const hoje = new Date();
@@ -49,6 +53,11 @@ function formatPreco(preco: string) {
 function formatWhatsapp(numero: string): string {
   const digits = numero.replace(/\D/g, '');
   return digits.startsWith('55') ? digits : `55${digits}`;
+}
+
+function minutesOfDay(iso: string): number {
+  const d = new Date(iso);
+  return d.getHours() * 60 + d.getMinutes();
 }
 
 function buildWhatsappUrl(ag: Agendamento, empresaNome: string): string {
@@ -87,14 +96,285 @@ function openWhatsApp(url: string) {
   window.open(url, 'whatsapp_panel');
 }
 
+/* ── Props compartilhados entre Timeline e CardList ─────────────────────── */
+interface SharedCardProps {
+  empresa: Empresa | null;
+  confirmDeleteId: number | null;
+  onStatus: (id: number, status: AgendamentoStatus) => void;
+  onDeleteRequest: (id: number) => void;
+  onDeleteConfirm: (id: number) => void;
+  onDeleteCancel: () => void;
+}
+
+/* ── Timeline vertical (aba Hoje) ────────────────────────────────────────── */
+function TodayTimeline({
+  agendamentos,
+  empresa,
+  confirmDeleteId,
+  onStatus,
+  onDeleteRequest,
+  onDeleteConfirm,
+  onDeleteCancel,
+}: { agendamentos: Agendamento[] } & SharedCardProps) {
+  const sorted = [...agendamentos].sort(
+    (a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime()
+  );
+
+  const starts = sorted.map((ag) => minutesOfDay(ag.data_hora));
+  const ends   = sorted.map((ag, i) => starts[i] + (ag.duracao_total_min || 30));
+
+  const firstHour = Math.max(0,  Math.floor(Math.min(...starts) / 60));
+  const lastHour  = Math.min(23, Math.ceil(Math.max(...ends)    / 60));
+  const hours = Array.from({ length: lastHour - firstHour + 1 }, (_, i) => firstHour + i);
+
+  const originMin  = firstHour * 60;
+  const ppm        = HOUR_HEIGHT / 60;
+  const containerH = hours.length * HOUR_HEIGHT + 24;
+
+  const busyHours = new Set<number>();
+  sorted.forEach((_, i) => {
+    for (let h = Math.floor(starts[i] / 60); h <= Math.floor((ends[i] - 1) / 60); h++) {
+      busyHours.add(h);
+    }
+  });
+
+  return (
+    <div className="timeline-container" style={{ height: containerH }}>
+      {hours.map((h) => (
+        <div
+          key={h}
+          className={`timeline-hour-row${busyHours.has(h) ? '' : ' timeline-hour-row--free'}`}
+          style={{ top: (h * 60 - originMin) * ppm }}
+        >
+          <span className="timeline-hour-label">{String(h).padStart(2, '0')}:00</span>
+          <div className="timeline-hour-line" />
+          {!busyHours.has(h) && (
+            <span className="timeline-free-label">disponível</span>
+          )}
+        </div>
+      ))}
+
+      {sorted.map((ag, i) => {
+        const top     = (starts[i] - originMin) * ppm;
+        const height  = Math.max((ag.duracao_total_min || 30) * ppm, 60);
+        const compact = height < 72;
+
+        return (
+          <div
+            key={ag.id}
+            className={`timeline-event timeline-event--${ag.status}`}
+            style={{ top, height, left: LABEL_WIDTH + 12 }}
+          >
+            <div className="timeline-event-header">
+              <span className="timeline-event-time">
+                {new Date(ag.data_hora).toLocaleTimeString('pt-BR', {
+                  hour: '2-digit', minute: '2-digit',
+                })}
+                {!compact && (
+                  <em className="timeline-event-duration"> · {ag.duracao_total_min}min</em>
+                )}
+              </span>
+              <Badge status={ag.status} />
+            </div>
+
+            <div className="timeline-event-body">
+              <span className="timeline-event-cliente">{ag.nome_cliente}</span>
+              {!compact && (
+                <>
+                  <span className="timeline-event-servico">
+                    {ag.servicos_info?.length
+                      ? ag.servicos_info.map((s) => s.nome).join(' + ')
+                      : (ag.servico_nome ?? '—')}
+                  </span>
+                  {ag.profissional_nome && (
+                    <span className="timeline-event-profissional">
+                      <User size={11} /> {ag.profissional_nome}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            {!compact && (
+              <div className="timeline-event-actions">
+                {ag.status === 'pendente' && (
+                  <>
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() => onStatus(ag.id, 'confirmado')}
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => onStatus(ag.id, 'cancelado')}
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                )}
+                {(ag.status === 'pendente' || ag.status === 'confirmado') && (
+                  <button
+                    className="btn btn-whatsapp btn-sm"
+                    onClick={() => openWhatsApp(buildWhatsappUrl(ag, empresa?.nome_fantasia ?? ''))}
+                  >
+                    WhatsApp
+                  </button>
+                )}
+                {confirmDeleteId === ag.id ? (
+                  <>
+                    <span className="agendamento-delete-confirm-text" style={{ fontSize: 12 }}>
+                      Excluir?
+                    </span>
+                    <button className="btn btn-danger btn-sm" onClick={() => onDeleteConfirm(ag.id)}>
+                      Sim
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={onDeleteCancel}>
+                      Não
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn btn-ghost btn-sm agendamento-delete-btn"
+                    onClick={() => onDeleteRequest(ag.id)}
+                  >
+                    Excluir
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Grade de cards (abas Todos / status) ────────────────────────────────── */
+function AgendamentoCardList({
+  agendamentos,
+  empresa,
+  confirmDeleteId,
+  onStatus,
+  onDeleteRequest,
+  onDeleteConfirm,
+  onDeleteCancel,
+}: { agendamentos: Agendamento[] } & SharedCardProps) {
+  return (
+    <div className="card-list">
+      {agendamentos.map((ag) => (
+        <div key={ag.id} className="card agendamento-card">
+          <div className="agendamento-header">
+            <div>
+              <p className="agendamento-cliente">{ag.nome_cliente}</p>
+              <p className="agendamento-servico">
+                {ag.servicos_info?.length
+                  ? ag.servicos_info.map((s) => s.nome).join(' + ')
+                  : (ag.servico_nome ?? '—')}
+              </p>
+            </div>
+            <Badge status={ag.status} />
+          </div>
+
+          <div className="agendamento-info">
+            <span className="agendamento-info-item">
+              <Calendar size={13} />
+              {formatDataHora(ag.data_hora)}
+            </span>
+            <span className="agendamento-info-item">
+              <User size={13} />
+              {ag.profissional_nome
+                ? ag.profissional_nome
+                : <em className="agendamento-sem-profissional">Sem profissional</em>}
+            </span>
+            <span className="agendamento-info-item">
+              <Phone size={13} />
+              {ag.whatsapp_cliente}
+            </span>
+            <span className="agendamento-info-item">
+              <DollarSign size={13} />
+              {formatPreco(ag.preco_total)}
+            </span>
+          </div>
+
+          {(ag.status === 'pendente' || ag.status === 'confirmado') && (
+            <div className="agendamento-actions">
+              {ag.status === 'pendente' && (
+                <>
+                  <button
+                    className="btn btn-success btn-sm"
+                    onClick={() => onStatus(ag.id, 'confirmado')}
+                  >
+                    Confirmar
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => onStatus(ag.id, 'cancelado')}
+                  >
+                    Cancelar
+                  </button>
+                </>
+              )}
+              <button
+                className="btn btn-whatsapp btn-sm"
+                onClick={() => openWhatsApp(buildWhatsappUrl(ag, empresa?.nome_fantasia ?? ''))}
+              >
+                WhatsApp
+              </button>
+            </div>
+          )}
+
+          <div className="agendamento-delete-row">
+            {confirmDeleteId === ag.id ? (
+              <>
+                <span className="agendamento-delete-confirm-text">Excluir permanentemente?</span>
+                <button className="btn btn-danger btn-sm" onClick={() => onDeleteConfirm(ag.id)}>
+                  Sim, excluir
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={onDeleteCancel}>
+                  Não
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn btn-ghost btn-sm agendamento-delete-btn"
+                onClick={() => onDeleteRequest(ag.id)}
+              >
+                Excluir
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+function EmptyState({ tab }: { tab: TabValue }) {
+  return (
+    <div className="empty-state">
+      <div className="empty-state-icon"><Calendar size={28} /></div>
+      <h3>
+        {tab === 'hoje' ? 'Nenhum agendamento para hoje' : 'Nenhum agendamento encontrado'}
+      </h3>
+      <p className="empty-hint">
+        {tab === 'hoje'
+          ? 'Quando um cliente agendar para hoje, aparecerá aqui automaticamente.'
+          : 'Aguardando novos agendamentos.'}
+      </p>
+    </div>
+  );
+}
+
 /* ── Main component ──────────────────────────────────────────────────────── */
 export function AgendamentosPage() {
   const { empresa } = useAuth();
   const [allAgendamentos, setAllAgendamentos] = useState<Agendamento[]>([]);
-  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [tab, setTab] = useState<TabValue>('hoje');
-  const [loading, setLoading] = useState(true);
-  const [autoRefreshing, setAutoRefreshing] = useState(false);
+  const [agendamentos, setAgendamentos]       = useState<Agendamento[]>([]);
+  const [tab, setTab]                         = useState<TabValue>('hoje');
+  const [loading, setLoading]                 = useState(true);
+  const [autoRefreshing, setAutoRefreshing]   = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const todayCount   = allAgendamentos.filter((ag) => isToday(ag.data_hora)).length;
@@ -146,6 +426,15 @@ export function AgendamentosPage() {
     fetchData(true);
   }
 
+  const sharedProps: SharedCardProps = {
+    empresa,
+    confirmDeleteId,
+    onStatus:        handleStatus,
+    onDeleteRequest: (id) => setConfirmDeleteId(id),
+    onDeleteConfirm: handleDelete,
+    onDeleteCancel:  () => setConfirmDeleteId(null),
+  };
+
   return (
     <div className="page">
       <div className="focus-header">
@@ -192,106 +481,11 @@ export function AgendamentosPage() {
           ))}
         </div>
       ) : agendamentos.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"><Calendar size={28} /></div>
-          <h3>
-            {tab === 'hoje'
-              ? 'Nenhum agendamento para hoje'
-              : 'Nenhum agendamento encontrado'}
-          </h3>
-          <p className="empty-hint">
-            {tab === 'hoje'
-              ? 'Quando um cliente agendar para hoje, aparecerá aqui automaticamente.'
-              : 'Aguardando novos agendamentos.'}
-          </p>
-        </div>
+        <EmptyState tab={tab} />
+      ) : tab === 'hoje' ? (
+        <TodayTimeline agendamentos={agendamentos} {...sharedProps} />
       ) : (
-        <div className="card-list">
-          {agendamentos.map((ag) => (
-            <div key={ag.id} className="card agendamento-card">
-              <div className="agendamento-header">
-                <div>
-                  <p className="agendamento-cliente">{ag.nome_cliente}</p>
-                  <p className="agendamento-servico">
-                    {ag.servicos_info?.length
-                      ? ag.servicos_info.map((s) => s.nome).join(' + ')
-                      : (ag.servico_nome ?? '—')}
-                  </p>
-                </div>
-                <Badge status={ag.status} />
-              </div>
-
-              <div className="agendamento-info">
-                <span className="agendamento-info-item">
-                  <Calendar size={13} />
-                  {formatDataHora(ag.data_hora)}
-                </span>
-                <span className="agendamento-info-item">
-                  <User size={13} />
-                  {ag.profissional_nome
-                    ? ag.profissional_nome
-                    : <em className="agendamento-sem-profissional">Sem profissional</em>}
-                </span>
-                <span className="agendamento-info-item">
-                  <Phone size={13} />
-                  {ag.whatsapp_cliente}
-                </span>
-                <span className="agendamento-info-item">
-                  <DollarSign size={13} />
-                  {formatPreco(ag.preco_total)}
-                </span>
-              </div>
-
-              {(ag.status === 'pendente' || ag.status === 'confirmado') && (
-                <div className="agendamento-actions">
-                  {ag.status === 'pendente' && (
-                    <>
-                      <button
-                        className="btn btn-success btn-sm"
-                        onClick={() => handleStatus(ag.id, 'confirmado')}
-                      >
-                        Confirmar
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleStatus(ag.id, 'cancelado')}
-                      >
-                        Cancelar
-                      </button>
-                    </>
-                  )}
-                  <button
-                    className="btn btn-whatsapp btn-sm"
-                    onClick={() => openWhatsApp(buildWhatsappUrl(ag, empresa?.nome_fantasia ?? ''))}
-                  >
-                    WhatsApp
-                  </button>
-                </div>
-              )}
-
-              <div className="agendamento-delete-row">
-                {confirmDeleteId === ag.id ? (
-                  <>
-                    <span className="agendamento-delete-confirm-text">Excluir permanentemente?</span>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(ag.id)}>
-                      Sim, excluir
-                    </button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setConfirmDeleteId(null)}>
-                      Não
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    className="btn btn-ghost btn-sm agendamento-delete-btn"
-                    onClick={() => setConfirmDeleteId(ag.id)}
-                  >
-                    Excluir
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        <AgendamentoCardList agendamentos={agendamentos} {...sharedProps} />
       )}
     </div>
   );
