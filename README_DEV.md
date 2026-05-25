@@ -415,6 +415,28 @@ Todos os itens v1.5 foram implementados. ✅
 
 ---
 
+## 19. Melhorias implementadas (v1.6 — continuação) ✅
+
+### Frontend — Card de Agendamento Expandido
+
+- [x] **`expandedId: number | null`** adicionado ao estado de `AgendamentosPage` — controla o acordeão singleton; `handleToggleExpand(id)` abre o card clicado e fecha qualquer outro simultaneamente; `setExpandedId(null)` executado em troca de aba, após exclusão e sempre que `handleToggleExpand` é chamado
+- [x] **`SharedCardProps` estendido** — novos campos `expandedId` e `onToggleExpand` repassados a `TodayView` e `AgendamentoCardList`; handlers de ação (`onStatus`, `onDeleteRequest`, `onDeleteConfirm`, `onDeleteCancel`) mapeados para futura integração com API
+- [x] **Novo componente `ExpandedCardPanel`** — renderiza o painel expandido inline (sem modal); contém: lista de serviços com duração individual (via `servicos_info`, com fallback para FK legada), profissional com avatar de iniciais gerado por `getInitials()`, botão WhatsApp (visível apenas em `pendente`/`confirmado`), e ações **Confirmar** · **Cancelar** · **Excluir** com confirmação inline já existente; `onClick={e => e.stopPropagation()}` no wrapper impede que cliques nos botões internos fechem o card
+- [x] **`AgendamentoCardList`** (abas Todos/Pendentes/Confirmados/Cancelados) — cards tornados clicáveis com `card--expandable`; ícone `ChevronDown` no canto superior direito do header (ao lado do badge) rotaciona 180° via `.expand-chevron--open` quando aberto; ações removidas do estado colapsado e movidas para `ExpandedCardPanel`; `.agendamento-header-right` para alinhamento do badge + chevron
+- [x] **`TodayView`** (aba Hoje) — mesma lógica de expansão; footer com botões de ação removido do estado colapsado e substituído por `ExpandedCardPanel`; `.today-card-header-right` para alinhamento; meta-row (duração/telefone/valor) mantida visível no estado colapsado para manter o caráter "focus mode"
+- [x] **Animação** — `animation: slideUp 0.18s ease` reutilizado do CSS existente no `.expanded-panel`; chevron com `transition: transform 0.22s ease`
+- [x] **Novos estilos CSS** em `index.css`: `.card--expandable`, `.card--expanded`, `.expand-chevron`, `.expand-chevron--open`, `.agendamento-header-right`, `.today-card-header-right`, `.expanded-panel`, `.expanded-section-label`, `.expanded-services`, `.expanded-service-row`, `.expanded-service-name`, `.expanded-service-duration`, `.expanded-empty`, `.expanded-professional`, `.expanded-avatar`, `.expanded-avatar--empty`, `.expanded-actions`, `.expanded-actions-main`, `.expanded-actions-delete`
+
+#### Mapa dos handlers para futura integração com API
+| Handler | Localização no código | Conectado a |
+|---|---|---|
+| `onStatus(id, 'confirmado')` | `ExpandedCardPanel` — botão "Confirmar" | `updateStatus(id, status)` via `handleStatus` em `AgendamentosPage` |
+| `onStatus(id, 'cancelado')` | `ExpandedCardPanel` — botão "Cancelar" | `updateStatus(id, status)` via `handleStatus` em `AgendamentosPage` |
+| `onDeleteConfirm(id)` | `ExpandedCardPanel` — botão "Sim, excluir" | `deleteAgendamento(id)` via `handleDelete` em `AgendamentosPage` |
+| WhatsApp `buildWhatsappUrl` | `ExpandedCardPanel` — botão "Enviar mensagem WhatsApp" | `openWhatsApp(url)` → `window.open(url, 'whatsapp_panel')` |
+
+---
+
 ## 16. Melhorias planejadas (v1.6) 🔜
 
 ### Separação de contexto: Agendamentos × Financeiro
@@ -426,7 +448,7 @@ Todos os itens v1.5 foram implementados. ✅
 - [x] **Remover dados financeiros e gráfico de volume da `AgendamentosPage`** — os 4 KPI cards (Receita bruta, Confirmados, Ticket médio, Hoje) e o `VolumeChart` (recharts, volume por dia da semana) foram excluídos desta página; as chamadas a `GET /api/v1/financeiro/resumo/` e `GET /api/v1/agendamentos/volume/` foram removidas do componente junto com os imports `getFinanceiroResumo`, `getAgendamentosVolume`, `FinanceiroResumo`, `AgendamentoVolume`, `useTheme` e todos os imports do `recharts`; esses dados existem apenas em `FinanceiroPage`
 - [x] **Interface "focus mode" para agendamentos** — cabeçalho enxuto substituiu o `page-header` genérico: data atual por extenso com `capitalize` (ex: "Quarta-feira, 21 de maio") em `focus-date`; contagem discreta `"X agendamentos hoje · Y pendentes"` em `focus-stats`, com `pendentes` destacado em `--warning` apenas quando `> 0`; indicador `atualizando...` mantido à direita; `fetchData` refatorado para sempre buscar todos os agendamentos sem filtro de status e filtrar localmente por tab (necessário para que `todayCount` e `pendingCount` sejam independentes da aba ativa); profissional adicionado ao card com ícone `User` e texto `"Sem profissional"` em itálico quando `profissional_nome` é `null`; zero chamadas extras à API
 - [x] **Redesign da aba "Hoje" — UI/UX focada em legibilidade** — implementado com cards premium, separadores Manhã/Tarde/Noite, pill de horário com cor semântica, hierarquia nome→serviço→profissional, badge "Em atendimento" pulsante, borda lateral colorida por status e `@keyframes pulse-border` para o card em progresso; todos os botões de ação acessíveis no footer sem expansão — ver seção 18
-- [ ] **Card de agendamento expandido** — ao clicar no card (em qualquer aba), ele expande inline (sem modal) revelando: lista completa de serviços com duração individual, profissional atribuído com avatar de iniciais, link direto para WhatsApp e os botões de ação (Confirmar / Cancelar / Excluir); colapsa ao clicar novamente; apenas um card pode estar expandido por vez
+- [x] **Card de agendamento expandido** — ao clicar no card (em qualquer aba), ele expande inline (sem modal) revelando: lista completa de serviços com duração individual, profissional atribuído com avatar de iniciais, link direto para WhatsApp e os botões de ação (Confirmar / Cancelar / Excluir); colapsa ao clicar novamente; apenas um card pode estar expandido por vez
 - [ ] **Exibir profissional no card resumido** — o campo `profissional_nome` já vem no serializer mas não aparece no card fechado; adicionar linha com ícone `User` e nome do profissional (ou texto muted "Sem profissional" quando `null`), mantendo alinhamento visual com `Calendar`, `Phone` e `DollarSign`
 - [ ] **Badge de status com ação rápida integrada** — clicar no badge `Pendente` diretamente confirma o agendamento com micro-confirmação inline, sem precisar rolar até os botões de ação; badge `Confirmado` oferece ação rápida "Cancelar" no mesmo padrão
 

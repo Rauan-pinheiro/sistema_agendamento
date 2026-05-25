@@ -3,7 +3,7 @@ import { listAgendamentos, updateStatus, deleteAgendamento } from '../../api/age
 import type { Agendamento, AgendamentoStatus, Empresa } from '../../types';
 import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Phone, DollarSign, Clock, User } from 'lucide-react';
+import { Calendar, Phone, DollarSign, Clock, User, ChevronDown } from 'lucide-react';
 
 type TabValue = AgendamentoStatus | 'todos' | 'hoje';
 
@@ -89,14 +89,145 @@ function openWhatsApp(url: string) {
   window.open(url, 'whatsapp_panel');
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
+}
+
 /* ── Props compartilhados entre Timeline e CardList ─────────────────────── */
 interface SharedCardProps {
+  empresa: Empresa | null;
+  confirmDeleteId: number | null;
+  expandedId: number | null;
+  onToggleExpand: (id: number) => void;
+  onStatus: (id: number, status: AgendamentoStatus) => void;
+  onDeleteRequest: (id: number) => void;
+  onDeleteConfirm: (id: number) => void;
+  onDeleteCancel: () => void;
+}
+
+/* ── Expanded card panel ─────────────────────────────────────────────────── */
+interface ExpandedCardPanelProps {
+  ag: Agendamento;
   empresa: Empresa | null;
   confirmDeleteId: number | null;
   onStatus: (id: number, status: AgendamentoStatus) => void;
   onDeleteRequest: (id: number) => void;
   onDeleteConfirm: (id: number) => void;
   onDeleteCancel: () => void;
+}
+
+function ExpandedCardPanel({
+  ag,
+  empresa,
+  confirmDeleteId,
+  onStatus,
+  onDeleteRequest,
+  onDeleteConfirm,
+  onDeleteCancel,
+}: ExpandedCardPanelProps) {
+  const servicos = ag.servicos_info?.length
+    ? ag.servicos_info
+    : ag.servico_nome
+      ? [{ id: -1, nome: ag.servico_nome, duracao_min: ag.duracao_total_min, preco: ag.servico_preco ?? '0' }]
+      : [];
+
+  return (
+    // stopPropagation prevents clicks inside the panel from toggling the card closed
+    <div className="expanded-panel" onClick={(e) => e.stopPropagation()}>
+
+      {/* Services list */}
+      <div>
+        <p className="expanded-section-label">Serviços</p>
+        <div className="expanded-services">
+          {servicos.length > 0 ? (
+            servicos.map((s) => (
+              <div key={s.id} className="expanded-service-row">
+                <span className="expanded-service-name">{s.nome}</span>
+                <span className="expanded-service-duration">{s.duracao_min} min</span>
+              </div>
+            ))
+          ) : (
+            <p className="expanded-empty">—</p>
+          )}
+        </div>
+      </div>
+
+      {/* Professional */}
+      <div>
+        <p className="expanded-section-label">Profissional</p>
+        <div className="expanded-professional">
+          <div className={`expanded-avatar${ag.profissional_nome ? '' : ' expanded-avatar--empty'}`}>
+            {ag.profissional_nome ? getInitials(ag.profissional_nome) : '?'}
+          </div>
+          <span>
+            {ag.profissional_nome
+              ? ag.profissional_nome
+              : <em className="agendamento-sem-profissional">Sem profissional</em>}
+          </span>
+        </div>
+      </div>
+
+      {/* WhatsApp link — visible for pendente and confirmado */}
+      {(ag.status === 'pendente' || ag.status === 'confirmado') && (
+        <div>
+          <button
+            className="btn btn-whatsapp btn-sm"
+            onClick={() => openWhatsApp(buildWhatsappUrl(ag, empresa?.nome_fantasia ?? ''))}
+          >
+            Enviar mensagem WhatsApp
+          </button>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="expanded-actions">
+        <div className="expanded-actions-main">
+          {ag.status === 'pendente' && (
+            <>
+              <button
+                className="btn btn-success btn-sm"
+                onClick={() => onStatus(ag.id, 'confirmado')}
+              >
+                Confirmar
+              </button>
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={() => onStatus(ag.id, 'cancelado')}
+              >
+                Cancelar
+              </button>
+            </>
+          )}
+        </div>
+        <div className="expanded-actions-delete">
+          {confirmDeleteId === ag.id ? (
+            <>
+              <span className="agendamento-delete-confirm-text">Excluir permanentemente?</span>
+              <button className="btn btn-danger btn-sm" onClick={() => onDeleteConfirm(ag.id)}>
+                Sim
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={onDeleteCancel}>
+                Não
+              </button>
+            </>
+          ) : (
+            <button
+              className="btn btn-ghost btn-sm agendamento-delete-btn"
+              onClick={() => onDeleteRequest(ag.id)}
+            >
+              Excluir
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ── Today view helpers ───────────────────────────────────────────────────── */
@@ -121,6 +252,8 @@ function TodayView({
   agendamentos,
   empresa,
   confirmDeleteId,
+  expandedId,
+  onToggleExpand,
   onStatus,
   onDeleteRequest,
   onDeleteConfirm,
@@ -148,6 +281,7 @@ function TodayView({
             <div className="card-list">
               {items.map((ag) => {
                 const inProgress = isInProgress(ag);
+                const isExpanded = expandedId === ag.id;
                 const timeLabel = new Date(ag.data_hora).toLocaleTimeString('pt-BR', {
                   hour: '2-digit', minute: '2-digit',
                 });
@@ -158,7 +292,8 @@ function TodayView({
                 return (
                   <div
                     key={ag.id}
-                    className={`card today-card today-card--${ag.status}${inProgress ? ' today-card--in-progress' : ''}`}
+                    className={`card today-card today-card--${ag.status}${inProgress ? ' today-card--in-progress' : ''}${isExpanded ? ' card--expanded' : ''} card--expandable`}
+                    onClick={() => onToggleExpand(ag.id)}
                   >
                     <div className="today-card-body">
                       <div className="today-card-header">
@@ -178,7 +313,13 @@ function TodayView({
                             </p>
                           </div>
                         </div>
-                        <Badge status={ag.status} />
+                        <div className="today-card-header-right">
+                          <Badge status={ag.status} />
+                          <ChevronDown
+                            size={15}
+                            className={`expand-chevron${isExpanded ? ' expand-chevron--open' : ''}`}
+                          />
+                        </div>
                       </div>
 
                       <div className="today-card-meta">
@@ -192,62 +333,19 @@ function TodayView({
                           <DollarSign size={12} /> {formatPreco(ag.preco_total)}
                         </span>
                       </div>
-
-                      <div className="today-card-footer">
-                        <div className="today-card-actions-main">
-                          {ag.status === 'pendente' && (
-                            <>
-                              <button
-                                className="btn btn-success btn-sm"
-                                onClick={() => onStatus(ag.id, 'confirmado')}
-                              >
-                                Confirmar
-                              </button>
-                              <button
-                                className="btn btn-danger btn-sm"
-                                onClick={() => onStatus(ag.id, 'cancelado')}
-                              >
-                                Cancelar
-                              </button>
-                            </>
-                          )}
-                          {(ag.status === 'pendente' || ag.status === 'confirmado') && (
-                            <button
-                              className="btn btn-whatsapp btn-sm"
-                              onClick={() => openWhatsApp(buildWhatsappUrl(ag, empresa?.nome_fantasia ?? ''))}
-                            >
-                              WhatsApp
-                            </button>
-                          )}
-                        </div>
-                        <div className="today-card-actions-delete">
-                          {confirmDeleteId === ag.id ? (
-                            <>
-                              <span className="today-card-delete-text">Excluir?</span>
-                              <button
-                                className="btn btn-danger btn-sm"
-                                onClick={() => onDeleteConfirm(ag.id)}
-                              >
-                                Sim
-                              </button>
-                              <button
-                                className="btn btn-secondary btn-sm"
-                                onClick={onDeleteCancel}
-                              >
-                                Não
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              className="btn btn-ghost btn-sm agendamento-delete-btn"
-                              onClick={() => onDeleteRequest(ag.id)}
-                            >
-                              Excluir
-                            </button>
-                          )}
-                        </div>
-                      </div>
                     </div>
+
+                    {isExpanded && (
+                      <ExpandedCardPanel
+                        ag={ag}
+                        empresa={empresa}
+                        confirmDeleteId={confirmDeleteId}
+                        onStatus={onStatus}
+                        onDeleteRequest={onDeleteRequest}
+                        onDeleteConfirm={onDeleteConfirm}
+                        onDeleteCancel={onDeleteCancel}
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -264,6 +362,8 @@ function AgendamentoCardList({
   agendamentos,
   empresa,
   confirmDeleteId,
+  expandedId,
+  onToggleExpand,
   onStatus,
   onDeleteRequest,
   onDeleteConfirm,
@@ -271,90 +371,67 @@ function AgendamentoCardList({
 }: { agendamentos: Agendamento[] } & SharedCardProps) {
   return (
     <div className="card-list">
-      {agendamentos.map((ag) => (
-        <div key={ag.id} className="card agendamento-card">
-          <div className="agendamento-header">
-            <div>
-              <p className="agendamento-cliente">{ag.nome_cliente}</p>
-              <p className="agendamento-servico">
-                {ag.servicos_info?.length
-                  ? ag.servicos_info.map((s) => s.nome).join(' + ')
-                  : (ag.servico_nome ?? '—')}
-              </p>
+      {agendamentos.map((ag) => {
+        const isExpanded = expandedId === ag.id;
+        return (
+          <div
+            key={ag.id}
+            className={`card agendamento-card card--expandable${isExpanded ? ' card--expanded' : ''}`}
+            onClick={() => onToggleExpand(ag.id)}
+          >
+            <div className="agendamento-header">
+              <div>
+                <p className="agendamento-cliente">{ag.nome_cliente}</p>
+                <p className="agendamento-servico">
+                  {ag.servicos_info?.length
+                    ? ag.servicos_info.map((s) => s.nome).join(' + ')
+                    : (ag.servico_nome ?? '—')}
+                </p>
+              </div>
+              <div className="agendamento-header-right">
+                <Badge status={ag.status} />
+                <ChevronDown
+                  size={15}
+                  className={`expand-chevron${isExpanded ? ' expand-chevron--open' : ''}`}
+                />
+              </div>
             </div>
-            <Badge status={ag.status} />
-          </div>
 
-          <div className="agendamento-info">
-            <span className="agendamento-info-item">
-              <Calendar size={13} />
-              {formatDataHora(ag.data_hora)}
-            </span>
-            <span className="agendamento-info-item">
-              <User size={13} />
-              {ag.profissional_nome
-                ? ag.profissional_nome
-                : <em className="agendamento-sem-profissional">Sem profissional</em>}
-            </span>
-            <span className="agendamento-info-item">
-              <Phone size={13} />
-              {ag.whatsapp_cliente}
-            </span>
-            <span className="agendamento-info-item">
-              <DollarSign size={13} />
-              {formatPreco(ag.preco_total)}
-            </span>
-          </div>
-
-          {(ag.status === 'pendente' || ag.status === 'confirmado') && (
-            <div className="agendamento-actions">
-              {ag.status === 'pendente' && (
-                <>
-                  <button
-                    className="btn btn-success btn-sm"
-                    onClick={() => onStatus(ag.id, 'confirmado')}
-                  >
-                    Confirmar
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => onStatus(ag.id, 'cancelado')}
-                  >
-                    Cancelar
-                  </button>
-                </>
-              )}
-              <button
-                className="btn btn-whatsapp btn-sm"
-                onClick={() => openWhatsApp(buildWhatsappUrl(ag, empresa?.nome_fantasia ?? ''))}
-              >
-                WhatsApp
-              </button>
+            <div className="agendamento-info">
+              <span className="agendamento-info-item">
+                <Calendar size={13} />
+                {formatDataHora(ag.data_hora)}
+              </span>
+              <span className="agendamento-info-item">
+                <User size={13} />
+                {ag.profissional_nome
+                  ? ag.profissional_nome
+                  : <em className="agendamento-sem-profissional">Sem profissional</em>}
+              </span>
+              <span className="agendamento-info-item">
+                <Phone size={13} />
+                {ag.whatsapp_cliente}
+              </span>
+              <span className="agendamento-info-item">
+                <DollarSign size={13} />
+                {formatPreco(ag.preco_total)}
+              </span>
             </div>
-          )}
 
-          <div className="agendamento-delete-row">
-            {confirmDeleteId === ag.id ? (
-              <>
-                <span className="agendamento-delete-confirm-text">Excluir permanentemente?</span>
-                <button className="btn btn-danger btn-sm" onClick={() => onDeleteConfirm(ag.id)}>
-                  Sim, excluir
-                </button>
-                <button className="btn btn-secondary btn-sm" onClick={onDeleteCancel}>
-                  Não
-                </button>
-              </>
-            ) : (
-              <button
-                className="btn btn-ghost btn-sm agendamento-delete-btn"
-                onClick={() => onDeleteRequest(ag.id)}
-              >
-                Excluir
-              </button>
+            {isExpanded && (
+              <ExpandedCardPanel
+                ag={ag}
+                empresa={empresa}
+                confirmDeleteId={confirmDeleteId}
+                onStatus={onStatus}
+                onDeleteRequest={onDeleteRequest}
+                onDeleteConfirm={onDeleteConfirm}
+                onDeleteCancel={onDeleteCancel}
+              />
             )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -385,6 +462,7 @@ export function AgendamentosPage() {
   const [loading, setLoading]                 = useState(true);
   const [autoRefreshing, setAutoRefreshing]   = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [expandedId, setExpandedId]           = useState<number | null>(null);
 
   const todayCount   = allAgendamentos.filter((ag) => isToday(ag.data_hora)).length;
   const pendingCount = allAgendamentos.filter((ag) => ag.status === 'pendente').length;
@@ -414,6 +492,7 @@ export function AgendamentosPage() {
 
   useEffect(() => {
     setConfirmDeleteId(null);
+    setExpandedId(null);
     fetchData(false);
   }, [fetchData]);
 
@@ -432,12 +511,20 @@ export function AgendamentosPage() {
   async function handleDelete(id: number) {
     await deleteAgendamento(id);
     setConfirmDeleteId(null);
+    setExpandedId(null);
     fetchData(true);
+  }
+
+  function handleToggleExpand(id: number) {
+    setConfirmDeleteId(null);
+    setExpandedId((prev) => (prev === id ? null : id));
   }
 
   const sharedProps: SharedCardProps = {
     empresa,
     confirmDeleteId,
+    expandedId,
+    onToggleExpand:  handleToggleExpand,
     onStatus:        handleStatus,
     onDeleteRequest: (id) => setConfirmDeleteId(id),
     onDeleteConfirm: handleDelete,
