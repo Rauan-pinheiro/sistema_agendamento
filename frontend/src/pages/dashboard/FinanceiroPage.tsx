@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import { getFinanceiroResumo } from '../../api/profissionais';
 import type { FinanceiroResumo } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
+import { Tooltip } from '../../components/Tooltip';
 import {
   DollarSign, CheckCircle, TrendingUp, Calendar,
-  XCircle, Percent, BarChart2, Clock,
+  XCircle, Percent, BarChart2, Clock, HelpCircle,
 } from 'lucide-react';
 
 /* ── Constantes ──────────────────────────────────────────────────────────── */
@@ -87,6 +88,15 @@ function PieTooltip({ active, payload }: PieTooltipProps) {
 
 /* ── KPI Card ────────────────────────────────────────────────────────────── */
 
+const KPI_TOOLTIPS: Record<string, string> = {
+  receita:     'Total em R$ de todos os agendamentos confirmados no período. Não desconta custos ou cancelamentos.',
+  confirmados: 'Quantidade de agendamentos que você confirmou no período.',
+  ticket:      'Valor médio por agendamento confirmado. Calculado dividindo a receita bruta pelo número de confirmados.',
+  total:       'Todos os agendamentos criados no período, independentemente do status.',
+  cancelados:  'Agendamentos que foram cancelados por você ou pelo cliente no período.',
+  pendentes:   'Agendamentos aguardando sua confirmação até o momento da consulta.',
+};
+
 interface KpiCardProps {
   label: string;
   value: string | number;
@@ -96,13 +106,21 @@ interface KpiCardProps {
 }
 
 function KpiCard({ label, value, modifier, icon, highlight }: KpiCardProps) {
+  const tooltipText = KPI_TOOLTIPS[modifier];
   return (
     <div className={`financeiro-card financeiro-card--${modifier}${highlight ? ` card--highlight-${highlight}` : ''}`}>
-      <div className="financeiro-card-header">
-        <span className="financeiro-card-label">{label}</span>
-        <div className="financeiro-card-icon">{icon}</div>
+      <div className="financeiro-card-top">
+        {tooltipText && (
+          <Tooltip text={tooltipText}>
+            <button className="financeiro-card-help" aria-label={`Saiba mais sobre ${label}`}>
+              <HelpCircle size={14} />
+            </button>
+          </Tooltip>
+        )}
       </div>
       <span className="financeiro-card-value">{value}</span>
+      <span className="financeiro-card-label">{label}</span>
+      <div className="financeiro-card-icon-deco" aria-hidden="true">{icon}</div>
     </div>
   );
 }
@@ -203,11 +221,9 @@ export function FinanceiroPage() {
         <div className="financeiro-cards">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="financeiro-card">
-              <div className="financeiro-card-header">
-                <div className="skeleton" style={{ height: 38, width: 38, borderRadius: 10 }} />
-              </div>
+              <div style={{ height: 22, marginBottom: 4 }} />
+              <div className="skeleton" style={{ height: 34, width: '72%' }} />
               <div className="skeleton skeleton-row" style={{ width: '55%', marginTop: 8 }} />
-              <div className="skeleton" style={{ height: 34, width: '72%', marginTop: 6 }} />
             </div>
           ))}
         </div>
@@ -258,8 +274,8 @@ export function FinanceiroPage() {
       {/* Taxa de confirmação — destaque separado */}
       {!loading && resumo && resumo.total_agendamentos > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <div className="financeiro-card financeiro-card--taxa" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, padding: '16px 22px' }}>
-            <div className="financeiro-card-icon" style={{ flexShrink: 0 }}>
+          <div className="financeiro-card financeiro-card--taxa" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, padding: '16px 22px', overflow: 'visible' }}>
+            <div style={{ flexShrink: 0, color: 'var(--success-hover)' }}>
               <Percent size={20} />
             </div>
             <div style={{ flex: 1 }}>
@@ -333,7 +349,7 @@ export function FinanceiroPage() {
                     tickFormatter={fmtMoedaShort}
                     width={52}
                   />
-                  <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(96,165,250,.07)' }} />
+                  <ChartTooltip content={<BarTooltip />} cursor={{ fill: 'rgba(96,165,250,.07)' }} />
                   <Bar
                     dataKey="receita_num"
                     fill="#60a5fa"
@@ -374,7 +390,7 @@ export function FinanceiroPage() {
                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip content={<PieTooltip />} />
+                    <ChartTooltip content={<PieTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
 

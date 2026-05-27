@@ -911,32 +911,76 @@ a:hover { text-decoration: underline; }
 /* ── Financeiro ──────────────────────────────────────────────────────────── */
 .financeiro-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
   margin-bottom: 32px;
 }
+@media (min-width: 768px) {
+  .financeiro-cards { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+}
+@media (min-width: 1280px) {
+  .financeiro-cards { grid-template-columns: repeat(6, 1fr); gap: 12px; }
+}
+
 .financeiro-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 22px 24px;
+  padding: 18px 20px 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  position: relative;
+  overflow: hidden;
   transition: box-shadow var(--t), transform var(--t);
 }
 .financeiro-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-.financeiro-card-header { display: flex; align-items: center; justify-content: space-between; }
-.financeiro-card-icon   { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
-.financeiro-card-label  { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
-.financeiro-card-value  { font-size: 30px; font-weight: 800; line-height: 1.1; }
-.financeiro-card--receita     .financeiro-card-icon  { background: rgba(74,222,128,.14); color: var(--success-hover); }
-.financeiro-card--confirmados .financeiro-card-icon  { background: rgba(96,165,250,.14); color: var(--primary-hover); }
-.financeiro-card--ticket      .financeiro-card-icon  { background: rgba(167,139,250,.14); color: var(--accent-hover); }
-.financeiro-card--receita     .financeiro-card-value { color: var(--success-hover); }
-.financeiro-card--confirmados .financeiro-card-value { color: var(--primary-hover); }
-.financeiro-card--ticket      .financeiro-card-value { color: var(--accent-hover); }
+
+/* Top row: alinha botão de ajuda à direita */
+.financeiro-card-top { display: flex; justify-content: flex-end; min-height: 22px; margin-bottom: 6px; }
+
+/* Help button */
+.financeiro-card-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+  flex-shrink: 0;
+}
+.financeiro-card-help:hover { background: var(--surface-hover); color: var(--text); }
+
+/* Valor: destaque principal */
+.financeiro-card-value { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+
+/* Label: abaixo do valor, letras pequenas */
+.financeiro-card-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-top: 6px; }
+
+/* Ícone decorativo: posicionado em background */
+.financeiro-card-icon-deco {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  opacity: 0.1;
+  pointer-events: none;
+  transform: scale(3.4);
+  transform-origin: bottom right;
+}
+
+/* Cores do valor e ícone por tipo */
+.financeiro-card--receita     .financeiro-card-value     { color: var(--success-hover); }
+.financeiro-card--confirmados .financeiro-card-value     { color: var(--primary-hover); }
+.financeiro-card--ticket      .financeiro-card-value     { color: var(--accent-hover); }
+.financeiro-card--receita     .financeiro-card-icon-deco { color: var(--success-hover); }
+.financeiro-card--confirmados .financeiro-card-icon-deco { color: var(--primary-hover); }
+.financeiro-card--ticket      .financeiro-card-icon-deco { color: var(--accent-hover); }
+
 .financeiro-mes { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; display: flex; align-items: center; gap: 6px; }
 
 /* ── Public page ─────────────────────────────────────────────────────────── */
@@ -1566,16 +1610,55 @@ a:hover { text-decoration: underline; }
 .mes-select:hover { border-color: var(--text-muted); }
 
 /* Modificadores adicionais de card financeiro */
-.financeiro-card--total      .financeiro-card-icon  { background: rgba(96,165,250,.14);  color: var(--primary); }
-.financeiro-card--cancelados .financeiro-card-icon  { background: rgba(248,113,113,.14); color: var(--danger); }
-.financeiro-card--pendentes  .financeiro-card-icon  { background: rgba(251,191,36,.14);  color: #b45309; }
-.financeiro-card--taxa       .financeiro-card-icon  { background: rgba(74,222,128,.14);  color: var(--success-hover); }
-.financeiro-card--total      .financeiro-card-value { color: var(--primary); }
-.financeiro-card--cancelados .financeiro-card-value { color: var(--danger); }
-.financeiro-card--pendentes  .financeiro-card-value { color: #b45309; }
-.financeiro-card--taxa       .financeiro-card-value { color: var(--success-hover); }
-[data-theme="dark"] .financeiro-card--pendentes .financeiro-card-value { color: var(--warning); }
-[data-theme="dark"] .financeiro-card--pendentes .financeiro-card-icon  { color: var(--warning); }
+.financeiro-card--total      .financeiro-card-value     { color: var(--primary); }
+.financeiro-card--cancelados .financeiro-card-value     { color: var(--danger); }
+.financeiro-card--pendentes  .financeiro-card-value     { color: #b45309; }
+.financeiro-card--taxa       .financeiro-card-value     { color: var(--success-hover); }
+.financeiro-card--total      .financeiro-card-icon-deco { color: var(--primary); }
+.financeiro-card--cancelados .financeiro-card-icon-deco { color: var(--danger); }
+.financeiro-card--pendentes  .financeiro-card-icon-deco { color: #b45309; }
+.financeiro-card--taxa       .financeiro-card-icon-deco { color: var(--success-hover); }
+[data-theme="dark"] .financeiro-card--pendentes .financeiro-card-value     { color: var(--warning); }
+[data-theme="dark"] .financeiro-card--pendentes .financeiro-card-icon-deco { color: var(--warning); }
+
+/* ── Tooltip (KPI cards) ─────────────────────────────────────────────────── */
+.tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip-bubble {
+  position: fixed;
+  z-index: 999;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.55;
+  min-width: 200px;
+  max-width: 280px;
+  white-space: normal;
+  pointer-events: none;
+  animation: fadeIn 0.1s ease;
+  transform: translateX(-50%);
+}
+.tooltip-bubble::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
 
 /* Tooltip recharts (renderizado em <div>, CSS vars funcionam) */
 .recharts-custom-tooltip {
@@ -1654,7 +1737,7 @@ a:hover { text-decoration: underline; }
   .form-row       { grid-template-columns: 1fr; }
   .auth-card      { padding: 28px 24px; }
   .kpi-grid       { grid-template-columns: repeat(2, 1fr); }
-  .financeiro-cards { grid-template-columns: 1fr; }
+  .financeiro-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .progress-bar-wrap { padding: 12px 16px; }
   .kpi-value      { font-size: 22px; }
 }

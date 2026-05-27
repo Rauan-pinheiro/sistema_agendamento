@@ -125,6 +125,13 @@ Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, build servid
 - [x] **Profissional no card resumido (fechado)** — `profissional_nome` exibido no card fechado com ícone `User` em ambos os layouts (aba Hoje via `.today-card-professional` e demais abas via `.agendamento-info-item`); texto muted "Sem profissional" em itálico quando `null`
 - [x] **Badge de status com ação rápida integrada** — badge `Pendente` e `Confirmado` tornados clicáveis (`.badge--clickable`); ao clicar o badge é substituído inline por `"Confirmar? [✓] [✕]"` ou `"Cancelar? [✓] [✕]"` com animação `fadeIn`; confirmar executa a ação e fecha; `[✕]` descarta sem ação; `stopPropagation` impede que o clique abra/feche o card; `quickActionId` limpo ao trocar de aba; componente `BadgeOrQuickAction` aplicado em `TodayView` e `AgendamentoCardList`; `tsc --noEmit` zero erros
 
+### v1.7 — Financeiro: Tooltips KPI, Grid Responsivo, Hierarquia Visual
+
+- [x] `components/Tooltip.tsx` — componente reutilizável; renderiza via `createPortal` em `document.body` para não ser clipado por `overflow: hidden`; `position: fixed` com coords calculadas por `getBoundingClientRect`; `role="tooltip"` + `aria-describedby` (acessível); fecha com `Esc` ou clique fora; suporta hover (desktop) e tap-toggle (mobile)
+- [x] `FinanceiroPage.tsx` — `KpiCard` redesenhado: `.financeiro-card-top` com botão `HelpCircle` no canto superior direito; valor em `2rem` bold; label em `0.75rem uppercase` abaixo do valor; ícone decorativo em `position: absolute` com `opacity: 0.1` e `scale(3.4)` clippado pelo `overflow: hidden` do card; `KPI_TOOLTIPS` mapeando cada `modifier` ao texto explicativo
+- [x] `FinanceiroPage.tsx` — renomeado `Tooltip` do recharts para `ChartTooltip` evitando conflito de importação com o novo componente; `tsc --noEmit` zero erros
+- [x] `index.css` — `.financeiro-cards` com grid responsivo: `repeat(2, 1fr)` base (mobile), `repeat(3, 1fr)` ≥768px, `repeat(6, 1fr)` ≥1280px; `.financeiro-card-top`, `.financeiro-card-help`, `.financeiro-card-icon-deco` adicionados; `.tooltip-wrapper` + `.tooltip-bubble` com seta CSS `::before`; override `grid-template-columns: 1fr` do `@media (max-width: 768px)` ajustado para `repeat(2, 1fr)`
+
 ---
 
 ## Decisões técnicas e armadilhas (Frontend)
@@ -154,16 +161,16 @@ Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, build servid
 
 > **Motivação:** os 6 KPI cards são exibidos lado a lado, mas os termos são opacos para um prestador sem background financeiro.
 
-- [ ] **Ícone `?` com tooltip em cada KPI card** — cada card recebe um ícone `HelpCircle` (lucide-react) posicionado no canto superior direito; ao hover (desktop) ou toque (mobile) o tooltip aparece com a definição da métrica:
+- [x] **Ícone `?` com tooltip em cada KPI card** — cada card recebe um ícone `HelpCircle` (lucide-react) posicionado no canto superior direito; ao hover (desktop) ou toque (mobile) o tooltip aparece com a definição da métrica:
   - **Receita bruta** → _"Total em R$ de todos os agendamentos confirmados no período. Não desconta custos ou cancelamentos."_
   - **Confirmados** → _"Quantidade de agendamentos que você confirmou no período."_
   - **Ticket médio** → _"Valor médio por agendamento confirmado. Calculado dividindo a receita bruta pelo número de confirmados."_
   - **Total no período** → _"Todos os agendamentos criados no período, independentemente do status."_
   - **Cancelados** → _"Agendamentos que foram cancelados por você ou pelo cliente no período."_
   - **Pendentes** → _"Agendamentos aguardando sua confirmação até o momento da consulta."_
-- [ ] **Tooltip acessível** — componente `Tooltip` reutilizável em `components/Tooltip.tsx`; `position: absolute` com `z-index` alto; `role="tooltip"` e `aria-describedby` para leitores de tela; desaparece ao pressionar `Esc` ou clicar fora
-- [ ] **Layout em grade responsiva para os KPIs** — migrar de `display: flex / flex-wrap` para `CSS Grid` com `grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))`; em desktop ≥1280px os 6 cards cabem em uma linha; em tablet 768px–1279px: 3×2; em mobile ≤767px: 2×3
-- [ ] **Hierarquia visual nos cards** — valor principal em fonte grande e bold (`2rem`); label abaixo em `0.75rem uppercase letter-spacing`; ícone da métrica deslocado para direita do card em opacidade `0.15` como elemento decorativo
+- [x] **Tooltip acessível** — componente `Tooltip` reutilizável em `components/Tooltip.tsx`; renderizado via `createPortal` em `document.body` (não afetado por `overflow: hidden` dos cards); `position: fixed` com coordenadas calculadas via `getBoundingClientRect`; `role="tooltip"` e `aria-describedby` para leitores de tela; desaparece ao pressionar `Esc` ou clicar fora; hover no desktop e toque (click-toggle) no mobile
+- [x] **Layout em grade responsiva para os KPIs** — CSS Grid com breakpoints explícitos: `repeat(2, 1fr)` mobile ≤767px; `repeat(3, 1fr)` tablet 768–1279px; `repeat(6, 1fr)` desktop ≥1280px
+- [x] **Hierarquia visual nos cards** — valor principal `2rem` bold; label abaixo em `0.75rem uppercase letter-spacing`; ícone da métrica posicionado absolutamente no canto inferior-direito com `opacity: 0.1` e `transform: scale(3.4)` como elemento decorativo; cards com `overflow: hidden` para clicar o ícone escalado
 
 ### Dashboard — cards de agendamento mais informativos
 
