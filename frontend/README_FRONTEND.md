@@ -14,7 +14,7 @@ Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, build servid
 1. Registra conta via `/register` — cria User + Empresa num único POST.
 2. Faz login em `/login` — recebe tokens JWT armazenados no localStorage.
 3. No dashboard (`/dashboard`):
-   - **Agendamentos:** visualiza por aba (Hoje / Todos / Pendentes / Confirmados / Cancelados); a aba "Hoje" é a padrão ao abrir; lista atualiza automaticamente a cada 30s sem recarregar a página; confirma, cancela ou exclui agendamentos (exclusão com confirmação inline); envia mensagem de confirmação pré-formatada via WhatsApp com um clique; ao clicar no card ele expande inline revelando lista de serviços com duração individual, profissional com avatar de iniciais, botão WhatsApp e ações.
+   - **Agendamentos:** visualiza por aba (Hoje / Todos / Pendentes / Confirmados / Cancelados); a aba "Hoje" é a padrão ao abrir; lista atualiza automaticamente a cada 30s sem recarregar a página; confirma, cancela ou exclui agendamentos (exclusão com confirmação inline); envia mensagem de confirmação pré-formatada via WhatsApp com um clique; cards fechados exibem hierarquicamente nome do cliente (bold) + telefone formatado, serviço em destaque, profissional · data · hora e valor em verde — todas as informações essenciais visíveis sem expandir; ao clicar no card ele expande inline revelando lista de serviços com duração individual, profissional com avatar de iniciais, botão WhatsApp e ações.
    - **Serviços:** cria, edita e exclui serviços com nome, descrição opcional, duração e preço.
    - **Profissionais:** tabela com avatar de iniciais, nome, especialidade e badge de status clicável (toggle ativo/inativo direto da tabela).
    - **Horários:** cadastra os dias da semana e faixas de atendimento com o intervalo de slots desejado; suporta grade geral da empresa e grade individual por profissional via barra de seleção de grade.
@@ -125,6 +125,15 @@ Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, build servid
 - [x] **Profissional no card resumido (fechado)** — `profissional_nome` exibido no card fechado com ícone `User` em ambos os layouts (aba Hoje via `.today-card-professional` e demais abas via `.agendamento-info-item`); texto muted "Sem profissional" em itálico quando `null`
 - [x] **Badge de status com ação rápida integrada** — badge `Pendente` e `Confirmado` tornados clicáveis (`.badge--clickable`); ao clicar o badge é substituído inline por `"Confirmar? [✓] [✕]"` ou `"Cancelar? [✓] [✕]"` com animação `fadeIn`; confirmar executa a ação e fecha; `[✕]` descarta sem ação; `stopPropagation` impede que o clique abra/feche o card; `quickActionId` limpo ao trocar de aba; componente `BadgeOrQuickAction` aplicado em `TodayView` e `AgendamentoCardList`; `tsc --noEmit` zero erros
 
+### v1.8 — Cards de Agendamento: Hierarquia Visual, Contraste e Redesign
+
+- [x] **Layout hierárquico no card fechado (abas Todos/status)** — informações reorganizadas em três camadas: ① nome do cliente (15px bold, `--text`) + telefone formatado com ícone `Phone` no cabeçalho; ② serviço em linha própria abaixo do cabeçalho (largura total); ③ linha de metadados com profissional · data · hora separados por `border-top` sutil
+- [x] **Preço destacado em verde** — `.agendamento-info-preco` com `color: var(--success-hover)`, `font-weight: 700` e `font-size: 14px`; valor legível no tema escuro sem depender de cinza apagado
+- [x] **Data e hora separados** — `formatDataHora` substituído por `formatData` + `formatHora` como itens distintos com ícones `Calendar` e `Clock`, permitindo leitura rápida
+- [x] **Telefone formatado com máscara** — `displayPhone()` aplica máscara `(XX) XXXXX-XXXX` (removendo prefixo `55` se presente) e exibe com ícone `Phone` junto ao nome do cliente no cabeçalho
+- [x] **Separador visual na linha de metadados** — `border-top: 1px solid var(--border)` + `padding-top: 10px` na `.agendamento-info` para criar separação hierárquica clara entre identidade e detalhes secundários
+- [x] **Todas as informações relevantes visíveis sem expandir** — serviço, profissional, data, hora e valor todos presentes no card fechado; expansão reservada para ações e detalhes de duração por serviço
+
 ### v1.7 — Financeiro: Tooltips KPI, Grid Responsivo, Hierarquia Visual
 
 - [x] `components/Tooltip.tsx` — componente reutilizável; renderiza via `createPortal` em `document.body` para não ser clipado por `overflow: hidden`; `position: fixed` com coords calculadas por `getBoundingClientRect`; `role="tooltip"` + `aria-describedby` (acessível); fecha com `Esc` ou clique fora; suporta hover (desktop) e tap-toggle (mobile)
@@ -174,7 +183,7 @@ Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, build servid
 
 ### Dashboard — cards de agendamento mais informativos
 
-- [ ] **Resumo completo no card** — revisar layout dos cards para garantir que todas as informações relevantes (serviço, profissional, data/hora, status, valor) sejam visíveis hierarquicamente sem abrir tela adicional
+- [x] **Resumo completo no card** — hierarquia visual implementada nos cards das abas Todos/status: nome cliente (bold, `--text`) + telefone formatado no cabeçalho; serviço em linha própria logo abaixo; profissional · data · hora separados por linha tênue; valor em verde bold — todas as informações essenciais visíveis sem expandir; tema escuro corrigido (preço não mais cinza apagado)
 
 ### Auto-refresh aprimorado
 

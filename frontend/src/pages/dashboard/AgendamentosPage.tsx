@@ -4,6 +4,7 @@ import type { Agendamento, AgendamentoStatus, Empresa } from '../../types';
 import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, Phone, DollarSign, Clock, User, ChevronDown } from 'lucide-react';
+import { formatPhone } from '../../utils/phone';
 
 type TabValue = AgendamentoStatus | 'todos' | 'hoje';
 
@@ -37,11 +38,12 @@ function formatDataAtual(): string {
   });
 }
 
-function formatDataHora(iso: string) {
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+function formatData(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatHora(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatPreco(preco: string) {
@@ -51,6 +53,12 @@ function formatPreco(preco: string) {
 function formatWhatsapp(numero: string): string {
   const digits = numero.replace(/\D/g, '');
   return digits.startsWith('55') ? digits : `55${digits}`;
+}
+
+function displayPhone(numero: string): string {
+  const digits = numero.replace(/\D/g, '');
+  const local = digits.startsWith('55') && digits.length > 11 ? digits.slice(2) : digits;
+  return formatPhone(local);
 }
 
 function buildWhatsappUrl(ag: Agendamento, empresaNome: string): string {
@@ -393,7 +401,7 @@ function TodayView({
                         <span className="today-card-meta-item">
                           <Phone size={12} /> {ag.whatsapp_cliente}
                         </span>
-                        <span className="today-card-meta-item">
+                        <span className="today-card-meta-item today-card-meta-preco">
                           <DollarSign size={12} /> {formatPreco(ag.preco_total)}
                         </span>
                       </div>
@@ -447,12 +455,10 @@ function AgendamentoCardList({
             onClick={() => onToggleExpand(ag.id)}
           >
             <div className="agendamento-header">
-              <div>
+              <div className="agendamento-identity">
                 <p className="agendamento-cliente">{ag.nome_cliente}</p>
-                <p className="agendamento-servico">
-                  {ag.servicos_info?.length
-                    ? ag.servicos_info.map((s) => s.nome).join(' + ')
-                    : (ag.servico_nome ?? '—')}
+                <p className="agendamento-phone">
+                  <Phone size={12} />{displayPhone(ag.whatsapp_cliente)}
                 </p>
               </div>
               <div className="agendamento-header-right">
@@ -470,24 +476,27 @@ function AgendamentoCardList({
               </div>
             </div>
 
+            <p className="agendamento-servico">
+              {ag.servicos_info?.length
+                ? ag.servicos_info.map((s) => s.nome).join(' + ')
+                : (ag.servico_nome ?? '—')}
+            </p>
+
             <div className="agendamento-info">
-              <span className="agendamento-info-item">
-                <Calendar size={13} />
-                {formatDataHora(ag.data_hora)}
-              </span>
-              <span className="agendamento-info-item">
+              <span className="agendamento-info-item agendamento-info-prof">
                 <User size={13} />
                 {ag.profissional_nome
                   ? ag.profissional_nome
                   : <em className="agendamento-sem-profissional">Sem profissional</em>}
               </span>
               <span className="agendamento-info-item">
-                <Phone size={13} />
-                {ag.whatsapp_cliente}
+                <Calendar size={13} />{formatData(ag.data_hora)}
               </span>
-              <span className="agendamento-info-item">
-                <DollarSign size={13} />
-                {formatPreco(ag.preco_total)}
+              <span className="agendamento-info-item agendamento-info-time">
+                <Clock size={13} />{formatHora(ag.data_hora)}
+              </span>
+              <span className="agendamento-info-item agendamento-info-preco">
+                <DollarSign size={13} />{formatPreco(ag.preco_total)}
               </span>
             </div>
 
