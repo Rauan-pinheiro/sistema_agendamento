@@ -104,11 +104,14 @@ interface SharedCardProps {
   empresa: Empresa | null;
   confirmDeleteId: number | null;
   expandedId: number | null;
+  quickActionId: number | null;
   onToggleExpand: (id: number) => void;
   onStatus: (id: number, status: AgendamentoStatus) => void;
   onDeleteRequest: (id: number) => void;
   onDeleteConfirm: (id: number) => void;
   onDeleteCancel: () => void;
+  onQuickAction: (id: number) => void;
+  onQuickActionCancel: () => void;
 }
 
 /* ── Expanded card panel ─────────────────────────────────────────────────── */
@@ -230,6 +233,58 @@ function ExpandedCardPanel({
   );
 }
 
+/* ── Badge clicável com micro-confirmação inline ─────────────────────────── */
+function BadgeOrQuickAction({
+  ag,
+  quickActionId,
+  onQuickAction,
+  onQuickActionCancel,
+  onStatus,
+}: {
+  ag: Agendamento;
+  quickActionId: number | null;
+  onQuickAction: (id: number) => void;
+  onQuickActionCancel: () => void;
+  onStatus: (id: number, status: AgendamentoStatus) => void;
+}) {
+  if (ag.status !== 'pendente' && ag.status !== 'confirmado') {
+    return <Badge status={ag.status} />;
+  }
+
+  if (quickActionId === ag.id) {
+    const isConfirm = ag.status === 'pendente';
+    return (
+      <div className="quick-action-inline" onClick={(e) => e.stopPropagation()}>
+        <span className="quick-action-label">{isConfirm ? 'Confirmar?' : 'Cancelar?'}</span>
+        <button
+          className={`quick-action-btn ${isConfirm ? 'quick-action-btn--confirm' : 'quick-action-btn--cancel'}`}
+          title={isConfirm ? 'Confirmar agendamento' : 'Cancelar agendamento'}
+          onClick={() => { onStatus(ag.id, isConfirm ? 'confirmado' : 'cancelado'); onQuickActionCancel(); }}
+        >
+          ✓
+        </button>
+        <button
+          className="quick-action-btn quick-action-btn--dismiss"
+          title="Fechar"
+          onClick={(e) => { e.stopPropagation(); onQuickActionCancel(); }}
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      className={`badge badge--${ag.status} badge--clickable`}
+      title={ag.status === 'pendente' ? 'Clique para confirmar rapidamente' : 'Clique para cancelar rapidamente'}
+      onClick={(e) => { e.stopPropagation(); onQuickAction(ag.id); }}
+    >
+      {ag.status === 'pendente' ? 'Pendente' : 'Confirmado'}
+    </button>
+  );
+}
+
 /* ── Today view helpers ───────────────────────────────────────────────────── */
 function isInProgress(ag: Agendamento): boolean {
   const now = Date.now();
@@ -253,11 +308,14 @@ function TodayView({
   empresa,
   confirmDeleteId,
   expandedId,
+  quickActionId,
   onToggleExpand,
   onStatus,
   onDeleteRequest,
   onDeleteConfirm,
   onDeleteCancel,
+  onQuickAction,
+  onQuickActionCancel,
 }: { agendamentos: Agendamento[] } & SharedCardProps) {
   const sorted = [...agendamentos].sort(
     (a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime()
@@ -314,7 +372,13 @@ function TodayView({
                           </div>
                         </div>
                         <div className="today-card-header-right">
-                          <Badge status={ag.status} />
+                          <BadgeOrQuickAction
+                            ag={ag}
+                            quickActionId={quickActionId}
+                            onQuickAction={onQuickAction}
+                            onQuickActionCancel={onQuickActionCancel}
+                            onStatus={onStatus}
+                          />
                           <ChevronDown
                             size={15}
                             className={`expand-chevron${isExpanded ? ' expand-chevron--open' : ''}`}
@@ -363,11 +427,14 @@ function AgendamentoCardList({
   empresa,
   confirmDeleteId,
   expandedId,
+  quickActionId,
   onToggleExpand,
   onStatus,
   onDeleteRequest,
   onDeleteConfirm,
   onDeleteCancel,
+  onQuickAction,
+  onQuickActionCancel,
 }: { agendamentos: Agendamento[] } & SharedCardProps) {
   return (
     <div className="card-list">
@@ -389,7 +456,13 @@ function AgendamentoCardList({
                 </p>
               </div>
               <div className="agendamento-header-right">
-                <Badge status={ag.status} />
+                <BadgeOrQuickAction
+                  ag={ag}
+                  quickActionId={quickActionId}
+                  onQuickAction={onQuickAction}
+                  onQuickActionCancel={onQuickActionCancel}
+                  onStatus={onStatus}
+                />
                 <ChevronDown
                   size={15}
                   className={`expand-chevron${isExpanded ? ' expand-chevron--open' : ''}`}
@@ -463,6 +536,7 @@ export function AgendamentosPage() {
   const [autoRefreshing, setAutoRefreshing]   = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [expandedId, setExpandedId]           = useState<number | null>(null);
+  const [quickActionId, setQuickActionId]     = useState<number | null>(null);
 
   const todayCount   = allAgendamentos.filter((ag) => isToday(ag.data_hora)).length;
   const pendingCount = allAgendamentos.filter((ag) => ag.status === 'pendente').length;
@@ -493,6 +567,7 @@ export function AgendamentosPage() {
   useEffect(() => {
     setConfirmDeleteId(null);
     setExpandedId(null);
+    setQuickActionId(null);
     fetchData(false);
   }, [fetchData]);
 
@@ -524,11 +599,14 @@ export function AgendamentosPage() {
     empresa,
     confirmDeleteId,
     expandedId,
-    onToggleExpand:  handleToggleExpand,
-    onStatus:        handleStatus,
-    onDeleteRequest: (id) => setConfirmDeleteId(id),
-    onDeleteConfirm: handleDelete,
-    onDeleteCancel:  () => setConfirmDeleteId(null),
+    quickActionId,
+    onToggleExpand:      handleToggleExpand,
+    onStatus:            handleStatus,
+    onDeleteRequest:     (id) => setConfirmDeleteId(id),
+    onDeleteConfirm:     handleDelete,
+    onDeleteCancel:      () => setConfirmDeleteId(null),
+    onQuickAction:       (id) => { setQuickActionId(id); },
+    onQuickActionCancel: () => setQuickActionId(null),
   };
 
   return (
