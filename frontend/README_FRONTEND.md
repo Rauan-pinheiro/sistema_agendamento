@@ -134,6 +134,17 @@ Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, build servid
 - [x] **Separador visual na linha de metadados** — `border-top: 1px solid var(--border)` + `padding-top: 10px` na `.agendamento-info` para criar separação hierárquica clara entre identidade e detalhes secundários
 - [x] **Todas as informações relevantes visíveis sem expandir** — serviço, profissional, data, hora e valor todos presentes no card fechado; expansão reservada para ações e detalhes de duração por serviço
 
+### v1.9 — Auto-refresh Aprimorado: Backoff Exponencial e Toast de Novo Agendamento
+
+- [x] **Polling inteligente com backoff exponencial** — intervalo inicia em 15s; dobra a cada 3 ciclos sem novos dados até o máximo de 60s; constantes `POLL_MIN_MS`, `POLL_MAX_MS` e `BACKOFF_CYCLES` substituem o antigo `POLL_INTERVAL_MS` fixo de 30s; `pollIntervalRef` e `cyclesWithoutNewRef` (refs, zero re-renders) controlam o estado do backoff
+- [x] **Reset automático do backoff** — intervalo retorna a 15s quando: (a) polling detecta novo agendamento ou (b) usuário executa ação manual (confirmar, cancelar, excluir); implementado diretamente em `handleStatus` e `handleDelete`
+- [x] **Polling com `setTimeout` recursivo** — substituído `setInterval` fixo por `setTimeout` recursivo; próximo disparo agendado após o fetch anterior completar, usando `pollIntervalRef.current` no momento do agendamento — backoff funciona sem reiniciar o timer
+- [x] **Parâmetro `isPollRefresh`** — segundo parâmetro de `fetchData` distingue chamada do polling automático (onde backoff e toast se aplicam) de chamadas manuais pós-ação do usuário (sem toast, sem contagem de ciclos); loop de polling chama `fetchDataRef.current(true, true)`
+- [x] **Detecção de novo agendamento** — compara o máximo de `criado_em` dos dados retornados com `lastMaxCreatedRef.current` (timestamp do fetch anterior); itens com `criado_em` mais recente são contados e disparam o toast; `lastMaxCreatedRef` atualizado após cada fetch
+- [x] **Toast discreta de "novo agendamento"** — componente `NewAgendamentosToast` exibido entre as tabs e a lista quando `newAgsCount > 0`; ícone `Bell` (lucide-react), contagem, botão de fechar (✕); auto-descartado após 5s via `toastTimerRef`; animação `slideDown 0.22s ease`; `role="status"` + `aria-live="polite"` para acessibilidade
+- [x] **CSS do toast** — `.new-ags-toast` com fundo `rgba(--primary, 0.10)`, borda `--primary`, border-radius `--radius-sm`; `.new-ags-toast-dismiss` com hover `opacity: 1`; override dark theme; `@keyframes slideDown` adicionado ao bloco de animações de `index.css`
+- [x] **Cleanup correto** — `useEffect` dedicado descarta `toastTimerRef` na desmontagem do componente; flag `cancelled` no effect de polling evita chamadas pós-desmontagem
+
 ### v1.7 — Financeiro: Tooltips KPI, Grid Responsivo, Hierarquia Visual
 
 - [x] `components/Tooltip.tsx` — componente reutilizável; renderiza via `createPortal` em `document.body` para não ser clipado por `overflow: hidden`; `position: fixed` com coords calculadas por `getBoundingClientRect`; `role="tooltip"` + `aria-describedby` (acessível); fecha com `Esc` ou clique fora; suporta hover (desktop) e tap-toggle (mobile)
@@ -187,8 +198,8 @@ Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, build servid
 
 ### Auto-refresh aprimorado
 
-- [ ] **Polling inteligente** — backoff exponencial: inicia em 15s e dobra a cada 3 ciclos sem novos dados até máximo de 60s; reset para 15s ao detectar novo agendamento ou ação do usuário
-- [ ] **Indicador de "novo agendamento"** — ao detectar agendamentos novos no polling (comparando `criado_em` com timestamp do último fetch), exibir toast/badge de notificação discreta no topo da lista antes de atualizar silenciosamente
+- [x] **Polling inteligente** — backoff exponencial: inicia em 15s e dobra a cada 3 ciclos sem novos dados até máximo de 60s; reset para 15s ao detectar novo agendamento ou ação do usuário
+- [x] **Indicador de "novo agendamento"** — ao detectar agendamentos novos no polling (comparando `criado_em` com timestamp do último fetch), exibir toast/badge de notificação discreta no topo da lista antes de atualizar silenciosamente
 - [ ] **Atualização em tempo real via WebSocket (premium)** — substituir polling por Django Channels + WebSocket para push instantâneo; requer infraestrutura adicional (ASGI, Redis) — classificado como feature premium
 
 ### Responsividade 100%

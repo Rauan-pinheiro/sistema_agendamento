@@ -3,7 +3,7 @@ import { listAgendamentos, updateStatus, deleteAgendamento } from '../../api/age
 import type { Agendamento, AgendamentoStatus, Empresa } from '../../types';
 import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Phone, DollarSign, Clock, User, ChevronDown } from 'lucide-react';
+import { Calendar, Phone, DollarSign, Clock, User, ChevronDown, Bell } from 'lucide-react';
 import { formatPhone } from '../../utils/phone';
 
 type TabValue = AgendamentoStatus | 'todos' | 'hoje';
@@ -16,7 +16,9 @@ const TABS: { label: string; value: TabValue }[] = [
   { label: 'Cancelados',  value: 'cancelado' },
 ];
 
-const POLL_INTERVAL_MS = 30_000;
+const POLL_MIN_MS    = 15_000;
+const POLL_MAX_MS    = 60_000;
+const BACKOFF_CYCLES = 3;
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 
@@ -518,6 +520,25 @@ function AgendamentoCardList({
   );
 }
 
+/* ── Toast de novo agendamento ───────────────────────────────────────────── */
+function NewAgendamentosToast({ count, onDismiss }: { count: number; onDismiss: () => void }) {
+  return (
+    <div className="new-ags-toast" role="status" aria-live="polite">
+      <Bell size={14} />
+      <span>
+        {count} novo{count !== 1 ? 's' : ''} agendamento{count !== 1 ? 's' : ''}
+      </span>
+      <button
+        className="new-ags-toast-dismiss"
+        aria-label="Fechar notificação"
+        onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 function EmptyState({ tab }: { tab: TabValue }) {
   return (
@@ -546,14 +567,58 @@ export function AgendamentosPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [expandedId, setExpandedId]           = useState<number | null>(null);
   const [quickActionId, setQuickActionId]     = useState<number | null>(null);
+  const [newAgsCount, setNewAgsCount]         = useState(0);
+
+  // Backoff state (all refs — não disparam re-render)
+  const pollIntervalRef     = useRef(POLL_MIN_MS);
+  const cyclesWithoutNewRef = useRef(0);
+  const lastMaxCreatedRef   = useRef<string | null>(null);
+  const toastTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const todayCount   = allAgendamentos.filter((ag) => isToday(ag.data_hora)).length;
   const pendingCount = allAgendamentos.filter((ag) => ag.status === 'pendente').length;
 
-  const fetchData = useCallback(async (silent = false) => {
+  // isPollRefresh=true apenas quando chamado pelo loop de polling automático
+  const fetchData = useCallback(async (silent = false, isPollRefresh = false) => {
     silent ? setAutoRefreshing(true) : setLoading(true);
 
     const data = await listAgendamentos();
+
+    // Detecta novos agendamentos e ajusta o backoff (somente no polling silencioso)
+    if (isPollRefresh && lastMaxCreatedRef.current !== null) {
+      const maxCreated = data.reduce(
+        (max, ag) => (ag.criado_em > max ? ag.criado_em : max),
+        '',
+      );
+
+      if (maxCreated > lastMaxCreatedRef.current) {
+        // Novos agendamentos detectados → reseta backoff e exibe toast
+        pollIntervalRef.current     = POLL_MIN_MS;
+        cyclesWithoutNewRef.current = 0;
+        const count = data.filter((ag) => ag.criado_em > lastMaxCreatedRef.current!).length;
+        setNewAgsCount(count);
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setNewAgsCount(0), 5_000);
+      } else {
+        // Sem novidades → avança backoff
+        cyclesWithoutNewRef.current += 1;
+        if (cyclesWithoutNewRef.current >= BACKOFF_CYCLES) {
+          cyclesWithoutNewRef.current = 0;
+          pollIntervalRef.current = Math.min(pollIntervalRef.current * 2, POLL_MAX_MS);
+        }
+      }
+    }
+
+    // Atualiza o timestamp de referência após cada fetch
+    if (data.length > 0) {
+      lastMaxCreatedRef.current = data.reduce(
+        (max, ag) => (ag.criado_em > max ? ag.criado_em : max),
+        '',
+      );
+    } else if (lastMaxCreatedRef.current === null) {
+      lastMaxCreatedRef.current = new Date().toISOString();
+    }
+
     setAllAgendamentos(data);
 
     let resultado: Agendamento[];
@@ -580,19 +645,40 @@ export function AgendamentosPage() {
     fetchData(false);
   }, [fetchData]);
 
+  // Polling com setTimeout recursivo — intervalo lido dinamicamente do ref
   useEffect(() => {
-    const id = setInterval(() => {
-      if (!document.hidden) fetchDataRef.current(true);
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(id);
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+
+    const poll = async () => {
+      if (cancelled) return;
+      if (!document.hidden) await fetchDataRef.current(true, true);
+      if (!cancelled) timeoutId = setTimeout(poll, pollIntervalRef.current);
+    };
+
+    timeoutId = setTimeout(poll, pollIntervalRef.current);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // Limpa o timer do toast ao desmontar
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
   }, []);
 
   async function handleStatus(id: number, status: AgendamentoStatus) {
+    // Ação do usuário → reseta backoff para manter polling responsivo
+    pollIntervalRef.current     = POLL_MIN_MS;
+    cyclesWithoutNewRef.current = 0;
     await updateStatus(id, status);
     fetchData(true);
   }
 
   async function handleDelete(id: number) {
+    pollIntervalRef.current     = POLL_MIN_MS;
+    cyclesWithoutNewRef.current = 0;
     await deleteAgendamento(id);
     setConfirmDeleteId(null);
     setExpandedId(null);
@@ -650,6 +736,10 @@ export function AgendamentosPage() {
           </button>
         ))}
       </div>
+
+      {newAgsCount > 0 && (
+        <NewAgendamentosToast count={newAgsCount} onDismiss={() => setNewAgsCount(0)} />
+      )}
 
       {loading ? (
         <div className="card-list">
