@@ -204,8 +204,13 @@ Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, build servid
 
 ### Responsividade 100%
 
-- [ ] **Auditoria de breakpoints** — mapear todos os componentes que apresentam overflow ou layout quebrado abaixo de 375px (iPhone SE); priorizar: tabela de Serviços, tabela de Profissionais, cards de Agendamentos, sidebar em telas intermediárias (768px–1024px)
-- [ ] **Tabelas → cards em mobile** — converter tabelas de `ServicosPage` e `ProfissionaisPage` para layout de cards empilhados em viewport ≤640px; manter tabela apenas em desktop
-- [ ] **Modal responsivo** — componente `Modal` tem largura fixa; adaptar para `width: min(480px, 95vw)` e garantir que conteúdo interno não extrapole em celulares pequenos
-- [ ] **Bottom nav completo** — adicionar itens de Financeiro e Configurações ao `mobile-nav` (atualmente só mostra Agendamentos, Serviços, Profissionais, Horários e Tema)
-- [ ] **Teclado virtual no mobile** — campos de formulário dentro de modais devem fazer scroll para não ficarem ocultos pelo teclado virtual do iOS/Android; usar `scroll-padding-bottom` ou `scrollIntoView` no `onFocus`
+- [x] **Auditoria de breakpoints** — auditados todos os componentes em 375px (iPhone SE) e 320px; corrigidos: `page-header` empilha título+botão em ≤380px, `focus-date` reduz para 16px, `auth-card` reduz padding, `public-header` reduz fonte e padding, `agendamento-card` e `today-card-body` reduzem padding interno
+- [x] **Tabelas → cards em mobile** — `ServicosPage` e `ProfissionaisPage` ganham classe `.table-responsive`; em viewport ≤640px: `<thead>` é ocultado, cada `<tr>` vira um card com border-radius e sombra, cada `<td>` exibe label via `data-label` + `::before { content: attr(data-label) }`, célula de ações fica em row separada com background sutil; desktop mantém tabela intacta
+- [x] **Modal responsivo** — `max-height: calc(100dvh - 32px)` + `display: flex; flex-direction: column` no `.modal`; `.modal-body` recebe `overflow-y: auto; flex: 1` (scroll interno com header e footer fixos); `.modal-header` e `.modal-footer` com `flex-shrink: 0`; em mobile (≤768px) o backdrop passa a `align-items: flex-start` para sobreviver ao teclado virtual do iOS/Android
+- [x] **Bottom nav completo** — todos os 6 itens de navegação (Agendamentos, Serviços, Profissionais, Horários, Financeiro, Configurações) + toggle de Tema estão presentes no `mobile-nav`; itens ganham `flex-shrink: 0; min-width: 52px; scroll-snap-align: start` para scroll suave quando necessário
+- [x] **Teclado virtual no mobile** — modal alinhado ao topo em viewport ≤768px (`align-items: flex-start`) com `padding-top: max(16px, env(safe-area-inset-top))`; corpo do modal scrollável internamente garante que campos de formulário fiquem acessíveis mesmo com o teclado aberto
+- [x] **Tabs scrolláveis** — `.tabs` recebe `overflow-x: auto; -webkit-overflow-scrolling: touch` em mobile para não quebrar com 5 abas; scrollbar oculta via `::-webkit-scrollbar { display: none }`
+- [x] **Chart grid coluna única em mobile** — `.chart-grid` (FinanceiroPage) passa de `1fr 1fr` para `1fr` em ≤768px, evitando gráficos comprimidos
+- [x] **Config page compactada** — `.config-profile-header` reduz padding para `18px 16px`; `.config-section-body` para `16px`; avatar reduz para `48×48px` em mobile
+- [x] **Telas muito pequenas (≤380px)** — `page` reduz para `padding: 12px`; `mobile-nav-item` para `font-size: 9px; padding: 6px`; `tab` para `font-size: 12px; padding: 6px 10px`; `public-header h1` para `22px`; `auth-card` para `22px 16px`
+- [x] **Fix: Badge em ProfissionaisPage** — `Badge` não suportava `children`; substituído por `<span className="badge badge--{status}">` inline, corrigindo o erro TypeScript e exibindo corretamente "Ativo"/"Inativo" no badge de status

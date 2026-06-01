@@ -7,7 +7,6 @@ import type { Profissional } from '../../types';
 import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
-import { Badge } from '../../components/Badge';
 
 type FormData = { nome: string; especialidade: string; ativo: boolean };
 const EMPTY: FormData = { nome: '', especialidade: '', ativo: true };
@@ -103,7 +102,7 @@ export function ProfissionaisPage() {
 
       {loading ? (
         <div className="table-wrapper">
-          <table className="table">
+          <table className="table table-responsive">
             <thead>
               <tr><th>Nome</th><th>Especialidade</th><th>Status</th><th></th></tr>
             </thead>
@@ -130,7 +129,7 @@ export function ProfissionaisPage() {
         </div>
       ) : (
         <div className="table-wrapper">
-          <table className="table">
+          <table className="table table-responsive">
             <thead>
               <tr>
                 <th>Nome</th>
@@ -142,7 +141,7 @@ export function ProfissionaisPage() {
             <tbody>
               {profissionais.map((p) => (
                 <tr key={p.id}>
-                  <td>
+                  <td data-label="Profissional">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div className="profissional-avatar" style={{ width: 32, height: 32, fontSize: '0.75rem' }}>
                         {initials(p.nome)}
@@ -150,16 +149,16 @@ export function ProfissionaisPage() {
                       <span style={{ fontWeight: 600 }}>{p.nome}</span>
                     </div>
                   </td>
-                  <td style={{ color: 'var(--text-muted)' }}>{p.especialidade || '—'}</td>
-                  <td>
+                  <td data-label="Especialidade" style={{ color: 'var(--text-muted)' }}>{p.especialidade || '—'}</td>
+                  <td data-label="Status">
                     <button
                       className={`toggle-btn${p.ativo ? ' toggle-btn--on' : ''}`}
                       onClick={() => handleToggleAtivo(p)}
                       title={p.ativo ? 'Desativar' : 'Ativar'}
                     >
-                      <Badge status={p.ativo ? 'confirmado' : 'cancelado'}>
+                      <span className={`badge badge--${p.ativo ? 'confirmado' : 'cancelado'}`}>
                         {p.ativo ? 'Ativo' : 'Inativo'}
-                      </Badge>
+                      </span>
                     </button>
                   </td>
                   <td className="table-actions">

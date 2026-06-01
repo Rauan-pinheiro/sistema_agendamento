@@ -97,7 +97,7 @@ export function ServicosPage() {
 
       {loading ? (
         <div className="table-wrapper">
-          <table className="table">
+          <table className="table table-responsive">
             <thead>
               <tr><th>Nome</th><th>Duração</th><th>Preço</th><th></th></tr>
             </thead>
@@ -124,7 +124,7 @@ export function ServicosPage() {
         </div>
       ) : (
         <div className="table-wrapper">
-          <table className="table">
+          <table className="table table-responsive">
             <thead>
               <tr>
                 <th>Nome</th>
@@ -136,12 +136,12 @@ export function ServicosPage() {
             <tbody>
               {servicos.map((s) => (
                 <tr key={s.id}>
-                  <td>
+                  <td data-label="Nome">
                     <span style={{ fontWeight: 600 }}>{s.nome}</span>
                     {s.descricao && <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{s.descricao}</p>}
                   </td>
-                  <td>{s.duracao_min} min</td>
-                  <td>{Number(s.preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                  <td data-label="Duração">{s.duracao_min} min</td>
+                  <td data-label="Preço">{Number(s.preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                   <td className="table-actions">
                     <button className="btn-icon" onClick={() => openEdit(s)} title="Editar">
                       <Pencil size={14} />

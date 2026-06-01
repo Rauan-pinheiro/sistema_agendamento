@@ -288,17 +288,20 @@ a:hover { text-decoration: underline; }
   border-radius: var(--radius);
   width: 100%;
   max-width: 460px;
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   border: 1px solid var(--border);
   animation: slideUp .2s ease;
 }
 
-.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 0; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 0; flex-shrink: 0; }
 .modal-header h2,
 .modal-header h3 { font-size: 16px; font-weight: 700; }
-.modal-body   { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
-.modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 0 24px 20px; }
+.modal-body   { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 0 24px 20px; flex-shrink: 0; }
 
 /* variante .modal-overlay usada em HorariosPage */
 .modal-overlay .modal { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
@@ -1756,17 +1759,21 @@ a:hover { text-decoration: underline; }
     bottom: 0; left: 0; right: 0;
     background: var(--sidebar-bg);
     border-top: 1px solid rgba(255,255,255,.06);
-    padding: 6px 8px;
+    padding: 6px 4px;
     padding-bottom: max(6px, env(safe-area-inset-bottom));
     z-index: 50;
     justify-content: space-around;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
   }
+  .mobile-nav::-webkit-scrollbar { display: none; }
   .mobile-nav-item {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 3px;
-    padding: 6px 10px;
+    padding: 6px 8px;
     border-radius: var(--radius-sm);
     color: var(--sidebar-text);
     text-decoration: none;
@@ -1777,6 +1784,9 @@ a:hover { text-decoration: underline; }
     border: none;
     background: none;
     font-family: inherit;
+    flex-shrink: 0;
+    min-width: 52px;
+    scroll-snap-align: start;
   }
   .mobile-nav-item.active     { color: var(--primary); }
   .mobile-nav-item:hover      { color: #e2e8f0; text-decoration: none; }
@@ -1791,10 +1801,135 @@ a:hover { text-decoration: underline; }
   .financeiro-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .progress-bar-wrap { padding: 12px 16px; }
   .kpi-value      { font-size: 22px; }
+
+  /* Tabs: horizontal scroll para não quebrar layout com 5 abas */
+  .tabs { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; }
+
+  /* Charts: coluna única em mobile */
+  .chart-grid { grid-template-columns: 1fr; }
+
+  /* Config page: compactar padding */
+  .config-profile-header { padding: 18px 16px; gap: 14px; }
+  .config-avatar { width: 48px; height: 48px; font-size: 18px; }
+  .config-profile-name { font-size: 17px; }
+  .config-section-body { padding: 16px; }
+  .config-section-header { padding: 14px 16px; gap: 10px; }
+
+  /* Focus header */
+  .focus-date { font-size: 18px; }
+
+  /* Modal: top-aligned em mobile para sobreviver ao teclado virtual */
+  .modal-backdrop,
+  .modal-overlay { align-items: flex-start; padding-top: max(16px, env(safe-area-inset-top, 16px)); }
+
+  /* Service selection summary: empilhado em mobile */
+  .service-selection-summary { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+  /* Progress steps: labels menores */
+  .progress-step-label { font-size: 10px; }
+
+  /* Public success card: padding reduzido */
+  .success-card { padding: 24px 20px; }
+
+  /* KPI grid: garantir 2 colunas mesmo em telas estreitas */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi-card { padding: 16px 14px; }
 }
 
 @media (min-width: 769px) {
   .mobile-nav { display: none; }
+}
+
+/* ── Tabelas → Cards em mobile (≤640px) ────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Esconde o cabeçalho da tabela */
+  .table-responsive thead { display: none; }
+
+  /* Torna o wrapper e tbody block */
+  .table-wrapper:has(.table-responsive) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .table-responsive,
+  .table-responsive tbody { display: block; }
+
+  /* Cada linha vira um card */
+  .table-responsive tbody tr {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Células: label à esquerda, valor à direita */
+  .table-responsive tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .table-responsive tbody td:last-child { border-bottom: none; }
+
+  /* Label via data-label */
+  .table-responsive tbody td[data-label]::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    margin-right: 12px;
+  }
+
+  /* Célula de ações: sem label, alinhada à direita */
+  .table-responsive tbody td.table-actions {
+    justify-content: flex-end;
+    background: var(--surface-hover);
+    padding: 8px 12px;
+  }
+  .table-responsive tbody td.table-actions::before { display: none; }
+}
+
+/* ── Telas muito pequenas (≤380px — iPhone SE, etc.) ───────────────────── */
+@media (max-width: 380px) {
+  .page { padding: 12px; }
+  .focus-date { font-size: 16px; }
+  .focus-header { margin-bottom: 16px; }
+
+  /* Nav items menores */
+  .mobile-nav-item { font-size: 9px; padding: 6px 6px; min-width: 46px; }
+
+  /* Tabs ainda mais compactas */
+  .tab { padding: 6px 10px; font-size: 12px; }
+
+  /* Agendamento card */
+  .agendamento-card { padding: 14px 14px; }
+  .today-card-body { padding: 12px 14px; }
+
+  /* Auth card */
+  .auth-card { padding: 22px 16px; }
+
+  /* Modal fullscreen em telas minúsculas */
+  .modal-backdrop .modal { border-radius: var(--radius-sm); }
+
+  /* Public header */
+  .public-header h1 { font-size: 22px; }
+  .public-header { padding: 24px 14px; }
+  .public-body { padding: 16px 12px; }
+
+  /* Page header: empilha título e botão */
+  .page-header { flex-direction: column; align-items: flex-start; }
 }
 
 /* ── Chart card ─────────────────────────────────────────────────────────── */
