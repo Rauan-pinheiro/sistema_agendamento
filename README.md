@@ -1,4 +1,72 @@
-# SaaS de Agendamento Multi-Tenant — Visão Geral do Monorrepo
+# 📅 Agendamento SaaS — Plataforma Multi-Tenant para Prestadores de Serviço
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
+![Django REST](https://img.shields.io/badge/Django%20REST%20Framework-092E20?style=flat&logo=django&logoColor=white)
+![React](https://img.shields.io/badge/React%2019-20232A?style=flat&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
+![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
+
+SaaS de agendamento online para barbearias, clínicas e outros prestadores de serviço. Cada empresa tem o **próprio ambiente isolado** e uma **página pública** (`/public/<slug>`) onde os clientes escolhem serviço, profissional e horário.
+
+<!-- Adicione aqui um print do painel e da página pública -->
+
+## ✨ Funcionalidades
+
+- **Multi-tenant**: várias empresas na mesma base, com isolamento de dados por empresa em todas as consultas
+- **Página pública por empresa**: o cliente agenda sem precisar criar conta
+- **Painel do prestador**: agendamentos, serviços, profissionais, horários de funcionamento e configurações
+- **Financeiro**: resumo mensal e volume de agendamentos, calculados numa camada de serviço (`service.py`)
+- **Cadastro e login** com JWT e renovação automática do token (interceptor do Axios)
+- **Lembrete pelo WhatsApp** com um botão `wa.me`, sem custo de API
+
+## 🧠 Decisões técnicas
+
+- **Banco compartilhado com linhas isoladas**: todo model de negócio herda de um `BaseModel` com `ForeignKey` obrigatória para `Empresa`, e o `get_queryset` de cada view filtra pela empresa do usuário logado
+- **Rotas públicas separadas das privadas** na API: as públicas só expõem o necessário para agendar
+- **Front-end tipado** com TypeScript, rotas protegidas e um contexto de autenticação
+- **Infraestrutura planejada para o Brasil**: Cloud Run e Cloud SQL na região de São Paulo, para evitar a latência de servidores nos EUA (detalhes abaixo)
+
+## 🛠️ Stack
+
+| Camada | Tecnologias |
+| :--- | :--- |
+| API | Python, Django 6, Django REST Framework, SimpleJWT, django-cors-headers |
+| Front-end | React 19, TypeScript, Vite, React Router, Axios, Lucide |
+| Banco | SQLite (dev), MySQL no Cloud SQL (produção planejada) |
+| Infra planejada | Docker, Google Cloud Run |
+
+## 🚀 Como rodar localmente
+
+**API**
+```bash
+cd backend
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+**Front-end**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## 🤝 Desenvolvido em parceria com o Claude
+
+Construí este sistema em parceria com o **Claude**, a IA da Anthropic, que trabalhou como meu par de programação. Eu conduzi o projeto: defini o produto, tomei as decisões e validei as funcionalidades. O Claude me ajudou a desenhar a arquitetura, escrever e revisar código e documentar.
+
+## 👨‍💻 Autor
+
+**Rauan Pinheiro Lima**
+[LinkedIn](https://linkedin.com/in/rauanpinheiro-dev) · [GitHub](https://github.com/Rauan-pinheiro)
+
+---
+
+# 📖 Documentação de produto e infraestrutura
 
 > **Documentação detalhada por camada:**
 > - API e modelos de dados → [`backend/README_BACKEND.md`](backend/README_BACKEND.md)
