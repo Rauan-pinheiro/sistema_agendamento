@@ -40,6 +40,8 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **opts):
         rnd = random.Random(42)
+        # Agendamentos protegem os serviços (on_delete=PROTECT): apagar antes das empresas
+        Agendamento.objects.filter(empresa__owner__username__startswith='dono_carga_').delete()
         User.objects.filter(username__startswith='dono_carga_').delete()
 
         for i in range(1, opts['empresas'] + 1):
