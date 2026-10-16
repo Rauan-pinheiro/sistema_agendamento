@@ -51,7 +51,27 @@ export interface PaginaPublica {
   profissionais: ProfissionalPublico[];
 }
 
-export type ServicoPublico = Pick<Servico, 'id' | 'nome' | 'descricao' | 'duracao_min' | 'preco'>;
+export type ServicoPublico = Pick<Servico, 'id' | 'nome' | 'descricao' | 'duracao_min' | 'preco'> & {
+  midias: MidiaServico[];
+};
+
+/** Mídia da vitrine do serviço (URLs públicas). */
+export interface MidiaServico {
+  id: number;
+  tipo: 'imagem' | 'video' | 'youtube';
+  url: string | null;
+  thumb_url: string | null;
+  embed_url: string | null;
+  youtube_id: string;
+  largura: number | null;
+  altura: number | null;
+  duracao_seg: number | null;
+  ordem: number;
+  // Somente na visão do dono
+  formato?: string;
+  bytes?: number;
+  nome_original?: string;
+}
 
 export type AgendamentoStatus = 'pendente' | 'confirmado' | 'cancelado' | 'arquivado';
 

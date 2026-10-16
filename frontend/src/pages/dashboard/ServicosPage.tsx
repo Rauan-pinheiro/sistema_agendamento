@@ -4,6 +4,7 @@ import type { Servico } from '../../types';
 import { Plus, Pencil, Trash2, Scissors } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
+import { VitrineServico } from '../../components/VitrineServico';
 
 type FormData = { nome: string; descricao: string; duracao_min: string; preco: string };
 const EMPTY: FormData = { nome: '', descricao: '', duracao_min: '', preco: '' };
@@ -165,6 +166,7 @@ export function ServicosPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? 'Editar serviço' : 'Novo serviço'}
+        wide={!!editing}
         footer={
           <>
             <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
@@ -175,8 +177,9 @@ export function ServicosPage() {
         }
       >
         <div className="form-group">
-          <label>Nome</label>
+          <label htmlFor="servico-nome">Nome</label>
           <input
+            id="servico-nome"
             value={form.nome}
             onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
             autoFocus
@@ -184,19 +187,21 @@ export function ServicosPage() {
           />
         </div>
         <div className="form-group">
-          <label>Descrição <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</span></label>
+          <label htmlFor="servico-descricao">Descrição <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</span></label>
           <textarea
+            id="servico-descricao"
             value={form.descricao}
             onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
             placeholder="Descreva o serviço para o cliente..."
-            rows={2}
+            rows={4}
             style={{ resize: 'vertical' }}
           />
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label>Duração (minutos)</label>
+            <label htmlFor="servico-duracao">Duração (minutos)</label>
             <input
+              id="servico-duracao"
               type="number"
               min="5"
               max="480"
@@ -206,8 +211,9 @@ export function ServicosPage() {
             />
           </div>
           <div className="form-group">
-            <label>Preço (R$)</label>
+            <label htmlFor="servico-preco">Preço (R$)</label>
             <input
+              id="servico-preco"
               type="number"
               min="0"
               step="0.01"
@@ -217,7 +223,14 @@ export function ServicosPage() {
             />
           </div>
         </div>
-        {error && <p className="form-error">{error}</p>}
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {editing ? (
+          <VitrineServico servicoId={editing.id} />
+        ) : (
+          <p className="anexos-dica">
+            Depois de salvar, edite o serviço para adicionar fotos, vídeos e links do YouTube ao “Ver mais”.
+          </p>
+        )}
       </Modal>
     </div>
   );
