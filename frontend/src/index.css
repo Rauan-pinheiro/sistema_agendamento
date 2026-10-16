@@ -2077,3 +2077,66 @@ a:hover { text-decoration: underline; }
   .chart-card { margin-bottom: 16px; }
   .calendar-day { font-size: 0.78rem; }
 }
+
+/* ── Anexos do agendamento (fotos e vídeos) ──────────────────────────────── */
+.anexos { display: flex; flex-direction: column; gap: 8px; }
+.anexos-header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.anexos-cota { font-size: 11px; color: var(--text-muted); }
+.anexos-dica { font-size: 11px; color: var(--text-muted); margin: 0; }
+.anexos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  transition: outline-color var(--t);
+  outline: 2px dashed transparent;
+  outline-offset: 4px;
+}
+.anexos-grid--drop { outline-color: var(--primary); }
+.anexo-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.anexo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.anexo-thumb:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.anexo-thumb-vazio { font-size: 11px; color: var(--text-muted); }
+.anexo-play {
+  position: absolute; inset: auto auto 6px 6px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(15, 23, 42, .7); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.anexo-adicionar {
+  flex-direction: column; gap: 4px;
+  border-style: dashed; color: var(--text-muted); font-size: 11px; font-family: inherit;
+}
+.anexo-adicionar:hover { color: var(--primary); border-color: var(--primary); }
+.anexo-envio {
+  cursor: default; flex-direction: column; align-items: stretch; justify-content: flex-end;
+  gap: 4px; padding: 6px; font-size: 10px; text-align: left;
+}
+.anexo-envio-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.anexo-envio-estado { color: var(--text-muted); }
+.anexo-envio-erro { color: var(--danger-hover); line-height: 1.25; }
+.anexo-envio--erro { border-color: var(--danger); }
+.anexo-envio-fechar { position: absolute; top: 2px; right: 2px; }
+.anexo-progresso { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+.anexo-progresso > div { height: 100%; background: var(--primary); transition: width 120ms linear; }
+.anexo-lightbox { display: flex; flex-direction: column; align-items: center; gap: 10px; outline: none; }
+.anexo-lightbox img,
+.anexo-lightbox video {
+  max-width: 100%; max-height: 65vh; border-radius: var(--radius-sm); background: #000;
+}
+.anexo-lightbox-nav { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) {
+  .anexo-progresso > div { transition: none; }
+}

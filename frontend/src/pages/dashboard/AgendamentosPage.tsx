@@ -6,7 +6,8 @@ import {
 import type { Agendamento, AgendamentoStatus, AgendamentosResumo, Empresa } from '../../types';
 import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Phone, DollarSign, Clock, User, ChevronDown, Bell } from 'lucide-react';
+import { Calendar, Phone, DollarSign, Clock, User, ChevronDown, Bell, Paperclip } from 'lucide-react';
+import { AnexosAgendamento } from '../../components/AnexosAgendamento';
 import { formatPhone } from '../../utils/phone';
 
 type TabValue = AgendamentoStatus | 'todos' | 'hoje';
@@ -178,6 +179,9 @@ function ExpandedCardPanel({
           </span>
         </div>
       </div>
+
+      {/* Fotos e vídeos do atendimento (somente o dono) */}
+      <AnexosAgendamento agendamentoId={ag.id} />
 
       {/* WhatsApp link — visible for pendente and confirmado */}
       {(ag.status === 'pendente' || ag.status === 'confirmado') && (
@@ -399,6 +403,11 @@ function TodayView({
                         <span className="today-card-meta-item today-card-meta-preco">
                           <DollarSign size={12} /> {formatPreco(ag.preco_total)}
                         </span>
+                        {!!ag.total_anexos && (
+                          <span className="today-card-meta-item" title="Fotos e vídeos anexados">
+                            <Paperclip size={12} /> {ag.total_anexos}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -493,6 +502,11 @@ function AgendamentoCardList({
               <span className="agendamento-info-item agendamento-info-preco">
                 <DollarSign size={13} />{formatPreco(ag.preco_total)}
               </span>
+              {!!ag.total_anexos && (
+                <span className="agendamento-info-item" title="Fotos e vídeos anexados">
+                  <Paperclip size={13} />{ag.total_anexos}
+                </span>
+              )}
             </div>
 
             {isExpanded && (
