@@ -115,6 +115,34 @@ class AgendamentoServico(models.Model):
         unique_together = [('agendamento', 'servico')]
 
 
+class AnexoAgendamento(BaseModel):
+    """
+    Foto ou vídeo anexado pelo dono a um agendamento. O arquivo fica no
+    Cloudinary (tipo de entrega "authenticated"); aqui guardamos só a
+    referência e os metadados confirmados pelo Cloudinary.
+    """
+    TIPO_CHOICES = [('imagem', 'Imagem'), ('video', 'Vídeo')]
+
+    agendamento = models.ForeignKey(
+        Agendamento, on_delete=models.CASCADE, related_name='anexos',
+    )
+    public_id = models.CharField(max_length=255, unique=True)
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    formato = models.CharField(max_length=10)
+    bytes = models.PositiveBigIntegerField()
+    largura = models.PositiveIntegerField(null=True, blank=True)
+    altura = models.PositiveIntegerField(null=True, blank=True)
+    duracao_seg = models.FloatField(null=True, blank=True)
+    nome_original = models.CharField(max_length=120, blank=True)
+
+    class Meta:
+        ordering = ['criado_em', 'id']
+        indexes = [models.Index(fields=['agendamento', 'criado_em'], name='anexo_ag_criado_idx')]
+
+    def __str__(self) -> str:
+        return f'{self.get_tipo_display()} #{self.pk} do agendamento {self.agendamento_id}'
+
+
 class HorarioFuncionamento(BaseModel):
     DIA_SEMANA_CHOICES = [
         (0, 'Segunda-feira'),
