@@ -15,9 +15,11 @@ from django.utils import timezone
 from . import midia
 from .models import (
     Empresa, Profissional, Servico, Agendamento, AnexoAgendamento, HorarioFuncionamento,
+    MidiaServico,
 )
 from .serializers import (
     AnexoSerializer, ConfirmarAnexoSerializer, PedidoAssinaturaSerializer,
+    MidiaServicoDonoSerializer, YoutubeSerializer,
     EmpresaSerializer, EmpresaPublicSerializer,
     ProfissionalSerializer, ProfissionalPublicSerializer,
     ServicoSerializer, ServicoPublicSerializer, AgendamentoSerializer,
@@ -102,6 +104,135 @@ class ServicoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Servico.objects.filter(empresa=self._empresa())
+
+    # ── Vitrine do serviço (fotos, vídeos e YouTube exibidos no "Ver mais") ──
+
+    @staticmethod
+    def _erro_cota_midias(servico, bytes_novos: int = 0, youtube_novo: bool = False) -> str | None:
+        arquivos = servico.midias.exclude(tipo='youtube')
+        if youtube_novo:
+            if servico.midias.filter(tipo='youtube').count() >= settings.MIDIA_MAX_YOUTUBE_POR_SERVICO:
+                return f'Limite de {settings.MIDIA_MAX_YOUTUBE_POR_SERVICO} vídeos do YouTube por serviço.'
+            return None
+        if arquivos.count() >= settings.MIDIA_MAX_ARQUIVOS_POR_SERVICO:
+            return f'Limite de {settings.MIDIA_MAX_ARQUIVOS_POR_SERVICO} arquivos por serviço atingido.'
+        usados = arquivos.aggregate(b=Sum('bytes'))['b'] or 0
+        if usados + bytes_novos > settings.MIDIA_MAX_BYTES_POR_SERVICO:
+            return (f'Limite de {settings.MIDIA_MAX_BYTES_POR_SERVICO // (1024 * 1024)} MB '
+                    'por serviço seria ultrapassado.')
+        return None
+
+    @staticmethod
+    def _proxima_ordem(servico) -> int:
+        return (servico.midias.aggregate(m=Max('ordem'))['m'] or 0) + 1
+
+    @action(detail=True, methods=['get', 'post'], url_path='midias')
+    def midias(self, request, pk=None):
+        """
+        GET  /servicos/{id}/midias/ — lista as mídias da vitrine.
+        POST /servicos/{id}/midias/ — {youtube_url} adiciona um vídeo do YouTube;
+             {public_id, tipo, nome?} confirma um upload feito no Cloudinary.
+        """
+        servico = self.get_object()
+        if request.method == 'GET':
+            return Response(MidiaServicoDonoSerializer(servico.midias.all(), many=True).data)
+
+        if 'youtube_url' in request.data:
+            entrada = YoutubeSerializer(data=request.data)
+            entrada.is_valid(raise_exception=True)
+            with transaction.atomic():
+                Servico.objects.select_for_update().only('id').get(pk=servico.pk)
+                erro = self._erro_cota_midias(servico, youtube_novo=True)
+                if erro:
+                    return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
+                m = MidiaServico.objects.create(
+                    empresa_id=servico.empresa_id, servico=servico, tipo='youtube',
+                    youtube_id=entrada.validated_data['youtube_url'],
+                    ordem=self._proxima_ordem(servico),
+                )
+            return Response(MidiaServicoDonoSerializer(m).data, status=status.HTTP_201_CREATED)
+
+        entrada = ConfirmarAnexoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        d = entrada.validated_data
+        if not midia.public_id_valido(d['public_id'], midia.pasta_do_servico(servico.empresa_id, servico.pk)):
+            return Response({'public_id': 'Arquivo não pertence a este serviço.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        existente = MidiaServico.objects.filter(public_id=d['public_id']).first()
+        if existente is not None:
+            if existente.servico_id != servico.pk:
+                return Response({'public_id': 'Arquivo não pertence a este serviço.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            return Response(MidiaServicoDonoSerializer(existente).data)
+        try:
+            meta = midia.obter_metadados(d['public_id'], d['tipo'], entrega=midia.ENTREGA_PUBLICA)
+        except midia.MidiaIndisponivel:
+            return Response({'erro': 'Serviço de mídia indisponível. Tente novamente.'},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        if meta is None or meta.public_id != d['public_id']:
+            return Response({'public_id': 'Upload não encontrado no armazenamento.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        erro = midia.validar_metadados(meta, d['tipo'])
+        m = None
+        if not erro:
+            with transaction.atomic():
+                Servico.objects.select_for_update().only('id').get(pk=servico.pk)
+                erro = self._erro_cota_midias(servico, meta.bytes)
+                if not erro:
+                    m = MidiaServico.objects.create(
+                        empresa_id=servico.empresa_id, servico=servico, tipo=d['tipo'],
+                        public_id=meta.public_id, formato=meta.formato, bytes=meta.bytes,
+                        largura=meta.largura, altura=meta.altura, duracao_seg=meta.duracao_seg,
+                        nome_original=midia.sanitizar_nome(d.get('nome') or ''),
+                        ordem=self._proxima_ordem(servico),
+                    )
+        if erro:
+            midia.apagar(meta.public_id, d['tipo'], entrega=midia.ENTREGA_PUBLICA)
+            return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(MidiaServicoDonoSerializer(m).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='midias/assinatura')
+    def midias_assinatura(self, request, pk=None):
+        """POST /servicos/{id}/midias/assinatura/ — body: {nome, mime, tamanho}"""
+        servico = self.get_object()
+        pedido = PedidoAssinaturaSerializer(data=request.data)
+        pedido.is_valid(raise_exception=True)
+        d = pedido.validated_data
+        erro = self._erro_cota_midias(servico, d['tamanho'])
+        if erro:
+            return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            assinatura = midia.gerar_assinatura_upload(
+                pasta=midia.pasta_do_servico(servico.empresa_id, servico.pk),
+                tipo=d['tipo'], entrega=midia.ENTREGA_PUBLICA,
+            )
+        except midia.MidiaIndisponivel:
+            return Response({'erro': 'Armazenamento de mídia não configurado.'},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({**assinatura, 'tipo': d['tipo'], 'nome': d['nome']})
+
+    @action(detail=True, methods=['patch'], url_path='midias/ordem')
+    def midias_ordem(self, request, pk=None):
+        """PATCH /servicos/{id}/midias/ordem/ — body: {ids: [3, 1, 2]}"""
+        servico = self.get_object()
+        ids = request.data.get('ids')
+        atuais = set(servico.midias.values_list('id', flat=True))
+        if not isinstance(ids, list) or set(ids) != atuais or len(ids) != len(atuais):
+            return Response({'ids': 'Envie todos os IDs das mídias deste serviço, na nova ordem.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            for ordem, mid in enumerate(ids):
+                MidiaServico.objects.filter(pk=mid, servico=servico).update(ordem=ordem)
+        cache.delete(chave_cache_pagina_publica(servico.empresa.slug))  # update() não dispara signal
+        return Response(MidiaServicoDonoSerializer(servico.midias.all(), many=True).data)
+
+    @action(detail=True, methods=['delete'], url_path=r'midias/(?P<midia_id>[0-9]+)')
+    def midia_remover(self, request, pk=None, midia_id=None):
+        """DELETE /servicos/{id}/midias/{midia_id}/"""
+        servico = self.get_object()
+        get_object_or_404(servico.midias, pk=midia_id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AgendamentoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
@@ -236,11 +367,7 @@ class AgendamentoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
             return Response(AnexoSerializer(ja_existe).data)  # confirmação repetida (idempotente)
 
         # Validação autoritativa: formato detectado pelo Cloudinary a partir do conteúdo
-        erro = None
-        if meta.formato not in midia.FORMATOS[d['tipo']]:
-            erro = 'Tipo de arquivo não permitido. Envie JPG, PNG, WEBP, MP4 ou WEBM.'
-        elif meta.bytes > midia.limite_bytes(d['tipo']):
-            erro = 'Arquivo maior que o limite permitido.'
+        erro = midia.validar_metadados(meta, d['tipo'])
         if erro:
             midia.apagar(meta.public_id, d['tipo'])
             return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
@@ -389,7 +516,8 @@ class PaginaPublicaView(APIView):
             dados = {
                 'empresa': EmpresaPublicSerializer(empresa).data,
                 'servicos': ServicoPublicSerializer(
-                    Servico.objects.filter(empresa=empresa)[:self.MAX_ITENS], many=True,
+                    Servico.objects.filter(empresa=empresa).prefetch_related('midias')[:self.MAX_ITENS],
+                    many=True,
                 ).data,
                 'profissionais': ProfissionalPublicSerializer(
                     Profissional.objects.filter(empresa=empresa, ativo=True)[:self.MAX_ITENS],

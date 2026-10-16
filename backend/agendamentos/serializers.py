@@ -5,10 +5,10 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
-from . import midia
+from . import midia, youtube
 from .models import (
     Empresa, Profissional, Servico, Agendamento,
-    AgendamentoServico, AnexoAgendamento, HorarioFuncionamento,
+    AgendamentoServico, AnexoAgendamento, HorarioFuncionamento, MidiaServico,
 )
 
 
@@ -125,11 +125,48 @@ class ServicoSerializer(serializers.ModelSerializer):
         return value
 
 
+class MidiaServicoSerializer(serializers.ModelSerializer):
+    """Mídia da vitrine do serviço. URLs públicas (CDN do Cloudinary / YouTube)."""
+    url = serializers.SerializerMethodField()
+    thumb_url = serializers.SerializerMethodField()
+    embed_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MidiaServico
+        fields = [
+            'id', 'tipo', 'url', 'thumb_url', 'embed_url', 'youtube_id',
+            'largura', 'altura', 'duracao_seg', 'ordem',
+        ]
+        read_only_fields = fields
+
+    def _urls(self, obj) -> dict:
+        if obj.tipo == 'youtube':
+            return {'url': None, 'thumb_url': youtube.url_miniatura(obj.youtube_id)}
+        return midia.urls_assinadas(obj.public_id, obj.tipo, entrega=midia.ENTREGA_PUBLICA)
+
+    def get_url(self, obj):
+        return self._urls(obj)['url']
+
+    def get_thumb_url(self, obj):
+        return self._urls(obj)['thumb_url']
+
+    def get_embed_url(self, obj):
+        return youtube.url_embed(obj.youtube_id) if obj.tipo == 'youtube' else None
+
+
+class MidiaServicoDonoSerializer(MidiaServicoSerializer):
+    class Meta(MidiaServicoSerializer.Meta):
+        fields = MidiaServicoSerializer.Meta.fields + ['formato', 'bytes', 'nome_original', 'criado_em']
+        read_only_fields = fields
+
+
 class ServicoPublicSerializer(serializers.ModelSerializer):
     """Versão pública — sem metadados internos (empresa, timestamps)."""
+    midias = MidiaServicoSerializer(many=True, read_only=True)
+
     class Meta:
         model = Servico
-        fields = ['id', 'nome', 'descricao', 'duracao_min', 'preco']
+        fields = ['id', 'nome', 'descricao', 'duracao_min', 'preco', 'midias']
 
 
 # ── Agendamento ───────────────────────────────────────────────────────────────
@@ -411,6 +448,18 @@ class PedidoAssinaturaSerializer(serializers.Serializer):
         data['tipo'] = tipo_mime
         data['nome'] = midia.sanitizar_nome(data['nome'])
         return data
+
+
+class YoutubeSerializer(serializers.Serializer):
+    youtube_url = serializers.CharField(max_length=500)
+
+    def validate_youtube_url(self, valor):
+        video_id = youtube.extrair_youtube_id(valor)
+        if not video_id:
+            raise serializers.ValidationError(
+                'Link do YouTube inválido. Use youtube.com/watch?v=… ou youtu.be/…'
+            )
+        return video_id
 
 
 class ConfirmarAnexoSerializer(serializers.Serializer):

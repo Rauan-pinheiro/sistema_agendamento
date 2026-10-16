@@ -5,7 +5,7 @@ Uso: python manage.py limpar_midia_orfa [--horas 24] [--dry-run]
 Remove do Cloudinary arquivos enviados mas nunca confirmados (o navegador fez o
 upload direto e a confirmação não chegou: aba fechada, queda de rede etc.).
 Considera órfão o arquivo da pasta MIDIA_PASTA_RAIZ que não tem AnexoAgendamento
-correspondente e foi criado há mais de N horas. Rode diariamente (Render Cron Job).
+nem MidiaServico correspondente e foi criado há mais de N horas. Rode diariamente (Render Cron Job).
 """
 from datetime import datetime, timedelta, timezone as dt_tz
 
@@ -14,7 +14,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from agendamentos import midia
-from agendamentos.models import AnexoAgendamento
+from agendamentos.models import AnexoAgendamento, MidiaServico
 
 
 class Command(BaseCommand):
@@ -29,15 +29,22 @@ class Command(BaseCommand):
             raise CommandError('CLOUDINARY_URL não configurada.')
         limite = datetime.now(dt_tz.utc) - timedelta(hours=opts['horas'])
         conhecidos = set(AnexoAgendamento.objects.values_list('public_id', flat=True))
+        conhecidos |= set(
+            MidiaServico.objects.exclude(public_id=None).values_list('public_id', flat=True)
+        )
         apagados = 0
 
         # 'raw' cobre uploads feitos para o endpoint errado com uma assinatura válida
-        varreduras = [*midia.RESOURCE_TYPE.items(), ('raw', 'raw')]
-        for tipo, resource_type in varreduras:
+        varreduras = [
+            (tipo, rt, entrega)
+            for tipo, rt in [*midia.RESOURCE_TYPE.items(), ('raw', 'raw')]
+            for entrega in (midia.TIPO_ENTREGA, midia.ENTREGA_PUBLICA)
+        ]
+        for tipo, resource_type, entrega in varreduras:
             cursor = None
             while True:
                 pagina = cloudinary.api.resources(
-                    type=midia.TIPO_ENTREGA, resource_type=resource_type,
+                    type=entrega, resource_type=resource_type,
                     prefix=settings.MIDIA_PASTA_RAIZ + '/', max_results=500, next_cursor=cursor,
                 )
                 for r in pagina.get('resources', []):
@@ -47,7 +54,7 @@ class Command(BaseCommand):
                     apagados += 1
                     self.stdout.write(f'{"[dry-run] " if opts["dry_run"] else ""}órfão: {r["public_id"]}')
                     if not opts['dry_run']:
-                        midia.apagar(r['public_id'], tipo, resource_type=resource_type)
+                        midia.apagar(r['public_id'], tipo, resource_type=resource_type, entrega=entrega)
                 cursor = pagina.get('next_cursor')
                 if not cursor:
                     break

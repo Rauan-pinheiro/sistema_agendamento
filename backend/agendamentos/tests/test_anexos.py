@@ -242,7 +242,8 @@ class LimparMidiaOrfaTests(APITestCase):
             {'public_id': 'agenda/e1/ag1/recente', 'created_at': '2999-01-01T00:00:00Z'},
         ]}
         with mock.patch.object(midia, 'configurado', return_value=True), \
-             mock.patch('cloudinary.api.resources', side_effect=[recursos, {'resources': []}, {'resources': []}]), \
+             mock.patch('cloudinary.api.resources', side_effect=[recursos] + [{'resources': []}] * 5), \
              mock.patch.object(midia, 'apagar') as apagar:
             call_command('limpar_midia_orfa', stdout=StringIO())
-        apagar.assert_called_once_with('agenda/e1/ag1/orfao', 'imagem', resource_type='image')
+        apagar.assert_called_once_with('agenda/e1/ag1/orfao', 'imagem', resource_type='image',
+                                       entrega='authenticated')
