@@ -197,6 +197,24 @@ CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
 
 CORS_ALLOW_CREDENTIALS = True
 
+# ── Logs ──────────────────────────────────────────────────────────────────────
+# Tudo vai para stdout/stderr (o Render coleta e exibe). Sem isso, com DEBUG=False,
+# exceções 500 não aparecem em lugar nenhum.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'padrao': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'padrao'},
+    },
+    'root': {'handlers': ['console'], 'level': os.environ.get('LOG_LEVEL', 'INFO')},
+    'loggers': {
+        'django.request': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+    },
+}
+
 # ── Testes ────────────────────────────────────────────────────────────────────
 if 'test' in sys.argv:
     # Hash rápido apenas nos testes — produção mantém PBKDF2 padrão.
