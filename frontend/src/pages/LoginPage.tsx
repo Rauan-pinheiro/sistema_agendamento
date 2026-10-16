@@ -42,8 +42,10 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Usuário</label>
+            <label htmlFor="login-usuario">Usuário</label>
             <input
+              id="login-usuario"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -52,8 +54,10 @@ export function LoginPage() {
             />
           </div>
           <div className="form-group">
-            <label>Senha</label>
+            <label htmlFor="login-senha">Senha</label>
             <input
+              id="login-senha"
+              autoComplete="current-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -61,7 +65,7 @@ export function LoginPage() {
               placeholder="••••••••"
             />
           </div>
-          {error && <p className="form-error">{error}</p>}
+          {error && <p className="form-error" role="alert">{error}</p>}
           <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading}>
             {loading && <span className="btn-spinner" />}
             {loading ? 'Entrando...' : 'Entrar'}
