@@ -124,6 +124,13 @@ class ServicoSerializer(serializers.ModelSerializer):
         return value
 
 
+class ServicoPublicSerializer(serializers.ModelSerializer):
+    """Versão pública — sem metadados internos (empresa, timestamps)."""
+    class Meta:
+        model = Servico
+        fields = ['id', 'nome', 'descricao', 'duracao_min', 'preco']
+
+
 # ── Agendamento ───────────────────────────────────────────────────────────────
 
 class AgendamentoSerializer(serializers.ModelSerializer):
@@ -167,8 +174,12 @@ class AgendamentoSerializer(serializers.ModelSerializer):
         }
 
     def get_servicos_info(self, obj) -> list:
-        """Retorna os serviços do M2M; fallback para servico FK em dados legados."""
-        servicos = list(obj.servicos.all())
+        """
+        Retorna os serviços na ordem escolhida pelo cliente; fallback para a FK
+        `servico` em dados legados. Usa o prefetch de `agendamento_servicos__servico`
+        quando a view o fornece (evita N+1 na listagem).
+        """
+        servicos = [link.servico for link in obj.agendamento_servicos.all()]
         if not servicos and obj.servico:
             servicos = [obj.servico]
         return [
@@ -293,6 +304,18 @@ class AgendamentoSerializer(serializers.ModelSerializer):
         servicos = validated_data.pop('_servicos_list', [])
         duracao_total = validated_data.pop('_duracao_total', 0)
 
+        # Serializa as reservas concorrentes da mesma empresa: trava a linha da
+        # Empresa e repete a checagem de conflito já dentro da transação. Sem isso,
+        # duas requisições simultâneas passam no validate() e gravam o mesmo horário.
+        empresa = validated_data.get('empresa') or self.context.get('empresa')
+        if empresa is not None:
+            Empresa.objects.select_for_update().only('id').get(pk=empresa.pk)
+            if duracao_total > 0:
+                self._validar_conflito_horario(
+                    empresa, duracao_total, validated_data['data_hora'],
+                    validated_data.get('profissional'),
+                )
+
         validated_data['duracao_total_min'] = duracao_total
         validated_data['preco_total'] = (
             sum(s.preco for s in servicos) if servicos else Decimal('0.00')
@@ -310,7 +333,16 @@ class AgendamentoSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance: Agendamento, validated_data: dict) -> Agendamento:
         servicos = validated_data.pop('_servicos_list', [])
-        validated_data.pop('_duracao_total', None)
+        duracao_total = validated_data.pop('_duracao_total', None)
+
+        # Mesma proteção contra concorrência do create(), quando muda horário/serviços
+        if duracao_total and ('data_hora' in validated_data or servicos or 'profissional' in validated_data):
+            Empresa.objects.select_for_update().only('id').get(pk=instance.empresa_id)
+            self._validar_conflito_horario(
+                instance.empresa, duracao_total,
+                validated_data.get('data_hora', instance.data_hora),
+                validated_data.get('profissional', instance.profissional),
+            )
 
         instance = super().update(instance, validated_data)
 
