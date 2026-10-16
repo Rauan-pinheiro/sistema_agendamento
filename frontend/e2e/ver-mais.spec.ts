@@ -41,7 +41,7 @@ test.describe('Ver mais do serviço', () => {
 
     await page.screenshot({ path: `test-results/ver-mais-modal-${test.info().project.name}.png` });
     await modal.getByRole('button', { name: /reproduzir vídeo/i }).click();
-    await expect(modal.locator('iframe')).toHaveAttribute('src', new RegExp(`youtube-nocookie\.com/embed/${YT}`));
+    await expect(modal.locator('iframe')).toHaveAttribute('src', new RegExp(`youtube-nocookie\\.com/embed/${YT}`));
 
     await modal.getByRole('button', { name: /adicionar/i }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
