@@ -46,6 +46,9 @@ class Servico(BaseModel):
     duracao_min = models.PositiveIntegerField()
     preco = models.DecimalField(max_digits=8, decimal_places=2)
 
+    class Meta:
+        ordering = ['nome', 'id']
+
     def __str__(self) -> str:
         return f"{self.nome} - {self.empresa.nome_fantasia}"
 
@@ -86,6 +89,14 @@ class Agendamento(BaseModel):
     # Campos desnormalizados calculados na criação — evitam N+1 em conflitos e financeiro
     duracao_total_min = models.PositiveIntegerField(default=0)
     preco_total = models.DecimalField(max_digits=9, decimal_places=2, default=Decimal('0.00'))
+
+    class Meta:
+        indexes = [
+            # Painel, financeiro, slots do dia e checagem de conflito filtram por empresa + intervalo
+            models.Index(fields=['empresa', 'data_hora'], name='ag_empresa_data_idx'),
+            models.Index(fields=['empresa', 'status', 'data_hora'], name='ag_empresa_status_data_idx'),
+            models.Index(fields=['empresa', 'criado_em'], name='ag_empresa_criado_idx'),
+        ]
 
     def __str__(self) -> str:
         return f"{self.nome_cliente} - {self.data_hora}"
