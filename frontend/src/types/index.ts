@@ -71,6 +71,8 @@ export interface Agendamento {
   servicos_info: ServicoInfo[];
   duracao_total_min: number;
   preco_total: string;
+  /** Quantidade de fotos/vídeos anexados (só no painel). */
+  total_anexos?: number;
   profissional: number | null;
   profissional_nome: string | null;
   nome_cliente: string;
@@ -137,4 +139,47 @@ export interface FinanceiroResumo {
   taxa_confirmacao: number;          // 0–100
   por_dia: Array<{ dia: string; total: number; receita: string }>;
   por_servico: Array<{ servico: string; total: number; receita: string }>;
+}
+
+export interface Anexo {
+  id: number;
+  tipo: 'imagem' | 'video';
+  formato: string;
+  bytes: number;
+  largura: number | null;
+  altura: number | null;
+  duracao_seg: number | null;
+  nome_original: string;
+  criado_em: string;
+  url: string | null;
+  thumb_url: string | null;
+}
+
+export interface CotaAnexos {
+  arquivos: number;
+  bytes: number;
+  max_arquivos: number;
+  max_bytes: number;
+}
+
+export interface AnexosResposta {
+  anexos: Anexo[];
+  cota: CotaAnexos;
+}
+
+/** Parâmetros assinados pelo servidor para o upload direto ao Cloudinary. */
+export interface AssinaturaUpload {
+  timestamp: number;
+  public_id: string;
+  type: string;
+  allowed_formats: string;
+  overwrite: string;
+  signature: string;
+  api_key: string;
+  cloud_name: string;
+  resource_type: 'image' | 'video';
+  upload_url: string;
+  max_bytes: number;
+  tipo: 'imagem' | 'video';
+  nome: string;
 }
