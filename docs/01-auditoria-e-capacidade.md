@@ -174,12 +174,14 @@ Zero erros no "antes" **não** significa que estava bom: as requisições espera
 2. **No Free (demo/homologação):** um ping externo (UptimeRobot ou cron-job.org, ambos gratuitos) em `GET /api/v1/health/` a cada 10–14 min mantém o serviço acordado. Isso consome ~744 h/mês das 750 h gratuitas, ou seja, **só um serviço por workspace** pode ficar ligado 24×7. O health check faz `SELECT 1`, então também mantém viva a conexão com o banco.
 3. **Mitigação de UX:** com o front no Static Site, mostrar "Acordando o servidor…" quando a 1ª chamada demorar mais de 3 s, em vez de uma tela em branco (Fase 4).
 
-## 8. Decisões que preciso de você
+## 8. Decisões tomadas (16/10/2026)
 
-1. **Banco de produção:** Postgres (recomendado, nativo do Render, já suportado pelo código) ou manter o plano antigo de MySQL? E qual provedor: **Render Basic‑256mb (recomendado)**, Neon ou Supabase?
-2. **Plano da API:** confirmar o **Starter** para produção (o Free fica para homologação).
-3. **Front-end:** confirmar o **Static Site separado** (recomendado) em vez de o Django servir o build.
-4. **Storage de mídia (Fase 2):** escolha apresentada ao fim desta fase.
+| Tema | Decisão |
+|---|---|
+| Banco de produção | **Render Postgres Basic‑256mb** (substitui o plano antigo de MySQL/Cloud SQL) |
+| Plano da API | **Web Service Starter**; o Free fica só para homologação |
+| Front-end | **Static Site separado** no Render |
+| Storage de mídia (Fase 2) | **Cloudinary**, com upload direto e assinado a partir do navegador |
 
 ## 9. O que ficou para as próximas fases
 
