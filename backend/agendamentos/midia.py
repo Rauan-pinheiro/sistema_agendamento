@@ -13,7 +13,8 @@ Fluxo de upload (o arquivo nunca passa pelo servidor do Render):
 
 Privacidade: anexos de agendamento usam a entrega `authenticated` — só podem ser
 vistos por URLs assinadas, que a API entrega apenas ao dono da empresa. Mídias de
-serviço são vitrine pública (entrega `upload`), exibidas ao cliente final.
+serviço são vitrine pública (entrega `upload`), mas também chegam como
+`authenticated` e só são promovidas a públicas depois de validadas.
 """
 import logging
 import re
@@ -174,6 +175,23 @@ def apagar(public_id: str, tipo: str, resource_type: str | None = None,
         )
     except Exception:  # noqa: BLE001 — limpeza best-effort
         log.exception('Falha ao apagar mídia %s no Cloudinary', public_id)
+
+
+def promover_para_publico(public_id: str, tipo: str) -> None:
+    """
+    Torna público um arquivo já validado. Uploads da vitrine chegam como
+    `authenticated` (privados) e só viram `upload` (públicos) depois da
+    confirmação — assim uma assinatura nunca serve para hospedar arquivos
+    arbitrários publicamente. Levanta MidiaIndisponivel em caso de falha.
+    """
+    _exigir_configuracao()
+    try:
+        cloudinary.uploader.rename(
+            public_id, public_id, resource_type=RESOURCE_TYPE[tipo],
+            type=TIPO_ENTREGA, to_type=ENTREGA_PUBLICA, invalidate=True,
+        )
+    except cloudinary.exceptions.Error as exc:
+        raise MidiaIndisponivel(str(exc)) from exc
 
 
 def validar_metadados(meta: Metadados, tipo: str) -> str | None:

@@ -165,7 +165,8 @@ class ServicoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
                                 status=status.HTTP_400_BAD_REQUEST)
             return Response(MidiaServicoDonoSerializer(existente).data)
         try:
-            meta = midia.obter_metadados(d['public_id'], d['tipo'], entrega=midia.ENTREGA_PUBLICA)
+            # Ainda privado: só vira público depois de validado (promover_para_publico)
+            meta = midia.obter_metadados(d['public_id'], d['tipo'])
         except midia.MidiaIndisponivel:
             return Response({'erro': 'Serviço de mídia indisponível. Tente novamente.'},
                             status=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -176,19 +177,26 @@ class ServicoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
         erro = midia.validar_metadados(meta, d['tipo'])
         m = None
         if not erro:
-            with transaction.atomic():
-                Servico.objects.select_for_update().only('id').get(pk=servico.pk)
-                erro = self._erro_cota_midias(servico, meta.bytes)
-                if not erro:
-                    m = MidiaServico.objects.create(
-                        empresa_id=servico.empresa_id, servico=servico, tipo=d['tipo'],
-                        public_id=meta.public_id, formato=meta.formato, bytes=meta.bytes,
-                        largura=meta.largura, altura=meta.altura, duracao_seg=meta.duracao_seg,
-                        nome_original=midia.sanitizar_nome(d.get('nome') or ''),
-                        ordem=self._proxima_ordem(servico),
-                    )
+            try:
+                with transaction.atomic():
+                    Servico.objects.select_for_update().only('id').get(pk=servico.pk)
+                    erro = self._erro_cota_midias(servico, meta.bytes)
+                    if not erro:
+                        midia.promover_para_publico(meta.public_id, d['tipo'])
+                        m = MidiaServico.objects.create(
+                            empresa_id=servico.empresa_id, servico=servico, tipo=d['tipo'],
+                            public_id=meta.public_id, formato=meta.formato, bytes=meta.bytes,
+                            largura=meta.largura, altura=meta.altura,
+                            duracao_seg=meta.duracao_seg,
+                            nome_original=midia.sanitizar_nome(d.get('nome') or ''),
+                            ordem=self._proxima_ordem(servico),
+                        )
+            except midia.MidiaIndisponivel:
+                # Continua privado; a limpeza de órfãos remove se não for reenviado
+                return Response({'erro': 'Serviço de mídia indisponível. Tente novamente.'},
+                                status=status.HTTP_503_SERVICE_UNAVAILABLE)
         if erro:
-            midia.apagar(meta.public_id, d['tipo'], entrega=midia.ENTREGA_PUBLICA)
+            midia.apagar(meta.public_id, d['tipo'])  # ainda privado
             return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
         return Response(MidiaServicoDonoSerializer(m).data, status=status.HTTP_201_CREATED)
 
@@ -203,9 +211,9 @@ class ServicoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
         if erro:
             return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
         try:
+            # Upload privado; vira público só após a confirmação (ver midias())
             assinatura = midia.gerar_assinatura_upload(
-                pasta=midia.pasta_do_servico(servico.empresa_id, servico.pk),
-                tipo=d['tipo'], entrega=midia.ENTREGA_PUBLICA,
+                pasta=midia.pasta_do_servico(servico.empresa_id, servico.pk), tipo=d['tipo'],
             )
         except midia.MidiaIndisponivel:
             return Response({'erro': 'Armazenamento de mídia não configurado.'},

@@ -43,21 +43,25 @@ class MidiasServicoTests(APITestCase):
     def confirmar(self, pid, formato='jpg', tamanho=MB):
         meta = midia.Metadados(pid, 'imagem', formato, tamanho, 1200, 800, None)
         with mock.patch.object(midia, 'obter_metadados', return_value=meta) as obter, \
-             mock.patch.object(midia, 'apagar') as apagar:
+             mock.patch.object(midia, 'apagar') as apagar, \
+             mock.patch.object(midia, 'promover_para_publico') as promover:
             r = self.client.post(self.base, {'public_id': pid, 'tipo': 'imagem'}, format='json')
+        self.promover = promover
         return r, obter, apagar
 
-    def test_assinatura_usa_entrega_publica(self):
+    def test_upload_chega_privado(self):
+        """A assinatura nunca permite upload público direto (evita hospedagem arbitrária)."""
         r = self.client.post(f'{self.base}assinatura/', {'nome': 'a.png', 'mime': 'image/png', 'tamanho': MB},
                              format='json')
         self.assertEqual(r.status_code, 200, r.data)
-        self.assertEqual(r.data['type'], 'upload')
+        self.assertEqual(r.data['type'], 'authenticated')
         self.assertTrue(r.data['public_id'].startswith(self.pasta + '/'))
 
     def test_confirma_imagem_com_url_publica(self):
         r, obter, _ = self.confirmar(self.pid('foto'))
         self.assertEqual(r.status_code, 201, r.data)
-        self.assertEqual(obter.call_args.kwargs['entrega'], 'upload')
+        self.assertNotIn('entrega', obter.call_args.kwargs)  # lido ainda como privado
+        self.promover.assert_called_once_with(self.pid('foto'), 'imagem')
         self.assertIn('/image/upload/', r.data['url'])
         self.assertNotIn('s--', r.data['url'])  # pública: sem assinatura na URL
 
@@ -65,7 +69,7 @@ class MidiasServicoTests(APITestCase):
         r, _, apagar = self.confirmar(self.pid('falso'), formato='svg')
         self.assertEqual(r.status_code, 400)
         apagar.assert_called_once()
-        self.assertEqual(apagar.call_args.kwargs['entrega'], 'upload')
+        self.promover.assert_not_called()  # arquivo inválido nunca fica público
 
     def test_rejeita_upload_de_pasta_de_agendamento(self):
         pid = midia.pasta_do_agendamento(self.emp.id, 1) + '/xxxxxxxxxxxxxxxx'
@@ -79,6 +83,15 @@ class MidiasServicoTests(APITestCase):
         r, _, apagar = self.confirmar(self.pid('c'))
         self.assertEqual(r.status_code, 400)
         apagar.assert_called_once()
+
+    def test_falha_ao_promover_nao_registra(self):
+        pid = self.pid('falha')
+        meta = midia.Metadados(pid, 'imagem', 'jpg', MB, 10, 10, None)
+        with mock.patch.object(midia, 'obter_metadados', return_value=meta), \
+             mock.patch.object(midia, 'promover_para_publico', side_effect=midia.MidiaIndisponivel('x')):
+            r = self.client.post(self.base, {'public_id': pid, 'tipo': 'imagem'}, format='json')
+        self.assertEqual(r.status_code, 503)
+        self.assertFalse(MidiaServico.objects.exists())
 
     def test_youtube_valido_guarda_so_o_id(self):
         r = self.client.post(self.base, {'youtube_url': f'https://youtu.be/{YT}?si=x'}, format='json')
