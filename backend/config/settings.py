@@ -10,7 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
+import sys
 from pathlib import Path
+
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +24,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-chwrcr*_o)=t#ko1lewij7(%b5m%n9o95sx=u+339-fyu%dfcb'
+def env_bool(nome: str, padrao: bool = False) -> bool:
+    return os.environ.get(nome, str(padrao)).strip().lower() in ('1', 'true', 'yes', 'on')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = []
+def env_list(nome: str, padrao: str = '') -> list[str]:
+    return [v.strip() for v in os.environ.get(nome, padrao).split(',') if v.strip()]
+
+
+DEBUG = env_bool('DJANGO_DEBUG', True)
+
+# Em produção (DEBUG=False) a SECRET_KEY é obrigatória via variável de ambiente.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or (
+    'django-insecure-somente-desenvolvimento' if DEBUG else None
+)
+if not SECRET_KEY:
+    raise RuntimeError('Defina a variável de ambiente DJANGO_SECRET_KEY.')
+
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
 
 
 # Application definition
@@ -46,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -78,16 +95,43 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# DATABASE_URL (ex.: postgres://user:senha@host:5432/db). Sem ela, usa SQLite local.
 DATABASES = {
+    'default': dj_database_url.config(
+        default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
+        conn_max_age=int(os.environ.get('DB_CONN_MAX_AGE', '0')),
+        conn_health_checks=True,
+    )
+}
+# Pool nativo do psycopg 3 (Django ≥ 5.1). Mantém conexões abertas entre requisições,
+# evitando o handshake TCP+TLS com o Postgres a cada request. Exige CONN_MAX_AGE=0.
+if DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql' and env_bool('DB_POOL', False):
+    DATABASES['default']['CONN_MAX_AGE'] = 0
+    DATABASES['default'].setdefault('OPTIONS', {})['pool'] = {
+        'min_size': int(os.environ.get('DB_POOL_MIN', '1')),
+        'max_size': int(os.environ.get('DB_POOL_MAX', '4')),
+        'timeout': 10,
+    }
+
+# Cache em memória do processo (página pública). Com 1 processo gunicorn + threads
+# a invalidação por signal é imediata; com vários processos o TTL limita a defasagem.
+CACHES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'agenda',
+        'OPTIONS': {'MAX_ENTRIES': 2000},
     }
 }
 
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
+
+# Argon2id (parâmetros OWASP) como padrão; PBKDF2 mantido para verificar e migrar senhas antigas.
+PASSWORD_HASHERS = [
+    'agendamentos.hashers.Argon2OwaspPasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+]
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -130,6 +174,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Em produção só JSON — a Browsable API é pesada e expõe a navegação da API.
+    'DEFAULT_RENDERER_CLASSES': (
+        ['rest_framework.renderers.JSONRenderer']
+        + (['rest_framework.renderers.BrowsableAPIRenderer'] if DEBUG else [])
+    ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
 }
@@ -144,8 +193,11 @@ SIMPLE_JWT = {
 }
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',  # Vite dev server
-]
+CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
 
 CORS_ALLOW_CREDENTIALS = True
+
+# ── Testes ────────────────────────────────────────────────────────────────────
+if 'test' in sys.argv:
+    # Hash rápido apenas nos testes — produção mantém PBKDF2 padrão.
+    PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
