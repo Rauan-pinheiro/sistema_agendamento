@@ -38,6 +38,21 @@ export interface AgendamentoVolume {
   por_hora: Array<{ hora: number; total: number }>;
 }
 
+export interface AgendamentosResumo {
+  hoje: number;
+  pendentes: number;
+  ultimo_criado_em: string | null;
+}
+
+/** Resposta de /public/<slug>/pagina/ — tudo que a página pública carrega de início. */
+export interface PaginaPublica {
+  empresa: Empresa;
+  servicos: ServicoPublico[];
+  profissionais: ProfissionalPublico[];
+}
+
+export type ServicoPublico = Pick<Servico, 'id' | 'nome' | 'descricao' | 'duracao_min' | 'preco'>;
+
 export type AgendamentoStatus = 'pendente' | 'confirmado' | 'cancelado' | 'arquivado';
 
 export interface ServicoInfo {

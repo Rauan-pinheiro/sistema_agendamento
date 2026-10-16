@@ -1,11 +1,28 @@
 import api from './client';
-import type { Agendamento, AgendamentoStatus, AgendamentoVolume, PaginatedResponse } from '../types';
+import type {
+  Agendamento, AgendamentoStatus, AgendamentoVolume, AgendamentosResumo, PaginatedResponse,
+} from '../types';
 
-export async function listAgendamentos(status?: AgendamentoStatus): Promise<Agendamento[]> {
-  const { data } = await api.get<PaginatedResponse<Agendamento>>('/agendamentos/', {
-    params: status ? { status } : {},
-  });
-  return data.results;
+export interface ListAgendamentosParams {
+  status?: AgendamentoStatus;
+  data_inicio?: string; // YYYY-MM-DD (fuso local da empresa)
+  data_fim?: string;    // YYYY-MM-DD, inclusivo
+  ordem?: 'asc' | 'desc';
+  page?: number;
+  page_size?: number;
+}
+
+export async function listAgendamentos(
+  params: ListAgendamentosParams = {},
+): Promise<PaginatedResponse<Agendamento>> {
+  const { data } = await api.get<PaginatedResponse<Agendamento>>('/agendamentos/', { params });
+  return data;
+}
+
+/** Contadores leves usados no cabeçalho e no polling do painel. */
+export async function getAgendamentosResumo(): Promise<AgendamentosResumo> {
+  const { data } = await api.get<AgendamentosResumo>('/agendamentos/resumo/');
+  return data;
 }
 
 export async function updateStatus(id: number, status: AgendamentoStatus): Promise<Agendamento> {

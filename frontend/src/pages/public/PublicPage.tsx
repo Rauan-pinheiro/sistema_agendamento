@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  getEmpresaPublica,
-  listServicosPublicos,
-  listProfissionaisPublicos,
+  getPaginaPublica,
   createAgendamentoPublico,
   getHorariosDisponiveis,
 } from '../../api/public';
-import type { Empresa, Servico, ProfissionalPublico, SlotDisponivel } from '../../types';
+import type { Empresa, ServicoPublico, ProfissionalPublico, SlotDisponivel } from '../../types';
 import { CheckCircle, MessageCircle, Check } from 'lucide-react';
 import { formatPhone, normalizePhone, isValidPhone } from '../../utils/phone';
 
 const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
+/** Data local YYYY-MM-DD — toISOString() usa UTC e, à noite, já retornaria o dia seguinte. */
 function hoje(): string {
-  return new Date().toISOString().split('T')[0];
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function initials(nome: string): string {
@@ -135,7 +135,7 @@ export function PublicPage() {
   const { slug } = useParams<{ slug: string }>();
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
-  const [servicos, setServicos] = useState<Servico[]>([]);
+  const [servicos, setServicos] = useState<ServicoPublico[]>([]);
   const [profissionais, setProfissionais] = useState<ProfissionalPublico[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -164,15 +164,11 @@ export function PublicPage() {
 
   useEffect(() => {
     if (!slug) return;
-    Promise.all([
-      getEmpresaPublica(slug),
-      listServicosPublicos(slug),
-      listProfissionaisPublicos(slug),
-    ])
-      .then(([emp, svcs, profs]) => {
-        setEmpresa(emp);
-        setServicos(svcs);
-        setProfissionais(profs);
+    getPaginaPublica(slug)
+      .then((pagina) => {
+        setEmpresa(pagina.empresa);
+        setServicos(pagina.servicos);
+        setProfissionais(pagina.profissionais);
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
@@ -310,7 +306,7 @@ export function PublicPage() {
   // Serviços selecionados (em ordem de seleção)
   const servicosSelecionados = servicosIds
     .map((id) => servicos.find((s) => s.id === id))
-    .filter(Boolean) as Servico[];
+    .filter(Boolean) as ServicoPublico[];
   const duracaoTotal = servicosSelecionados.reduce((acc, s) => acc + s.duracao_min, 0);
   const precoTotal   = servicosSelecionados.reduce((acc, s) => acc + Number(s.preco), 0);
 

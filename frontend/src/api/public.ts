@@ -5,11 +5,18 @@ import type {
   Agendamento,
   ProfissionalPublico,
   PaginatedResponse,
+  PaginaPublica,
   SlotDisponivel,
 } from '../types';
 
 // Cliente sem JWT — rotas públicas não devem disparar o interceptor de 401/redirect
 const publicApi = axios.create({ baseURL: '/api/v1' });
+
+/** Empresa + serviços + profissionais em uma única requisição (com cache no servidor). */
+export async function getPaginaPublica(slug: string): Promise<PaginaPublica> {
+  const { data } = await publicApi.get<PaginaPublica>(`/public/${slug}/pagina/`);
+  return data;
+}
 
 export async function getEmpresaPublica(slug: string): Promise<Empresa> {
   const { data } = await publicApi.get<Empresa>(`/public/${slug}/`);

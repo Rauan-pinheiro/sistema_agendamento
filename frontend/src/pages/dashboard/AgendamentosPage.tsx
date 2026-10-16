@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { listAgendamentos, updateStatus, deleteAgendamento } from '../../api/agendamentos';
-import type { Agendamento, AgendamentoStatus, Empresa } from '../../types';
+import {
+  listAgendamentos, getAgendamentosResumo, updateStatus, deleteAgendamento,
+  type ListAgendamentosParams,
+} from '../../api/agendamentos';
+import type { Agendamento, AgendamentoStatus, AgendamentosResumo, Empresa } from '../../types';
 import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, Phone, DollarSign, Clock, User, ChevronDown, Bell } from 'lucide-react';
@@ -21,16 +24,6 @@ const POLL_MAX_MS    = 60_000;
 const BACKOFF_CYCLES = 3;
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
-
-function isToday(iso: string): boolean {
-  const hoje = new Date();
-  const data = new Date(iso);
-  return (
-    data.getDate()     === hoje.getDate()     &&
-    data.getMonth()    === hoje.getMonth()    &&
-    data.getFullYear() === hoje.getFullYear()
-  );
-}
 
 function formatDataAtual(): string {
   return new Date().toLocaleDateString('pt-BR', {
@@ -557,12 +550,37 @@ function EmptyState({ tab }: { tab: TabValue }) {
 }
 
 /* ── Main component ──────────────────────────────────────────────────────── */
+type Periodo = 'proximos' | 'anteriores';
+
+const PAGE_SIZE = 50;
+
+/** Data local no formato YYYY-MM-DD (toISOString usaria UTC e erraria o dia à noite). */
+function isoLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function paramsDaAba(tab: TabValue, periodo: Periodo): ListAgendamentosParams {
+  const hoje = new Date();
+  if (tab === 'hoje') return { data_inicio: isoLocal(hoje), data_fim: isoLocal(hoje), page_size: 100 };
+  const status = tab === 'todos' ? undefined : tab;
+  if (periodo === 'anteriores') {
+    const ontem = new Date(hoje);
+    ontem.setDate(ontem.getDate() - 1);
+    return { status, data_fim: isoLocal(ontem), ordem: 'desc', page_size: PAGE_SIZE };
+  }
+  return { status, data_inicio: isoLocal(hoje), page_size: PAGE_SIZE };
+}
+
 export function AgendamentosPage() {
   const { empresa } = useAuth();
-  const [allAgendamentos, setAllAgendamentos] = useState<Agendamento[]>([]);
   const [agendamentos, setAgendamentos]       = useState<Agendamento[]>([]);
+  const [total, setTotal]                     = useState(0);
+  const [pagina, setPagina]                   = useState(1);
   const [tab, setTab]                         = useState<TabValue>('hoje');
+  const [periodo, setPeriodo]                 = useState<Periodo>('proximos');
+  const [resumo, setResumo]                   = useState<AgendamentosResumo | null>(null);
   const [loading, setLoading]                 = useState(true);
+  const [loadingMore, setLoadingMore]         = useState(false);
   const [autoRefreshing, setAutoRefreshing]   = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [expandedId, setExpandedId]           = useState<number | null>(null);
@@ -573,70 +591,83 @@ export function AgendamentosPage() {
   const pollIntervalRef     = useRef(POLL_MIN_MS);
   const cyclesWithoutNewRef = useRef(0);
   const lastMaxCreatedRef   = useRef<string | null>(null);
+  const loadedCountRef      = useRef(0);
   const toastTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const todayCount   = allAgendamentos.filter((ag) => isToday(ag.data_hora)).length;
-  const pendingCount = allAgendamentos.filter((ag) => ag.status === 'pendente').length;
+  const todayCount   = resumo?.hoje ?? 0;
+  const pendingCount = resumo?.pendentes ?? 0;
 
-  // isPollRefresh=true apenas quando chamado pelo loop de polling automático
-  const fetchData = useCallback(async (silent = false, isPollRefresh = false) => {
+  /**
+   * Recarrega a lista da aba atual. `manterQuantidade` recarrega tantos itens
+   * quanto já estavam visíveis (até 100), preservando o "Carregar mais".
+   */
+  const fetchData = useCallback(async (silent = false, manterQuantidade = false) => {
     silent ? setAutoRefreshing(true) : setLoading(true);
-
-    const data = await listAgendamentos();
-
-    // Detecta novos agendamentos e ajusta o backoff (somente no polling silencioso)
-    if (isPollRefresh && lastMaxCreatedRef.current !== null) {
-      const maxCreated = data.reduce(
-        (max, ag) => (ag.criado_em > max ? ag.criado_em : max),
-        '',
-      );
-
-      if (maxCreated > lastMaxCreatedRef.current) {
-        // Novos agendamentos detectados → reseta backoff e exibe toast
-        pollIntervalRef.current     = POLL_MIN_MS;
-        cyclesWithoutNewRef.current = 0;
-        const count = data.filter((ag) => ag.criado_em > lastMaxCreatedRef.current!).length;
-        setNewAgsCount(count);
-        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = setTimeout(() => setNewAgsCount(0), 5_000);
-      } else {
-        // Sem novidades → avança backoff
-        cyclesWithoutNewRef.current += 1;
-        if (cyclesWithoutNewRef.current >= BACKOFF_CYCLES) {
-          cyclesWithoutNewRef.current = 0;
-          pollIntervalRef.current = Math.min(pollIntervalRef.current * 2, POLL_MAX_MS);
-        }
-      }
+    try {
+      const base = paramsDaAba(tab, periodo);
+      const pageSize = manterQuantidade
+        ? Math.min(100, Math.max(base.page_size ?? PAGE_SIZE, loadedCountRef.current))
+        : base.page_size;
+      const [lista, res] = await Promise.all([
+        listAgendamentos({ ...base, page_size: pageSize, page: 1 }),
+        getAgendamentosResumo(),
+      ]);
+      lastMaxCreatedRef.current = res.ultimo_criado_em;
+      loadedCountRef.current = lista.results.length;
+      setResumo(res);
+      setAgendamentos(lista.results);
+      setTotal(lista.count);
+      setPagina(1);
+    } finally {
+      setLoading(false);
+      setAutoRefreshing(false);
     }
+  }, [tab, periodo]);
 
-    // Atualiza o timestamp de referência após cada fetch
-    if (data.length > 0) {
-      lastMaxCreatedRef.current = data.reduce(
-        (max, ag) => (ag.criado_em > max ? ag.criado_em : max),
-        '',
-      );
-    } else if (lastMaxCreatedRef.current === null) {
-      lastMaxCreatedRef.current = new Date().toISOString();
+  async function carregarMais() {
+    setLoadingMore(true);
+    try {
+      const prox = pagina + 1;
+      const lista = await listAgendamentos({ ...paramsDaAba(tab, periodo), page: prox });
+      setAgendamentos((prev) => {
+        const vistos = new Set(prev.map((a) => a.id));
+        const novos = [...prev, ...lista.results.filter((a) => !vistos.has(a.id))];
+        loadedCountRef.current = novos.length;
+        return novos;
+      });
+      setTotal(lista.count);
+      setPagina(prox);
+    } finally {
+      setLoadingMore(false);
     }
-
-    setAllAgendamentos(data);
-
-    let resultado: Agendamento[];
-    if (tab === 'hoje') {
-      resultado = data.filter((ag) => isToday(ag.data_hora));
-    } else if (tab === 'todos') {
-      resultado = data;
-    } else {
-      resultado = data.filter((ag) => ag.status === tab);
-    }
-
-    setAgendamentos(resultado);
-    setLoading(false);
-    setAutoRefreshing(false);
-  }, [tab]);
+  }
 
   const fetchDataRef = useRef(fetchData);
   useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+
+  /** Polling barato: consulta só o resumo e recarrega a lista quando há agendamento novo. */
+  const poll = useCallback(async () => {
+    const res = await getAgendamentosResumo();
+    const anterior = lastMaxCreatedRef.current;
+    setResumo(res);
+    if (res.ultimo_criado_em && anterior && res.ultimo_criado_em > anterior) {
+      pollIntervalRef.current     = POLL_MIN_MS;
+      cyclesWithoutNewRef.current = 0;
+      const recentes = await listAgendamentos({ ordem: 'desc', page_size: 20 });
+      const novos = recentes.results.filter((ag) => ag.criado_em > anterior).length;
+      setNewAgsCount(Math.max(1, novos));
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setNewAgsCount(0), 5_000);
+      await fetchDataRef.current(true, true);
+      return;
+    }
+    lastMaxCreatedRef.current = res.ultimo_criado_em ?? anterior;
+    cyclesWithoutNewRef.current += 1;
+    if (cyclesWithoutNewRef.current >= BACKOFF_CYCLES) {
+      cyclesWithoutNewRef.current = 0;
+      pollIntervalRef.current = Math.min(pollIntervalRef.current * 2, POLL_MAX_MS);
+    }
+  }, []);
 
   useEffect(() => {
     setConfirmDeleteId(null);
@@ -650,18 +681,20 @@ export function AgendamentosPage() {
     let timeoutId: ReturnType<typeof setTimeout>;
     let cancelled = false;
 
-    const poll = async () => {
+    const loop = async () => {
       if (cancelled) return;
-      if (!document.hidden) await fetchDataRef.current(true, true);
-      if (!cancelled) timeoutId = setTimeout(poll, pollIntervalRef.current);
+      if (!document.hidden) {
+        try { await poll(); } catch { /* falha de rede: tenta no próximo ciclo */ }
+      }
+      if (!cancelled) timeoutId = setTimeout(loop, pollIntervalRef.current);
     };
 
-    timeoutId = setTimeout(poll, pollIntervalRef.current);
+    timeoutId = setTimeout(loop, pollIntervalRef.current);
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [poll]);
 
   // Limpa o timer do toast ao desmontar
   useEffect(() => {
@@ -673,7 +706,7 @@ export function AgendamentosPage() {
     pollIntervalRef.current     = POLL_MIN_MS;
     cyclesWithoutNewRef.current = 0;
     await updateStatus(id, status);
-    fetchData(true);
+    fetchData(true, true);
   }
 
   async function handleDelete(id: number) {
@@ -682,7 +715,7 @@ export function AgendamentosPage() {
     await deleteAgendamento(id);
     setConfirmDeleteId(null);
     setExpandedId(null);
-    fetchData(true);
+    fetchData(true, true);
   }
 
   function handleToggleExpand(id: number) {
@@ -737,6 +770,21 @@ export function AgendamentosPage() {
         ))}
       </div>
 
+      {tab !== 'hoje' && (
+        <div className="tabs tabs--sub" role="group" aria-label="Período">
+          {(['proximos', 'anteriores'] as Periodo[]).map((p) => (
+            <button
+              key={p}
+              className={`tab${periodo === p ? ' active' : ''}`}
+              aria-pressed={periodo === p}
+              onClick={() => setPeriodo(p)}
+            >
+              {p === 'proximos' ? 'A partir de hoje' : 'Anteriores'}
+            </button>
+          ))}
+        </div>
+      )}
+
       {newAgsCount > 0 && (
         <NewAgendamentosToast count={newAgsCount} onDismiss={() => setNewAgsCount(0)} />
       )}
@@ -758,7 +806,16 @@ export function AgendamentosPage() {
       ) : tab === 'hoje' ? (
         <TodayView agendamentos={agendamentos} {...sharedProps} />
       ) : (
-        <AgendamentoCardList agendamentos={agendamentos} {...sharedProps} />
+        <>
+          <AgendamentoCardList agendamentos={agendamentos} {...sharedProps} />
+          {agendamentos.length < total && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+              <button className="btn btn-secondary" onClick={carregarMais} disabled={loadingMore}>
+                {loadingMore ? 'Carregando...' : `Carregar mais (${total - agendamentos.length})`}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
