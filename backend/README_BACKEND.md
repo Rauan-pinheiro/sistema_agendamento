@@ -200,3 +200,35 @@ Ao resolver horários disponíveis para um profissional:
 | **[v1.5]** `preco_total` / `duracao_total_min` desnormalizados vs propriedades computadas | Usar `@property` no model causaria N+1 queries na detecção de conflitos (um SELECT de `servicos` por agendamento existente no loop) e impossibilitaria `Sum('preco_total')` no ORM para o financeiro | Campos armazenados no banco, calculados e gravados em `AgendamentoSerializer.create()` e `update()`. Backfill automático na migration `0005`. Limitação conhecida: `preco_total` reflete o preço **no momento do agendamento** — não muda se o serviço for editado depois (comportamento desejado: preço bloqueado na reserva) |
 | **[v1.5]** `unique_together` em `AgendamentoServico` com `(agendamento, servico)` | Um cliente não deve poder selecionar o mesmo serviço duas vezes no mesmo agendamento | `unique_together = [('agendamento', 'servico')]` em `AgendamentoServico.Meta`. No frontend, `toggleServico` usa lógica Set-like (adiciona se ausente, remove se presente) — impossível duplicar pelo cliente. A constraint no banco é a linha de defesa final |
 | **[v1.5]** `servicos_ids` write field vs `servicos` M2M no serializer | Se o serializer declarasse um campo `servicos = PrimaryKeyRelatedField(many=True)`, o DRF tentaria gerir o M2M automaticamente via `field.set()`, o que não funciona com through model customizado (`AgendamentoServico` com `ordem`) | Campo de escrita nomeado `servicos_ids` (ListField de ints) — nome diferente do campo M2M evita conflito com o DRF. Em `validate()`, os IDs são resolvidos e armazenados em `_servicos_list` (chave temporária no `validated_data`). Em `create()`, esse valor é popped antes de `super().create()` e os `AgendamentoServico` são criados manualmente com o campo `ordem` |
+
+---
+
+## Mídia dos agendamentos (Cloudinary)
+
+Fotos e vídeos **não** passam pelo servidor: o navegador envia direto ao Cloudinary com
+parâmetros assinados pela API (o disco do Render é efêmero e a banda é limitada).
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `CLOUDINARY_URL` | — | `cloudinary://<api_key>:<api_secret>@<cloud_name>` (painel do Cloudinary → *API Keys*) |
+| `MIDIA_PASTA_RAIZ` | `agenda` | Pasta raiz no Cloudinary (use `agenda-homolog` em homologação) |
+| `MIDIA_MAX_BYTES_IMAGEM` | 10 MB | Limite por imagem (máximo do plano Free) |
+| `MIDIA_MAX_BYTES_VIDEO` | 100 MB | Limite por vídeo (máximo do plano Free) |
+| `MIDIA_MAX_ARQUIVOS_POR_AGENDAMENTO` | 15 | |
+| `MIDIA_MAX_BYTES_POR_AGENDAMENTO` | 250 MB | |
+
+Endpoints (somente o dono, isolados por empresa):
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `agendamentos/{id}/anexos/` | Lista anexos (URLs assinadas) e a cota |
+| POST | `agendamentos/{id}/anexos/assinatura/` | `{nome, mime, tamanho[, substituir_id]}` → parâmetros do upload |
+| POST | `agendamentos/{id}/anexos/` | `{public_id, tipo, nome[, substituir_id]}` → confirma o upload |
+| DELETE | `agendamentos/{id}/anexos/{anexo_id}/` | Remove (o arquivo é apagado no Cloudinary após o commit) |
+
+Segurança: `public_id` aleatório gerado pelo servidor em `agenda/e{empresa}/ag{agendamento}/`,
+`allowed_formats` assinado, formato e tamanho reais conferidos via Admin API na confirmação
+(arquivo inválido é apagado) e entrega `authenticated` (só por URL assinada).
+
+Rotina diária recomendada (Render Cron Job): `python manage.py limpar_midia_orfa --horas 24`
+apaga uploads que nunca foram confirmados.
