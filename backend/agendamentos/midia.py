@@ -11,8 +11,9 @@ Fluxo de upload (o arquivo nunca passa pelo servidor do Render):
      formato *detectado pelo Cloudinary a partir do conteúdo* (não da extensão)
      e o tamanho real. Se algo não bater, o arquivo é apagado.
 
-Privacidade: os arquivos usam o tipo de entrega `authenticated` — só podem ser
-vistos por URLs assinadas, que a API entrega apenas ao dono da empresa.
+Privacidade: anexos de agendamento usam a entrega `authenticated` — só podem ser
+vistos por URLs assinadas, que a API entrega apenas ao dono da empresa. Mídias de
+serviço são vitrine pública (entrega `upload`), exibidas ao cliente final.
 """
 import logging
 import re
@@ -30,7 +31,8 @@ from django.conf import settings
 
 log = logging.getLogger(__name__)
 
-TIPO_ENTREGA = 'authenticated'
+TIPO_ENTREGA = 'authenticated'   # anexos privados de agendamento
+ENTREGA_PUBLICA = 'upload'       # vitrine pública dos serviços
 
 FORMATOS = {
     'imagem': {'jpg', 'png', 'webp'},
@@ -93,6 +95,10 @@ def pasta_do_agendamento(empresa_id: int, agendamento_id: int) -> str:
     return f'{settings.MIDIA_PASTA_RAIZ}/e{empresa_id}/ag{agendamento_id}'
 
 
+def pasta_do_servico(empresa_id: int, servico_id: int) -> str:
+    return f'{settings.MIDIA_PASTA_RAIZ}/e{empresa_id}/sv{servico_id}'
+
+
 _TOKEN_LEN = 12  # bytes → 16 caracteres em token_urlsafe
 
 
@@ -101,7 +107,7 @@ def public_id_valido(public_id: str, pasta: str) -> bool:
     return re.fullmatch(re.escape(pasta) + r'/[A-Za-z0-9_-]{16}', public_id or '') is not None
 
 
-def gerar_assinatura_upload(*, pasta: str, tipo: str) -> dict:
+def gerar_assinatura_upload(*, pasta: str, tipo: str, entrega: str = TIPO_ENTREGA) -> dict:
     """Parâmetros assinados para o upload direto do navegador."""
     _exigir_configuracao()
     cfg = cloudinary.config()
@@ -109,7 +115,7 @@ def gerar_assinatura_upload(*, pasta: str, tipo: str) -> dict:
     params = {
         'timestamp': int(time.time()),
         'public_id': public_id,
-        'type': TIPO_ENTREGA,
+        'type': entrega,
         'allowed_formats': ','.join(sorted(FORMATOS[tipo])),
         'overwrite': 'false',
     }
@@ -136,11 +142,11 @@ class Metadados:
     duracao_seg: float | None
 
 
-def obter_metadados(public_id: str, tipo: str) -> Metadados | None:
+def obter_metadados(public_id: str, tipo: str, entrega: str = TIPO_ENTREGA) -> Metadados | None:
     """Metadados autoritativos do Cloudinary; None se o arquivo não existir."""
     _exigir_configuracao()
     try:
-        r = cloudinary.api.resource(public_id, resource_type=RESOURCE_TYPE[tipo], type=TIPO_ENTREGA)
+        r = cloudinary.api.resource(public_id, resource_type=RESOURCE_TYPE[tipo], type=entrega)
     except cloudinary.exceptions.NotFound:
         return None
     except cloudinary.exceptions.Error as exc:
@@ -156,24 +162,34 @@ def obter_metadados(public_id: str, tipo: str) -> Metadados | None:
     )
 
 
-def apagar(public_id: str, tipo: str, resource_type: str | None = None) -> None:
+def apagar(public_id: str, tipo: str, resource_type: str | None = None,
+           entrega: str = TIPO_ENTREGA) -> None:
     """Apaga o arquivo no Cloudinary. Falhas são registradas, não propagadas."""
     if not configurado():
         return
     try:
         cloudinary.uploader.destroy(
             public_id, resource_type=resource_type or RESOURCE_TYPE[tipo],
-            type=TIPO_ENTREGA, invalidate=True,
+            type=entrega, invalidate=True,
         )
     except Exception:  # noqa: BLE001 — limpeza best-effort
         log.exception('Falha ao apagar mídia %s no Cloudinary', public_id)
 
 
-def urls_assinadas(public_id: str, tipo: str) -> dict:
-    """URLs de exibição (original otimizado) e miniatura, assinadas."""
+def validar_metadados(meta: Metadados, tipo: str) -> str | None:
+    """Confere o formato detectado pelo Cloudinary e o tamanho real. Retorna o erro ou None."""
+    if meta.formato not in FORMATOS[tipo]:
+        return 'Tipo de arquivo não permitido. Envie JPG, PNG, WEBP, MP4 ou WEBM.'
+    if meta.bytes > limite_bytes(tipo):
+        return 'Arquivo maior que o limite permitido.'
+    return None
+
+
+def urls_assinadas(public_id: str, tipo: str, entrega: str = TIPO_ENTREGA) -> dict:
+    """URLs de exibição (original otimizado) e miniatura. Assinadas quando privadas."""
     if not configurado():
         return {'url': None, 'thumb_url': None}
-    comum = {'type': TIPO_ENTREGA, 'sign_url': True, 'secure': True}
+    comum = {'type': entrega, 'sign_url': entrega == TIPO_ENTREGA, 'secure': True}
     if tipo == 'imagem':
         url, _ = cloudinary.utils.cloudinary_url(
             public_id, resource_type='image', **comum,

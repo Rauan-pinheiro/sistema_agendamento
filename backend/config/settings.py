@@ -209,6 +209,10 @@ MIDIA_MAX_BYTES_POR_AGENDAMENTO = int(
     os.environ.get('MIDIA_MAX_BYTES_POR_AGENDAMENTO', 250 * 1024 * 1024)
 )
 
+MIDIA_MAX_ARQUIVOS_POR_SERVICO = int(os.environ.get('MIDIA_MAX_ARQUIVOS_POR_SERVICO', 10))
+MIDIA_MAX_BYTES_POR_SERVICO = int(os.environ.get('MIDIA_MAX_BYTES_POR_SERVICO', 150 * 1024 * 1024))
+MIDIA_MAX_YOUTUBE_POR_SERVICO = int(os.environ.get('MIDIA_MAX_YOUTUBE_POR_SERVICO', 3))
+
 # ── Logs ──────────────────────────────────────────────────────────────────────
 # Tudo vai para stdout/stderr (o Render coleta e exibe). Sem isso, com DEBUG=False,
 # exceções 500 não aparecem em lugar nenhum.

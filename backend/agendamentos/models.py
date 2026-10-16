@@ -143,6 +143,42 @@ class AnexoAgendamento(BaseModel):
         return f'{self.get_tipo_display()} #{self.pk} do agendamento {self.agendamento_id}'
 
 
+class MidiaServico(BaseModel):
+    """
+    Vitrine pública do serviço ("Ver mais" do cliente): fotos e vídeos enviados
+    ao Cloudinary (entrega pública) ou um vídeo do YouTube (guardamos só o ID).
+    """
+    TIPO_CHOICES = [('imagem', 'Imagem'), ('video', 'Vídeo'), ('youtube', 'YouTube')]
+
+    servico = models.ForeignKey(Servico, on_delete=models.CASCADE, related_name='midias')
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    # Arquivo no Cloudinary (imagem/vídeo)
+    public_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    formato = models.CharField(max_length=10, blank=True)
+    bytes = models.PositiveBigIntegerField(default=0)
+    largura = models.PositiveIntegerField(null=True, blank=True)
+    altura = models.PositiveIntegerField(null=True, blank=True)
+    duracao_seg = models.FloatField(null=True, blank=True)
+    nome_original = models.CharField(max_length=120, blank=True)
+    # YouTube
+    youtube_id = models.CharField(max_length=11, blank=True)
+    ordem = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['ordem', 'id']
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(tipo='youtube', public_id__isnull=True) & ~models.Q(youtube_id='')
+                ) | (~models.Q(tipo='youtube') & models.Q(public_id__isnull=False)),
+                name='midia_servico_origem_coerente',
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f'{self.get_tipo_display()} #{self.pk} do serviço {self.servico_id}'
+
+
 class HorarioFuncionamento(BaseModel):
     DIA_SEMANA_CHOICES = [
         (0, 'Segunda-feira'),
