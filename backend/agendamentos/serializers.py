@@ -5,9 +5,10 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
+from . import midia
 from .models import (
     Empresa, Profissional, Servico, Agendamento,
-    AgendamentoServico, HorarioFuncionamento,
+    AgendamentoServico, AnexoAgendamento, HorarioFuncionamento,
 )
 
 
@@ -151,6 +152,8 @@ class AgendamentoSerializer(serializers.ModelSerializer):
     )
     # Multi-serviço: campo de leitura (detalhes dos serviços vinculados)
     servicos_info = serializers.SerializerMethodField(read_only=True)
+    # Anotado na listagem do painel; ausente nas respostas públicas
+    total_anexos = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = Agendamento
@@ -160,7 +163,7 @@ class AgendamentoSerializer(serializers.ModelSerializer):
             'servicos_ids', 'servicos_info',
             'profissional', 'profissional_nome',
             'nome_cliente', 'whatsapp_cliente', 'data_hora', 'status',
-            'duracao_total_min', 'preco_total',
+            'duracao_total_min', 'preco_total', 'total_anexos',
             'criado_em', 'atualizado_em',
         ]
         read_only_fields = [
@@ -357,6 +360,64 @@ class AgendamentoSerializer(serializers.ModelSerializer):
             instance.save(update_fields=['duracao_total_min', 'preco_total'])
 
         return instance
+
+
+# ── Anexos de mídia ───────────────────────────────────────────────────────────
+
+class AnexoSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+    thumb_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AnexoAgendamento
+        fields = [
+            'id', 'tipo', 'formato', 'bytes', 'largura', 'altura', 'duracao_seg',
+            'nome_original', 'criado_em', 'url', 'thumb_url',
+        ]
+        read_only_fields = fields
+
+    def _urls(self, obj) -> dict:
+        cache = self.context.setdefault('_urls_anexos', {})
+        if obj.pk not in cache:
+            cache[obj.pk] = midia.urls_assinadas(obj.public_id, obj.tipo)
+        return cache[obj.pk]
+
+    def get_url(self, obj):
+        return self._urls(obj)['url']
+
+    def get_thumb_url(self, obj):
+        return self._urls(obj)['thumb_url']
+
+
+class PedidoAssinaturaSerializer(serializers.Serializer):
+    """Validação prévia do arquivo antes de autorizar o upload."""
+    nome = serializers.CharField(max_length=255)
+    mime = serializers.CharField(max_length=100)
+    tamanho = serializers.IntegerField(min_value=1)
+
+    def validate(self, data):
+        tipo_mime = midia.MIME_PARA_TIPO.get(data['mime'].lower())
+        tipo_ext = midia.tipo_por_extensao(data['nome'])
+        if not tipo_mime or not tipo_ext or tipo_mime != tipo_ext:
+            raise serializers.ValidationError(
+                {'nome': 'Tipo de arquivo não permitido. Envie JPG, PNG, WEBP, MP4 ou WEBM.'}
+            )
+        limite = midia.limite_bytes(tipo_mime)
+        if data['tamanho'] > limite:
+            raise serializers.ValidationError({
+                'tamanho': f'Arquivo muito grande. Limite para '
+                           f'{"imagens" if tipo_mime == "imagem" else "vídeos"}: {limite // (1024 * 1024)} MB.'
+            })
+        data['tipo'] = tipo_mime
+        data['nome'] = midia.sanitizar_nome(data['nome'])
+        return data
+
+
+class ConfirmarAnexoSerializer(serializers.Serializer):
+    public_id = serializers.CharField(max_length=255)
+    tipo = serializers.ChoiceField(choices=['imagem', 'video'])
+    nome = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    substituir_id = serializers.IntegerField(required=False, min_value=1)
 
 
 # ── HorarioFuncionamento ──────────────────────────────────────────────────────

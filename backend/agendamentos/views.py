@@ -5,14 +5,19 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.conf import settings
 from django.core.cache import cache
-from django.db import connection
-from django.db.models import Max
+from django.db import connection, transaction
+from django.db.models import Count, Max, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from .models import Empresa, Profissional, Servico, Agendamento, HorarioFuncionamento
+from . import midia
+from .models import (
+    Empresa, Profissional, Servico, Agendamento, AnexoAgendamento, HorarioFuncionamento,
+)
 from .serializers import (
+    AnexoSerializer, ConfirmarAnexoSerializer, PedidoAssinaturaSerializer,
     EmpresaSerializer, EmpresaPublicSerializer,
     ProfissionalSerializer, ProfissionalPublicSerializer,
     ServicoSerializer, ServicoPublicSerializer, AgendamentoSerializer,
@@ -117,6 +122,7 @@ class AgendamentoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
             .filter(empresa=self._empresa())
             .select_related('servico', 'profissional')
             .prefetch_related('agendamento_servicos__servico')
+            .annotate(total_anexos=Count('anexos'))
             .order_by('-data_hora' if params.get('ordem') == 'desc' else 'data_hora')
         )
         status_param = params.get('status')
@@ -159,6 +165,134 @@ class AgendamentoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
     def volume(self, request):
         """GET /api/v1/agendamentos/volume/ — volume por dia da semana e por hora."""
         return Response(calcular_volume_agendamentos(self._empresa()))
+
+    # ── Anexos (fotos e vídeos do dono) ──────────────────────────────────────
+    # Todas as ações usam get_object(): o agendamento precisa pertencer à empresa
+    # do usuário logado, senão 404 — um dono nunca vê anexos de outra empresa.
+
+    def _cota_anexos(self, agendamento, ignorar_id=None) -> dict:
+        qs = agendamento.anexos.all()
+        if ignorar_id:
+            qs = qs.exclude(pk=ignorar_id)
+        agg = qs.aggregate(total=Count('id'), bytes=Sum('bytes'))
+        return {
+            'arquivos': agg['total'] or 0,
+            'bytes': agg['bytes'] or 0,
+            'max_arquivos': settings.MIDIA_MAX_ARQUIVOS_POR_AGENDAMENTO,
+            'max_bytes': settings.MIDIA_MAX_BYTES_POR_AGENDAMENTO,
+        }
+
+    @staticmethod
+    def _erro_cota(cota: dict, bytes_novos: int) -> str | None:
+        if cota['arquivos'] >= cota['max_arquivos']:
+            return f'Limite de {cota["max_arquivos"]} arquivos por agendamento atingido.'
+        if cota['bytes'] + bytes_novos > cota['max_bytes']:
+            return (f'Limite de {cota["max_bytes"] // (1024 * 1024)} MB por agendamento '
+                    'seria ultrapassado.')
+        return None
+
+    @action(detail=True, methods=['get', 'post'], url_path='anexos')
+    def anexos(self, request, pk=None):
+        """
+        GET  /agendamentos/{id}/anexos/ — lista os anexos (URLs assinadas) e a cota.
+        POST /agendamentos/{id}/anexos/ — confirma um upload já feito no Cloudinary.
+             body: {public_id, tipo, nome?, substituir_id?}
+        """
+        agendamento = self.get_object()
+        if request.method == 'GET':
+            return Response({
+                'anexos': AnexoSerializer(agendamento.anexos.all(), many=True).data,
+                'cota': self._cota_anexos(agendamento),
+            })
+
+        entrada = ConfirmarAnexoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        d = entrada.validated_data
+        pasta = midia.pasta_do_agendamento(agendamento.empresa_id, agendamento.pk)
+        if not d['public_id'].startswith(pasta + '/'):
+            # Só aceitamos arquivos enviados com assinatura desta empresa/agendamento
+            return Response({'public_id': 'Arquivo não pertence a este agendamento.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        substituido = None
+        if d.get('substituir_id'):
+            substituido = agendamento.anexos.filter(pk=d['substituir_id']).first()
+            if substituido is None:
+                return Response({'substituir_id': 'Anexo não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            meta = midia.obter_metadados(d['public_id'], d['tipo'])
+        except midia.MidiaIndisponivel:
+            return Response({'erro': 'Serviço de mídia indisponível. Tente novamente.'},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        if meta is None:
+            return Response({'public_id': 'Upload não encontrado no armazenamento.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Validação autoritativa: formato detectado pelo Cloudinary a partir do conteúdo
+        erro = None
+        if meta.formato not in midia.FORMATOS[d['tipo']]:
+            erro = 'Tipo de arquivo não permitido. Envie JPG, PNG, WEBP, MP4 ou WEBM.'
+        elif meta.bytes > midia.limite_bytes(d['tipo']):
+            erro = 'Arquivo maior que o limite permitido.'
+        else:
+            erro = self._erro_cota(
+                self._cota_anexos(agendamento, ignorar_id=substituido.pk if substituido else None),
+                meta.bytes,
+            )
+        if erro:
+            midia.apagar(meta.public_id, d['tipo'])
+            return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            anexo, _ = AnexoAgendamento.objects.get_or_create(
+                public_id=meta.public_id,
+                defaults=dict(
+                    empresa_id=agendamento.empresa_id, agendamento=agendamento, tipo=d['tipo'],
+                    formato=meta.formato, bytes=meta.bytes, largura=meta.largura,
+                    altura=meta.altura, duracao_seg=meta.duracao_seg,
+                    nome_original=midia.sanitizar_nome(d.get('nome') or ''),
+                ),
+            )
+            if substituido is not None and substituido.pk != anexo.pk:
+                substituido.delete()  # o signal apaga o arquivo antigo após o commit
+        return Response(AnexoSerializer(anexo).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='anexos/assinatura')
+    def anexos_assinatura(self, request, pk=None):
+        """
+        POST /agendamentos/{id}/anexos/assinatura/ — body: {nome, mime, tamanho}
+        Valida tipo, tamanho e cota e devolve os parâmetros assinados para o
+        navegador enviar o arquivo direto ao Cloudinary.
+        """
+        agendamento = self.get_object()
+        pedido = PedidoAssinaturaSerializer(data=request.data)
+        pedido.is_valid(raise_exception=True)
+        d = pedido.validated_data
+        substituir_id = request.data.get('substituir_id')
+        substituir_id = int(substituir_id) if str(substituir_id or '').isdigit() else None
+        erro = self._erro_cota(
+            self._cota_anexos(agendamento, ignorar_id=substituir_id), d['tamanho'],
+        )
+        if erro:
+            return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            assinatura = midia.gerar_assinatura_upload(
+                pasta=midia.pasta_do_agendamento(agendamento.empresa_id, agendamento.pk),
+                tipo=d['tipo'],
+            )
+        except midia.MidiaIndisponivel:
+            return Response({'erro': 'Armazenamento de mídia não configurado.'},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({**assinatura, 'tipo': d['tipo'], 'nome': d['nome']})
+
+    @action(detail=True, methods=['delete'], url_path=r'anexos/(?P<anexo_id>[0-9]+)')
+    def anexo_remover(self, request, pk=None, anexo_id=None):
+        """DELETE /agendamentos/{id}/anexos/{anexo_id}/"""
+        agendamento = self.get_object()
+        anexo = get_object_or_404(agendamento.anexos, pk=anexo_id)
+        anexo.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['patch'], url_path='status')
     def atualizar_status(self, request, pk=None):
