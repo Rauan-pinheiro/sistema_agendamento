@@ -14,6 +14,8 @@ from .views import (
     ServicoPublicoViewSet,
     AgendamentoPublicoViewSet,
     HorariosDisponiveisView,
+    PaginaPublicaView,
+    HealthCheckView,
 )
 
 # ── Rotas privadas (dashboard do prestador) ───────────────────────────────────
@@ -33,7 +35,12 @@ urlpatterns = [
     # Perfil do usuário logado (autenticado)
     path('usuario/', PerfilUsuarioView.as_view(), name='usuario-perfil'),
 
+    path('health/', HealthCheckView.as_view(), name='health'),
+
     # ── Rotas públicas (área do cliente, acessada via slug) ───────────────────
+    path('public/<slug:slug>/pagina/',
+         PaginaPublicaView.as_view(),
+         name='public-pagina'),
     path('public/<slug:slug>/',
          EmpresaPublicaView.as_view(),
          name='public-empresa'),
