@@ -1,0 +1,26 @@
+
+
+  █ TOTAL RESULTS 
+
+    CUSTOM
+    agendamentos_aceitos...........: 1      0.257745/s
+    agendamentos_recusados.........: 29     7.474614/s
+
+    HTTP
+    http_req_duration..............: avg=2.21s min=9.7ms    med=2.29s max=3.79s p(90)=3.66s p(95)=3.73s
+      { expected_response:true }...: avg=2.21s min=9.7ms    med=2.29s max=3.79s p(90)=3.66s p(95)=3.73s
+    http_req_failed................: 0.00%  0 out of 32
+    http_reqs......................: 32     8.24785/s
+
+    EXECUTION
+    iteration_duration.............: avg=2.36s min=691.51ms med=2.44s max=3.79s p(90)=3.68s p(95)=3.74s
+    iterations.....................: 30     7.732359/s
+    vus............................: 10     min=10      max=28
+    vus_max........................: 30     min=30      max=30
+
+    NETWORK
+    data_received..................: 17 kB  4.4 kB/s
+    data_sent......................: 8.6 kB 2.2 kB/s
+
+
+

@@ -1,0 +1,16 @@
+
+endpoint                     reqs   p50(ms)  p95(ms)  max(ms)
+public_pagina                  707        1      360     1562
+painel_volume                  157        9       73     1567
+public_horarios                707        5       40     1613
+public_empresa                   0        0        0        0
+login                          135       19      256     1565
+public_profissionais             0        0        0        0
+public_servicos                  0        0        0        0
+painel_resumo                  157        5      288      590
+painel_agendamentos            157       17      615     1261
+painel_financeiro              157       10       64     1577
+painel_servicos                157        5       15     1583
+public_criar_agendamento       705       22       94     1930
+
+reqs total: 3049  (23.9/s)  taxa de erro: 0.00%
