@@ -13,7 +13,9 @@ worker_class = 'gthread'
 threads = int(os.environ.get('GUNICORN_THREADS', '4'))
 timeout = 60
 graceful_timeout = 20
-keepalive = 5
+# Acima do idle timeout típico de proxies/LB (60 s): evita "connection reset" quando
+# o servidor fecha a conexão ociosa no mesmo instante em que o cliente a reutiliza.
+keepalive = 75
 # Recicla o processo periodicamente para conter vazamentos de memória
 max_requests = 2000
 max_requests_jitter = 200
