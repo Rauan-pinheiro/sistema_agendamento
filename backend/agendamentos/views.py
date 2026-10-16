@@ -209,7 +209,7 @@ class AgendamentoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
         entrada.is_valid(raise_exception=True)
         d = entrada.validated_data
         pasta = midia.pasta_do_agendamento(agendamento.empresa_id, agendamento.pk)
-        if not d['public_id'].startswith(pasta + '/'):
+        if not midia.public_id_valido(d['public_id'], pasta):
             # Só aceitamos arquivos enviados com assinatura desta empresa/agendamento
             return Response({'public_id': 'Arquivo não pertence a este agendamento.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -225,9 +225,15 @@ class AgendamentoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
         except midia.MidiaIndisponivel:
             return Response({'erro': 'Serviço de mídia indisponível. Tente novamente.'},
                             status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        if meta is None:
+        if meta is None or meta.public_id != d['public_id']:
             return Response({'public_id': 'Upload não encontrado no armazenamento.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        ja_existe = AnexoAgendamento.objects.filter(public_id=meta.public_id).first()
+        if ja_existe is not None:
+            if ja_existe.agendamento_id != agendamento.pk:
+                return Response({'public_id': 'Arquivo não pertence a este agendamento.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            return Response(AnexoSerializer(ja_existe).data)  # confirmação repetida (idempotente)
 
         # Validação autoritativa: formato detectado pelo Cloudinary a partir do conteúdo
         erro = None
@@ -235,27 +241,30 @@ class AgendamentoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
             erro = 'Tipo de arquivo não permitido. Envie JPG, PNG, WEBP, MP4 ou WEBM.'
         elif meta.bytes > midia.limite_bytes(d['tipo']):
             erro = 'Arquivo maior que o limite permitido.'
-        else:
-            erro = self._erro_cota(
-                self._cota_anexos(agendamento, ignorar_id=substituido.pk if substituido else None),
-                meta.bytes,
-            )
         if erro:
             midia.apagar(meta.public_id, d['tipo'])
             return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            anexo, _ = AnexoAgendamento.objects.get_or_create(
-                public_id=meta.public_id,
-                defaults=dict(
+            # Trava o agendamento: confirmações simultâneas não estouram a cota
+            Agendamento.objects.select_for_update().only('id').get(pk=agendamento.pk)
+            erro = self._erro_cota(
+                self._cota_anexos(agendamento, ignorar_id=substituido.pk if substituido else None),
+                meta.bytes,
+            )
+            if erro is None:
+                anexo = AnexoAgendamento.objects.create(
+                    public_id=meta.public_id,
                     empresa_id=agendamento.empresa_id, agendamento=agendamento, tipo=d['tipo'],
                     formato=meta.formato, bytes=meta.bytes, largura=meta.largura,
                     altura=meta.altura, duracao_seg=meta.duracao_seg,
                     nome_original=midia.sanitizar_nome(d.get('nome') or ''),
-                ),
-            )
-            if substituido is not None and substituido.pk != anexo.pk:
-                substituido.delete()  # o signal apaga o arquivo antigo após o commit
+                )
+                if substituido is not None:
+                    substituido.delete()  # o signal apaga o arquivo antigo após o commit
+        if erro:
+            midia.apagar(meta.public_id, d['tipo'])
+            return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
         return Response(AnexoSerializer(anexo).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='anexos/assinatura')

@@ -43,6 +43,10 @@ class AnexosTests(APITestCase):
         self.pasta = midia.pasta_do_agendamento(self.emp.id, self.ag.id)
         self.client.force_authenticate(self.emp.owner)
 
+    def pid(self, nome: str) -> str:
+        """public_id no formato gerado pelo servidor: pasta + 16 caracteres."""
+        return f'{self.pasta}/{nome.ljust(16, "x")[:16]}'
+
     # ── assinatura ──────────────────────────────────────────────────────────
     def assinar(self, nome='foto.jpg', mime='image/jpeg', tamanho=MB, **extra):
         return self.client.post(f'{self.base}assinatura/',
@@ -94,7 +98,7 @@ class AnexosTests(APITestCase):
         return r, m, apagar
 
     def test_confirma_upload_e_lista_com_urls_assinadas(self):
-        pid = f'{self.pasta}/abc'
+        pid = self.pid('abc')
         r, _, apagar = self.confirmar(pid, _meta(pid))
         self.assertEqual(r.status_code, 201, r.data)
         apagar.assert_not_called()
@@ -113,43 +117,62 @@ class AnexosTests(APITestCase):
 
     def test_formato_real_diferente_e_apagado(self):
         """Arquivo .jpg cujo conteúdo o Cloudinary detectou como outro formato."""
-        pid = f'{self.pasta}/abc'
+        pid = self.pid('abc')
         r, _, apagar = self.confirmar(pid, _meta(pid, formato='gif'))
         self.assertEqual(r.status_code, 400)
         apagar.assert_called_once_with(pid, 'imagem')
         self.assertFalse(AnexoAgendamento.objects.exists())
 
     def test_tamanho_real_acima_do_limite_e_apagado(self):
-        pid = f'{self.pasta}/abc'
+        pid = self.pid('abc')
         r, _, apagar = self.confirmar(pid, _meta(pid, tamanho=12 * MB))
         self.assertEqual(r.status_code, 400)
         apagar.assert_called_once()
 
+    def test_rejeita_public_id_fora_do_formato(self):
+        for pid in [self.pasta + '/curto', self.pasta + '/../e2/ag9/xxxxxxxxxxxxxxxx',
+                    self.pasta + '/sub/xxxxxxxxxxxxxxxx', self.pasta + 'x/xxxxxxxxxxxxxxxx']:
+            r, m, _ = self.confirmar(pid, _meta(pid))
+            self.assertEqual(r.status_code, 400, pid)
+            m.assert_not_called()
+
+    def test_rejeita_metadados_de_outro_arquivo(self):
+        pid = self.pid('pedido')
+        r, _, _ = self.confirmar(pid, _meta(self.pid('outro')))
+        self.assertEqual(r.status_code, 400)
+
+    def test_confirmacao_repetida_e_idempotente(self):
+        pid = self.pid('repetido')
+        self.assertEqual(self.confirmar(pid, _meta(pid))[0].status_code, 201)
+        r, _, _ = self.confirmar(pid, _meta(pid))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(AnexoAgendamento.objects.count(), 1)
+
     def test_upload_inexistente(self):
-        r, _, _ = self.confirmar(f'{self.pasta}/nada', None)
+        r, _, _ = self.confirmar(self.pid('nada'), None)
         self.assertEqual(r.status_code, 400)
 
     def test_cota_de_arquivos(self):
         for i in range(3):
-            pid = f'{self.pasta}/f{i}'
+            pid = self.pid('f' + str(i))
             self.assertEqual(self.confirmar(pid, _meta(pid))[0].status_code, 201)
         self.assertEqual(self.assinar().status_code, 400)
-        pid = f'{self.pasta}/f9'
+        pid = self.pid('f9')
         r, _, apagar = self.confirmar(pid, _meta(pid))
         self.assertEqual(r.status_code, 400)
         apagar.assert_called_once()
 
     def test_cota_de_bytes(self):
-        pid = f'{self.pasta}/grande'
+        pid = self.pid('grande')
         self.confirmar(pid, _meta(pid, tamanho=9 * MB))
-        pid2 = f'{self.pasta}/grande2'
+        pid2 = self.pid('grande2')
         self.confirmar(pid2, _meta(pid2, tamanho=9 * MB))
         self.assertEqual(self.assinar(tamanho=3 * MB).status_code, 400)
 
     def test_substituir(self):
-        pid_antigo = f'{self.pasta}/antigo'
+        pid_antigo = self.pid('antigo')
         antigo = self.confirmar(pid_antigo, _meta(pid_antigo))[0].data['id']
-        pid_novo = f'{self.pasta}/novo'
+        pid_novo = self.pid('novo')
         with mock.patch.object(midia, 'apagar') as apagar, self.captureOnCommitCallbacks(execute=True):
             with mock.patch.object(midia, 'obter_metadados', return_value=_meta(pid_novo)):
                 r = self.client.post(self.base, {'public_id': pid_novo, 'tipo': 'imagem',
@@ -159,7 +182,7 @@ class AnexosTests(APITestCase):
         apagar.assert_called_once_with(pid_antigo, 'imagem')
 
     def test_remover_apaga_arquivo_apos_commit(self):
-        pid = f'{self.pasta}/x'
+        pid = self.pid('x')
         anexo_id = self.confirmar(pid, _meta(pid))[0].data['id']
         with mock.patch.object(midia, 'apagar') as apagar, self.captureOnCommitCallbacks(execute=True):
             r = self.client.delete(f'{self.base}{anexo_id}/')
@@ -168,7 +191,7 @@ class AnexosTests(APITestCase):
 
     def test_excluir_agendamento_apaga_arquivos(self):
         for i in range(2):
-            pid = f'{self.pasta}/c{i}'
+            pid = self.pid('c' + str(i))
             self.confirmar(pid, _meta(pid))
         with mock.patch.object(midia, 'apagar') as apagar, self.captureOnCommitCallbacks(execute=True):
             self.client.delete(f'/api/v1/agendamentos/{self.ag.id}/')
@@ -176,7 +199,7 @@ class AnexosTests(APITestCase):
 
     # ── isolamento ──────────────────────────────────────────────────────────
     def test_outra_empresa_nao_acessa_anexos(self):
-        pid = f'{self.pasta}/privado'
+        pid = self.pid('privado')
         anexo_id = self.confirmar(pid, _meta(pid))[0].data['id']
         intruso = criar_empresa('intruso')
         self.client.force_authenticate(intruso.owner)
@@ -219,7 +242,7 @@ class LimparMidiaOrfaTests(APITestCase):
             {'public_id': 'agenda/e1/ag1/recente', 'created_at': '2999-01-01T00:00:00Z'},
         ]}
         with mock.patch.object(midia, 'configurado', return_value=True), \
-             mock.patch('cloudinary.api.resources', side_effect=[recursos, {'resources': []}]), \
+             mock.patch('cloudinary.api.resources', side_effect=[recursos, {'resources': []}, {'resources': []}]), \
              mock.patch.object(midia, 'apagar') as apagar:
             call_command('limpar_midia_orfa', stdout=StringIO())
-        apagar.assert_called_once_with('agenda/e1/ag1/orfao', 'imagem')
+        apagar.assert_called_once_with('agenda/e1/ag1/orfao', 'imagem', resource_type='image')

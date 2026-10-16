@@ -93,11 +93,19 @@ def pasta_do_agendamento(empresa_id: int, agendamento_id: int) -> str:
     return f'{settings.MIDIA_PASTA_RAIZ}/e{empresa_id}/ag{agendamento_id}'
 
 
+_TOKEN_LEN = 12  # bytes → 16 caracteres em token_urlsafe
+
+
+def public_id_valido(public_id: str, pasta: str) -> bool:
+    """Aceita exatamente o formato gerado por gerar_assinatura_upload() para esta pasta."""
+    return re.fullmatch(re.escape(pasta) + r'/[A-Za-z0-9_-]{16}', public_id or '') is not None
+
+
 def gerar_assinatura_upload(*, pasta: str, tipo: str) -> dict:
     """Parâmetros assinados para o upload direto do navegador."""
     _exigir_configuracao()
     cfg = cloudinary.config()
-    public_id = f'{pasta}/{secrets.token_urlsafe(12)}'
+    public_id = f'{pasta}/{secrets.token_urlsafe(_TOKEN_LEN)}'
     params = {
         'timestamp': int(time.time()),
         'public_id': public_id,
@@ -148,13 +156,14 @@ def obter_metadados(public_id: str, tipo: str) -> Metadados | None:
     )
 
 
-def apagar(public_id: str, tipo: str) -> None:
+def apagar(public_id: str, tipo: str, resource_type: str | None = None) -> None:
     """Apaga o arquivo no Cloudinary. Falhas são registradas, não propagadas."""
     if not configurado():
         return
     try:
         cloudinary.uploader.destroy(
-            public_id, resource_type=RESOURCE_TYPE[tipo], type=TIPO_ENTREGA, invalidate=True,
+            public_id, resource_type=resource_type or RESOURCE_TYPE[tipo],
+            type=TIPO_ENTREGA, invalidate=True,
         )
     except Exception:  # noqa: BLE001 — limpeza best-effort
         log.exception('Falha ao apagar mídia %s no Cloudinary', public_id)

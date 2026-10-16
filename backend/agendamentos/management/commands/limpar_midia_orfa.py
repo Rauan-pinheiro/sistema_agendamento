@@ -31,7 +31,9 @@ class Command(BaseCommand):
         conhecidos = set(AnexoAgendamento.objects.values_list('public_id', flat=True))
         apagados = 0
 
-        for tipo, resource_type in midia.RESOURCE_TYPE.items():
+        # 'raw' cobre uploads feitos para o endpoint errado com uma assinatura válida
+        varreduras = [*midia.RESOURCE_TYPE.items(), ('raw', 'raw')]
+        for tipo, resource_type in varreduras:
             cursor = None
             while True:
                 pagina = cloudinary.api.resources(
@@ -45,7 +47,7 @@ class Command(BaseCommand):
                     apagados += 1
                     self.stdout.write(f'{"[dry-run] " if opts["dry_run"] else ""}órfão: {r["public_id"]}')
                     if not opts['dry_run']:
-                        midia.apagar(r['public_id'], tipo)
+                        midia.apagar(r['public_id'], tipo, resource_type=resource_type)
                 cursor = pagina.get('next_cursor')
                 if not cursor:
                     break
