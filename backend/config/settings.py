@@ -197,6 +197,18 @@ CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
 
 CORS_ALLOW_CREDENTIALS = True
 
+# ── Mídia (Cloudinary) ────────────────────────────────────────────────────────
+# Credenciais via CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
+# (lida automaticamente pelo SDK). Limites do plano Free do Cloudinary: imagem
+# até 10 MB e vídeo até 100 MB por arquivo.
+MIDIA_PASTA_RAIZ = os.environ.get('MIDIA_PASTA_RAIZ', 'agenda')
+MIDIA_MAX_BYTES_IMAGEM = int(os.environ.get('MIDIA_MAX_BYTES_IMAGEM', 10 * 1024 * 1024))
+MIDIA_MAX_BYTES_VIDEO = int(os.environ.get('MIDIA_MAX_BYTES_VIDEO', 100 * 1024 * 1024))
+MIDIA_MAX_ARQUIVOS_POR_AGENDAMENTO = int(os.environ.get('MIDIA_MAX_ARQUIVOS_POR_AGENDAMENTO', 15))
+MIDIA_MAX_BYTES_POR_AGENDAMENTO = int(
+    os.environ.get('MIDIA_MAX_BYTES_POR_AGENDAMENTO', 250 * 1024 * 1024)
+)
+
 # ── Logs ──────────────────────────────────────────────────────────────────────
 # Tudo vai para stdout/stderr (o Render coleta e exibe). Sem isso, com DEBUG=False,
 # exceções 500 não aparecem em lugar nenhum.
@@ -219,3 +231,5 @@ LOGGING = {
 if 'test' in sys.argv:
     # Hash rápido apenas nos testes — produção mantém PBKDF2 padrão.
     PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+    # Os testes provocam 4xx/5xx de propósito — não poluir a saída
+    LOGGING['loggers']['django.request']['level'] = 'CRITICAL'
