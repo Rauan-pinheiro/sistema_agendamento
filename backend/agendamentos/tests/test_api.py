@@ -257,3 +257,27 @@ class PainelDonoTests(APITestCase):
         sid = resp.data['id']
         self.assertEqual(self.client.patch(f'/api/v1/servicos/{sid}/', {'preco': '30.00'}).status_code, 200)
         self.assertEqual(self.client.delete(f'/api/v1/servicos/{sid}/').status_code, 204)
+
+
+class CorDestaqueTests(APITestCase):
+    def setUp(self):
+        self.emp = criar_empresa('cores')
+        self.client.force_authenticate(self.emp.owner)
+        self.url = f'/api/v1/empresa/{self.emp.id}/'
+
+    def test_padrao_e_exposto_na_pagina_publica(self):
+        self.client.force_authenticate(None)
+        resp = self.client.get('/api/v1/public/cores/pagina/')
+        self.assertEqual(resp.data['empresa']['cor_destaque'], '#165C50')
+
+    def test_aceita_cor_escura_e_clara(self):
+        for cor in ['#7a2238', '#FFD25E']:
+            resp = self.client.patch(self.url, {'cor_destaque': cor})
+            self.assertEqual(resp.status_code, 200, (cor, resp.data))
+        self.emp.refresh_from_db()
+        self.assertEqual(self.emp.cor_destaque, '#FFD25E')
+
+    def test_rejeita_formato_invalido_e_contraste_ruim(self):
+        for cor in ['vermelho', '#FFF', 'javascript:alert(1)', '#12345G', '#808080']:
+            resp = self.client.patch(self.url, {'cor_destaque': cor})
+            self.assertEqual(resp.status_code, 400, cor)

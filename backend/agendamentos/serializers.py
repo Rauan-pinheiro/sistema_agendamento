@@ -15,6 +15,35 @@ from .models import (
 # ── Helpers de validação ───────────────────────────────────────────────────────
 
 _PHONE_DIGITS_RE = re.compile(r'^\d{10,11}$')
+_HEX_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
+
+
+def _luminancia(hex_cor: str) -> float:
+    """Luminância relativa (WCAG 2.x) de uma cor #RRGGBB."""
+    def canal(c: int) -> float:
+        c = c / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (int(hex_cor[i:i + 2], 16) for i in (1, 3, 5))
+    return 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b)
+
+
+def _validar_cor_destaque(valor: str) -> str:
+    """
+    Aceita #RRGGBB com contraste mínimo de 4,5:1 contra branco OU contra a tinta
+    (#17262A) — o front escolhe o texto que contrasta. Recusa tons médios em que
+    nenhum texto fica legível (WCAG AA).
+    """
+    valor = (valor or '').strip()
+    if not _HEX_RE.match(valor):
+        raise serializers.ValidationError('Use uma cor no formato #RRGGBB, por exemplo #165C50.')
+    lum = _luminancia(valor)
+    contraste_branco = 1.05 / (lum + 0.05)
+    contraste_tinta = (lum + 0.05) / (_luminancia('#17262A') + 0.05)
+    if max(contraste_branco, contraste_tinta) < 4.5:
+        raise serializers.ValidationError(
+            'Essa cor deixa o texto dos botões ilegível. Escolha um tom mais escuro ou mais claro.'
+        )
+    return valor.upper()
 
 _VALID_DDDS = {
     11, 12, 13, 14, 15, 16, 17, 18, 19,
@@ -51,8 +80,11 @@ def _validar_telefone_br(valor: str) -> str:
 class EmpresaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empresa
-        fields = ['id', 'nome_fantasia', 'slug', 'whatsapp_contato']
+        fields = ['id', 'nome_fantasia', 'slug', 'whatsapp_contato', 'cor_destaque']
         read_only_fields = ['id']
+
+    def validate_cor_destaque(self, value: str) -> str:
+        return _validar_cor_destaque(value)
 
     def validate_nome_fantasia(self, value: str) -> str:
         value = value.strip()
@@ -69,7 +101,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
 class EmpresaPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empresa
-        fields = ['id', 'nome_fantasia', 'slug', 'whatsapp_contato']
+        fields = ['id', 'nome_fantasia', 'slug', 'whatsapp_contato', 'cor_destaque']
 
 
 # ── Profissional ──────────────────────────────────────────────────────────────

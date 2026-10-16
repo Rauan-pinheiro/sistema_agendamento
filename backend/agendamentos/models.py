@@ -9,6 +9,8 @@ class Empresa(models.Model):
     nome_fantasia = models.CharField(max_length=150)
     slug = models.SlugField(unique=True)
     whatsapp_contato = models.CharField(max_length=20)
+    # Cor de destaque da página pública (botões e seleção), escolhida pelo dono
+    cor_destaque = models.CharField(max_length=7, default='#165C50')
 
     def __str__(self) -> str:
         return self.nome_fantasia
