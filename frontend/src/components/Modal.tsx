@@ -9,13 +9,15 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  /** No celular, abre como "bottom sheet" (encostado embaixo, ao alcance do polegar). */
+  sheet?: boolean;
 }
 
 /**
  * Renderizado via portal no <body>: funciona mesmo quando aberto de dentro de
  * cards com overflow/transform. Fecha com Esc e devolve o foco ao sair.
  */
-export function Modal({ open, onClose, title, children, footer, wide }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, wide, sheet }: ModalProps) {
   const tituloId = useId();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -34,10 +36,10 @@ export function Modal({ open, onClose, title, children, footer, wide }: ModalPro
   if (!open) return null;
 
   return createPortal(
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className={`modal-backdrop${sheet ? ' modal-backdrop--sheet' : ''}`} onClick={onClose}>
       <div
         ref={ref}
-        className="modal"
+        className={`modal${sheet ? ' modal--sheet' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={tituloId}

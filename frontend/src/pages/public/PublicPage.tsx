@@ -6,7 +6,8 @@ import {
   getHorariosDisponiveis,
 } from '../../api/public';
 import type { Empresa, ServicoPublico, ProfissionalPublico, SlotDisponivel } from '../../types';
-import { CheckCircle, MessageCircle, Check } from 'lucide-react';
+import { CheckCircle, MessageCircle, Check, ChevronRight, Images } from 'lucide-react';
+import { ServicoDetalhes } from './ServicoDetalhes';
 import { formatPhone, normalizePhone, isValidPhone } from '../../utils/phone';
 
 const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
@@ -145,6 +146,7 @@ export function PublicPage() {
 
   // Passo 1 — seleção múltipla de serviços
   const [servicosIds, setServicosIds] = useState<number[]>([]);
+  const [detalheId, setDetalheId] = useState<number | null>(null);
   const [step1Confirmado, setStep1Confirmado] = useState(false);
 
   // Passo 2 (condicional) — profissional
@@ -370,16 +372,36 @@ export function PublicPage() {
           <div className="service-cards">
             {servicos.map((s) => {
               const selecionado = servicosIds.includes(s.id);
+              const capa = s.midias.find((m) => m.thumb_url)?.thumb_url;
+              const temVerMais = s.midias.length > 0 || s.descricao.length > 90;
               return (
                 <div
                   key={s.id}
                   className={`service-card${selecionado ? ' selected' : ''}`}
                   onClick={() => toggleServico(s.id)}
                 >
+                  {capa && (
+                    <img className="service-capa" src={capa} alt="" loading="lazy" decoding="async" width={56} height={56} />
+                  )}
                   <div className="service-card-info">
                     <p className="service-name">{s.nome}</p>
-                    {s.descricao && <p className="service-desc">{s.descricao}</p>}
-                    <p className="service-detail">{s.duracao_min} min</p>
+                    {s.descricao && <p className="service-desc service-desc--clamp">{s.descricao}</p>}
+                    <p className="service-detail">
+                      {s.duracao_min} min
+                      {s.midias.length > 0 && (
+                        <span className="service-midias"><Images size={12} aria-hidden /> {s.midias.length}</span>
+                      )}
+                    </p>
+                    {temVerMais && (
+                      <button
+                        type="button"
+                        className="service-ver-mais"
+                        onClick={(e) => { e.stopPropagation(); setDetalheId(s.id); }}
+                        aria-haspopup="dialog"
+                      >
+                        Ver mais <ChevronRight size={13} aria-hidden />
+                      </button>
+                    )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                     <span className="service-price">{fmtBRL(Number(s.preco))}</span>
@@ -415,6 +437,13 @@ export function PublicPage() {
             </div>
           )}
         </Step>
+
+        <ServicoDetalhes
+          servico={servicos.find((x) => x.id === detalheId) ?? null}
+          selecionado={detalheId !== null && servicosIds.includes(detalheId)}
+          onToggle={() => detalheId !== null && toggleServico(detalheId)}
+          onClose={() => setDetalheId(null)}
+        />
 
         {/* Passo 2 (condicional) — Profissional */}
         {mostrarPassoProfissional && (

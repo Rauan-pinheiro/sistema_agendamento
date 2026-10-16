@@ -2140,3 +2140,85 @@ a:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) {
   .anexo-progresso > div { transition: none; }
 }
+
+/* ── Acessibilidade: texto só para leitores de tela ─────────────────────── */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* ── Vitrine do serviço (painel) ─────────────────────────────────────────── */
+.anexo-play--yt { background: #dc2626; }
+.vitrine-youtube { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.vitrine-youtube input { flex: 1; min-width: 180px; }
+.vitrine-youtube .form-error { flex-basis: 100%; margin: 0; }
+.vitrine-youtube-icone { color: var(--text-muted); flex-shrink: 0; }
+
+/* ── YouTube "fachada" (player carrega só no clique) ───────────────────── */
+.yt-facade {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; border: 0; padding: 0;
+  border-radius: var(--radius-sm); overflow: hidden; background: #000; cursor: pointer; display: block;
+}
+.yt-facade img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .9; transition: opacity var(--t); }
+.yt-facade:hover img { opacity: 1; }
+.yt-facade iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.yt-facade-play {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 64px; height: 44px; border-radius: 12px; background: #dc2626; color: #fff;
+  display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md);
+}
+.yt-facade:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+/* ── Card de serviço: capa, descrição truncada e "Ver mais" ─────────────── */
+.service-capa {
+  width: 56px; height: 56px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0;
+  background: var(--surface-hover);
+}
+.service-desc--clamp {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.service-midias { display: inline-flex; align-items: center; gap: 3px; margin-left: 10px; }
+.service-ver-mais {
+  display: inline-flex; align-items: center; gap: 2px; margin-top: 6px; padding: 6px 0;
+  background: none; border: 0; font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--primary-hover); cursor: pointer; min-height: 32px;
+}
+.service-ver-mais:hover { text-decoration: underline; }
+.service-ver-mais:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+
+/* ── Detalhes do serviço (modal "Ver mais") ─────────────────────────────── */
+.detalhe-servico { display: flex; flex-direction: column; gap: 14px; }
+.detalhe-meta { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.detalhe-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.detalhe-meta span:first-child { color: var(--primary-hover); }
+.detalhe-galeria { display: flex; flex-direction: column; gap: 8px; }
+.detalhe-midia {
+  width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--surface-hover); display: flex; align-items: center; justify-content: center;
+}
+.detalhe-midia .yt-facade { aspect-ratio: auto; height: 100%; border-radius: 0; }
+.detalhe-midia-img, .detalhe-midia-video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.detalhe-thumbs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scroll-snap-type: x mandatory; }
+.detalhe-thumb {
+  position: relative; flex: 0 0 56px; height: 56px; padding: 0; border-radius: 6px; overflow: hidden;
+  border: 2px solid transparent; background: var(--surface-hover); cursor: pointer; scroll-snap-align: start;
+}
+.detalhe-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detalhe-thumb--ativo { border-color: var(--primary); }
+.detalhe-thumb:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.detalhe-descricao { font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-line; overflow-wrap: anywhere; }
+
+/* ── Modal como "bottom sheet" no celular ───────────────────────────────── */
+@media (max-width: 640px) {
+  .modal-backdrop--sheet { align-items: flex-end; padding: 0; }
+  .modal-backdrop--sheet .modal--sheet {
+    max-width: none !important; max-height: 92dvh;
+    border-radius: 16px 16px 0 0; animation: subirSheet 220ms ease-out;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .modal--sheet .modal-footer { padding-top: 12px; border-top: 1px solid var(--border); }
+}
+@keyframes subirSheet { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop--sheet .modal--sheet { animation: none; }
+}
