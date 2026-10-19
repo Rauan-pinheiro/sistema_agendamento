@@ -155,14 +155,18 @@ export function FinanceiroPage() {
   const gridColor  = theme === 'dark' ? '#334155' : '#e8edf2';
 
   useEffect(() => {
-    setLoading(true);
-    setErro('');
-    setResumo(null);
     getFinanceiroResumo(mes)
-      .then((data: FinanceiroResumo) => setResumo(data))
+      .then((data: FinanceiroResumo) => { setResumo(data); setErro(''); })
       .catch(() => setErro('Não foi possível carregar os dados financeiros.'))
       .finally(() => setLoading(false));
   }, [mes]);
+
+  function trocarMes(novo: string) {
+    setLoading(true);
+    setErro('');
+    setResumo(null);
+    setMes(novo);
+  }
 
   // Dados para o gráfico de barras
   const barData = useMemo(() => {
@@ -203,7 +207,7 @@ export function FinanceiroPage() {
           <select
             className="mes-select"
             value={mes}
-            onChange={(e) => setMes(e.target.value)}
+            onChange={(e) => trocarMes(e.target.value)}
             aria-label="Selecionar mês de referência"
           >
             {meses.map((m) => (

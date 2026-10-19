@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { Check, ChevronRight, Clock, Images, MessageCircle } from 'lucide-react';
 import { createAgendamentoPublico, getHorariosDisponiveis, getPaginaPublica } from '../../api/public';
@@ -149,7 +149,7 @@ export function PublicPage() {
   }, [chaveConsulta]);
   const consultaAtual = consulta?.chave === chaveConsulta ? consulta : null;
   const carregandoSlots = !!chaveConsulta && !consultaAtual;
-  const slots = consultaAtual?.slots ?? [];
+  const slots = useMemo(() => consultaAtual?.slots ?? [], [consultaAtual]);
 
   const selecionados = useMemo(
     () => servicosIds.map((id) => servicos.find((s) => s.id === id)).filter(Boolean) as ServicoPublico[],
@@ -189,8 +189,8 @@ export function PublicPage() {
     setMostrarCalendario(false);
     limparAgenda();
   }
-  function escolherSlot(dt: string) {
-    setSlotSelecionado(dt);
+  function escolherSlot(e: MouseEvent<HTMLButtonElement>) {
+    setSlotSelecionado(e.currentTarget.dataset.dt ?? '');
     requestAnimationFrame(() => dadosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
@@ -401,7 +401,8 @@ export function PublicPage() {
                             disabled={!slot.disponivel}
                             aria-pressed={slotSelecionado === slot.datetime}
                             aria-label={slot.disponivel ? slot.hora : `${slot.hora}, ocupado`}
-                            onClick={() => escolherSlot(slot.datetime)}
+                            data-dt={slot.datetime}
+                            onClick={escolherSlot}
                           >
                             {slot.hora}
                           </button>

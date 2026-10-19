@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   listProfissionais, createProfissional,
   updateProfissional, deleteProfissional,
@@ -8,6 +8,7 @@ import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { useFeedback } from '../../context/FeedbackContext';
+import { mensagemDeErro } from '../../utils/erros';
 
 type FormData = { nome: string; especialidade: string; ativo: boolean };
 const EMPTY: FormData = { nome: '', especialidade: '', ativo: true };
@@ -27,14 +28,13 @@ export function ProfissionaisPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  async function fetchProfissionais() {
-    setLoading(true);
-    const data = await listProfissionais();
-    setProfissionais(data.results);
-    setLoading(false);
-  }
+  const fetchProfissionais = useCallback(() =>
+    listProfissionais()
+      .then((data) => setProfissionais(data.results))
+      .catch((err) => toast(mensagemDeErro(err, 'Não foi possível carregar os profissionais.'), 'erro'))
+      .finally(() => setLoading(false)), [toast]);
 
-  useEffect(() => { fetchProfissionais(); }, []);
+  useEffect(() => { fetchProfissionais(); }, [fetchProfissionais]);
 
   function openCreate() {
     setEditing(null);
@@ -57,7 +57,8 @@ export function ProfissionaisPage() {
     setError('');
     try {
       const payload = { nome: form.nome.trim(), especialidade: form.especialidade.trim(), ativo: form.ativo };
-      editing ? await updateProfissional(editing.id, payload) : await createProfissional(payload);
+      if (editing) await updateProfissional(editing.id, payload);
+      else await createProfissional(payload);
       setModalOpen(false);
       fetchProfissionais();
     } catch {

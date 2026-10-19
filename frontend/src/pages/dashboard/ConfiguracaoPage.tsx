@@ -51,8 +51,10 @@ export function ConfiguracaoPage() {
     });
   }, []);
 
-  // Sync empresa form when context updates
-  useEffect(() => {
+  // Sincroniza o formulário quando a empresa do contexto muda (ajuste durante a renderização, sem efeito)
+  const [empresaSincronizada, setEmpresaSincronizada] = useState(empresa);
+  if (empresa !== empresaSincronizada) {
+    setEmpresaSincronizada(empresa);
     if (empresa) {
       setEmpresaForm({
         nome_fantasia: empresa.nome_fantasia,
@@ -60,7 +62,7 @@ export function ConfiguracaoPage() {
         whatsapp_contato: formatPhone(empresa.whatsapp_contato),
       });
     }
-  }, [empresa]);
+  }
 
   // ── Handlers empresa ──────────────────────────────────────────────────────
   function handleEmpresaChange(e: ChangeEvent<HTMLInputElement>) {

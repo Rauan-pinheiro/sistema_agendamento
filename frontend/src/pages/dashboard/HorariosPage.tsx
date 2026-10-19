@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Pencil, Trash2, Plus, Check, Clock } from 'lucide-react';
 import { listHorarios, createHorario, updateHorario, deleteHorario } from '../../api/horarios';
 import { listAllProfissionais } from '../../api/profissionais';
@@ -6,6 +6,7 @@ import type { HorarioFuncionamento, Profissional } from '../../types';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { useFeedback } from '../../context/FeedbackContext';
+import { mensagemDeErro } from '../../utils/erros';
 
 const DIAS = [
   { value: 0, label: 'Segunda-feira' },
@@ -37,17 +38,19 @@ export function HorariosPage() {
     listAllProfissionais().then(setProfissionais).catch(() => {});
   }, []);
 
-  async function carregar() {
-    setLoading(true);
-    try {
-      const profId = gradeSelecionada === null ? 'null' : gradeSelecionada;
-      setHorarios(await listHorarios(profId));
-    } finally {
-      setLoading(false);
-    }
-  }
+  const carregar = useCallback(() =>
+    listHorarios(gradeSelecionada === null ? 'null' : gradeSelecionada)
+      .then(setHorarios)
+      .catch((err) => toast(mensagemDeErro(err, 'Não foi possível carregar os horários.'), 'erro'))
+      .finally(() => setLoading(false)), [gradeSelecionada, toast]);
 
-  useEffect(() => { carregar(); }, [gradeSelecionada]);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  function trocarGrade(id: number | null) {
+    if (id === gradeSelecionada) return;
+    setLoading(true);
+    setGradeSelecionada(id);
+  }
 
   function abrirCriar() {
     const diasUsados = new Set(horarios.map((h) => h.dia_semana));
@@ -86,7 +89,8 @@ export function HorariosPage() {
         ...form,
         profissional: gradeSelecionada,
       };
-      editando ? await updateHorario(editando.id, payload) : await createHorario(payload);
+      if (editando) await updateHorario(editando.id, payload);
+      else await createHorario(payload);
       setModalAberto(false);
       carregar();
     } catch (err: unknown) {
@@ -140,7 +144,7 @@ export function HorariosPage() {
       <div className="grade-selector">
         <button
           className={`grade-btn${gradeSelecionada === null ? ' grade-btn--active' : ''}`}
-          onClick={() => setGradeSelecionada(null)}
+          onClick={() => trocarGrade(null)}
         >
           Empresa (geral)
         </button>
@@ -148,7 +152,7 @@ export function HorariosPage() {
           <button
             key={p.id}
             className={`grade-btn${gradeSelecionada === p.id ? ' grade-btn--active' : ''}`}
-            onClick={() => setGradeSelecionada(p.id)}
+            onClick={() => trocarGrade(p.id)}
           >
             {p.nome}
           </button>

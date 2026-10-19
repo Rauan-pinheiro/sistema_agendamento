@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { listServicos, createServico, updateServico, deleteServico } from '../../api/servicos';
 import type { Servico } from '../../types';
 import { Plus, Pencil, Trash2, Scissors } from 'lucide-react';
@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { VitrineServico } from '../../components/VitrineServico';
 import { useFeedback } from '../../context/FeedbackContext';
+import { mensagemDeErro } from '../../utils/erros';
 
 type FormData = { nome: string; descricao: string; duracao_min: string; preco: string };
 const EMPTY: FormData = { nome: '', descricao: '', duracao_min: '', preco: '' };
@@ -31,14 +32,13 @@ export function ServicosPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  async function fetchServicos() {
-    setLoading(true);
-    const data = await listServicos();
-    setServicos(data);
-    setLoading(false);
-  }
+  const fetchServicos = useCallback(() =>
+    listServicos()
+      .then(setServicos)
+      .catch((err) => toast(mensagemDeErro(err, 'Não foi possível carregar os serviços.'), 'erro'))
+      .finally(() => setLoading(false)), [toast]);
 
-  useEffect(() => { fetchServicos(); }, []);
+  useEffect(() => { fetchServicos(); }, [fetchServicos]);
 
   function openCreate() {
     setEditing(null);

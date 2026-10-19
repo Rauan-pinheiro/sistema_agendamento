@@ -6,9 +6,10 @@ import {
 import type { Agendamento, AgendamentoStatus, AgendamentosResumo, Empresa } from '../../types';
 import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Phone, DollarSign, Clock, User, ChevronDown, Bell, Paperclip } from 'lucide-react';
+import { Calendar, Phone, DollarSign, Clock, User, ChevronDown, Bell, Paperclip, WifiOff } from 'lucide-react';
 import { AnexosAgendamento } from '../../components/AnexosAgendamento';
 import { formatPhone } from '../../utils/phone';
+import { mensagemDeErro } from '../../utils/erros';
 
 type TabValue = AgendamentoStatus | 'todos' | 'hoje';
 
@@ -600,6 +601,7 @@ export function AgendamentosPage() {
   const [expandedId, setExpandedId]           = useState<number | null>(null);
   const [quickActionId, setQuickActionId]     = useState<number | null>(null);
   const [newAgsCount, setNewAgsCount]         = useState(0);
+  const [erroLista, setErroLista]             = useState('');
 
   // Backoff state (all refs — não disparam re-render)
   const pollIntervalRef     = useRef(POLL_MIN_MS);
@@ -615,8 +617,8 @@ export function AgendamentosPage() {
    * Recarrega a lista da aba atual. `manterQuantidade` recarrega tantos itens
    * quanto já estavam visíveis (até 100), preservando o "Carregar mais".
    */
-  const fetchData = useCallback(async (silent = false, manterQuantidade = false) => {
-    silent ? setAutoRefreshing(true) : setLoading(true);
+  /** Busca a lista sem tocar no estado de carregamento antes do await. */
+  const buscarLista = useCallback(async (manterQuantidade = false) => {
     try {
       const base = paramsDaAba(tab, periodo);
       const pageSize = manterQuantidade
@@ -632,11 +634,21 @@ export function AgendamentosPage() {
       setAgendamentos(lista.results);
       setTotal(lista.count);
       setPagina(1);
+    } catch (err) {
+      setErroLista(mensagemDeErro(err, 'Não foi possível carregar os agendamentos.'));
+      return;
     } finally {
       setLoading(false);
       setAutoRefreshing(false);
     }
+    setErroLista('');
   }, [tab, periodo]);
+
+  const fetchData = useCallback(async (silent = false, manterQuantidade = false) => {
+    if (silent) setAutoRefreshing(true);
+    else setLoading(true);
+    await buscarLista(manterQuantidade);
+  }, [buscarLista]);
 
   async function carregarMais() {
     setLoadingMore(true);
@@ -683,12 +695,16 @@ export function AgendamentosPage() {
     }
   }, []);
 
-  useEffect(() => {
+  useEffect(() => { buscarLista(); }, [buscarLista]);
+
+  /** Troca de aba ou período: limpa seleções e mostra o skeleton até a nova lista chegar. */
+  function trocarFiltro(mudar: () => void) {
     setConfirmDeleteId(null);
     setExpandedId(null);
     setQuickActionId(null);
-    fetchData(false);
-  }, [fetchData]);
+    setLoading(true);
+    mudar();
+  }
 
   // Polling com setTimeout recursivo — intervalo lido dinamicamente do ref
   useEffect(() => {
@@ -777,7 +793,7 @@ export function AgendamentosPage() {
           <button
             key={t.value}
             className={`tab${tab === t.value ? ' active' : ''}`}
-            onClick={() => setTab(t.value)}
+            onClick={() => { if (t.value !== tab) trocarFiltro(() => setTab(t.value)); }}
           >
             {t.label}
           </button>
@@ -791,7 +807,7 @@ export function AgendamentosPage() {
               key={p}
               className={`tab${periodo === p ? ' active' : ''}`}
               aria-pressed={periodo === p}
-              onClick={() => setPeriodo(p)}
+              onClick={() => { if (p !== periodo) trocarFiltro(() => setPeriodo(p)); }}
             >
               {p === 'proximos' ? 'A partir de hoje' : 'Anteriores'}
             </button>
@@ -814,6 +830,13 @@ export function AgendamentosPage() {
               </div>
             </div>
           ))}
+        </div>
+      ) : erroLista && agendamentos.length === 0 ? (
+        <div className="empty-state" role="alert">
+          <div className="empty-state-icon"><WifiOff size={28} aria-hidden /></div>
+          <h3>Não deu para carregar a agenda</h3>
+          <p className="empty-hint">{erroLista}</p>
+          <button type="button" className="btn btn-secondary" onClick={() => fetchData(false)}>Tentar de novo</button>
         </div>
       ) : agendamentos.length === 0 ? (
         <EmptyState tab={tab} />
