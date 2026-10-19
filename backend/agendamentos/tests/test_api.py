@@ -38,6 +38,25 @@ class AuthTests(APITestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn('slug', resp.data)
 
+    def test_registro_rejeita_senha_fraca(self):
+        for fraca in ['12345678', 'password', 'novo_dono1']:
+            resp = self.client.post('/api/v1/auth/registro/', {
+                'username': 'novo_dono1', 'email': 'n@t.com', 'password': fraca,
+                'password_confirm': fraca, 'nome_fantasia': 'X Y', 'slug': 'xy-fraca',
+                'whatsapp_contato': '85999990000',
+            })
+            self.assertEqual(resp.status_code, 400, fraca)
+            self.assertIn('password', resp.data)
+
+    def test_troca_de_senha_rejeita_senha_fraca(self):
+        emp = criar_empresa()
+        self.client.force_authenticate(emp.owner)
+        resp = self.client.patch('/api/v1/usuario/', {
+            'password_atual': SENHA, 'password_nova': '12345678', 'password_nova_confirm': '12345678',
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('password_nova', resp.data)
+
     def test_login_retorna_tokens(self):
         emp = criar_empresa()
         resp = self.client.post('/api/v1/auth/token/', {

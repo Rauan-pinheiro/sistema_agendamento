@@ -2,6 +2,8 @@ import re
 from decimal import Decimal
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
@@ -623,6 +625,10 @@ class PerfilUsuarioSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {'password_nova_confirm': 'As senhas não conferem.'}
                 )
+            try:
+                validate_password(password_nova, user=self.context['request'].user)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError({'password_nova': list(exc.messages)})
         return data
 
 
@@ -678,6 +684,12 @@ class RegistroSerializer(serializers.Serializer):
     def validate(self, data: dict) -> dict:
         if data['password'] != data['password_confirm']:
             raise serializers.ValidationError({'password_confirm': 'As senhas não conferem.'})
+        # Mesmas regras do Django (tamanho, senhas comuns, só números, parecida com o usuário)
+        candidato = User(username=data.get('username', ''), email=data.get('email', ''))
+        try:
+            validate_password(data['password'], user=candidato)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({'password': list(exc.messages)})
         return data
 
     def create(self, validated_data: dict):
