@@ -36,7 +36,8 @@ test.describe('Ver mais do serviço', () => {
 
     const modal = page.getByRole('dialog', { name: nomeServico });
     await expect(modal).toBeVisible();
-    await expect(card).not.toHaveClass(/selected/); // "Ver mais" não marca o serviço
+    const marcar = card.locator('.pub-servico-marcar');
+    await expect(marcar).toHaveAttribute('aria-pressed', 'false'); // "Ver mais" não marca o serviço
     await expect(modal.locator('iframe')).toHaveCount(0); // player ainda não carregou
 
     await page.screenshot({ path: `test-results/ver-mais-modal-${test.info().project.name}.png` });
@@ -45,8 +46,8 @@ test.describe('Ver mais do serviço', () => {
 
     await modal.getByRole('button', { name: /adicionar/i }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(card).toHaveClass(/selected/);
-    await expect(page.getByText('1 serviço')).toBeVisible();
+    await expect(marcar).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('region', { name: 'Resumo do agendamento' })).toContainText(nomeServico);
     await page.screenshot({ path: `test-results/ver-mais-${test.info().project.name}.png` });
   });
 });
