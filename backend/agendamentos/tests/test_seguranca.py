@@ -119,3 +119,31 @@ class IpAtrasDoProxyTests(APITestCase):
             bloqueado = self.client.get(url, HTTP_X_FORWARDED_FOR='200.1.1.1', REMOTE_ADDR='10.0.0.1')
             outro = self.client.get(url, HTTP_X_FORWARDED_FOR='200.2.2.2', REMOTE_ADDR='10.0.0.1')
         self.assertEqual((bloqueado.status_code, outro.status_code), (429, 200))
+
+
+class ConfiguracaoProducaoTests(APITestCase):
+    def _subir(self, chave):
+        import os
+        import subprocess
+        import sys
+        env = {**os.environ, 'DJANGO_DEBUG': 'false', 'DJANGO_SECRET_KEY': chave}
+        return subprocess.run(
+            [sys.executable, '-c', 'import django, os; os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings"); django.setup()'],
+            env=env, capture_output=True, text=True, cwd=settings.BASE_DIR,
+        )
+
+    def test_producao_recusa_a_chave_antiga_do_repositorio(self):
+        r = self._subir('django-insecure-chwrcr*_o)=t#ko1lewij7(%b5m%n9o95sx=u+339-fyu%dfcb')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn('DJANGO_SECRET_KEY insegura', r.stderr)
+
+    def test_producao_sobe_com_chave_forte(self):
+        self.assertEqual(self._subir('x' * 10 + 'Q9#kLm2@vB7$wE4!rT6^yU1&iO3*pA5(sD8)fG0-hJ').returncode, 0)
+
+    @override_settings(IP_HEADER='HTTP_TRUE_CLIENT_IP')
+    def test_ip_por_header_confiavel(self):
+        from django.test import RequestFactory
+
+        from agendamentos.seguranca import ip_do_cliente
+        req = RequestFactory().get('/', HTTP_TRUE_CLIENT_IP='200.9.9.9', REMOTE_ADDR='10.0.0.1')
+        self.assertEqual(ip_do_cliente(req), '200.9.9.9')

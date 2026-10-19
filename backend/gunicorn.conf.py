@@ -19,4 +19,5 @@ keepalive = 75
 # Recicla o processo periodicamente para conter vazamentos de memória
 max_requests = 2000
 max_requests_jitter = 200
-accesslog = '-'
+# Log de acesso sai em JSON pelo Django (agendamentos.seguranca); evita linhas duplicadas
+accesslog = None

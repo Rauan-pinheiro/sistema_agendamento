@@ -40,8 +40,14 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or (
 )
 if not SECRET_KEY:
     raise RuntimeError('Defina a variável de ambiente DJANGO_SECRET_KEY.')
+# A chave antiga do repositório (histórico do git) e qualquer chave "insecure" não sobem em produção
+if not DEBUG and (SECRET_KEY.startswith('django-insecure') or len(SECRET_KEY) < 40):
+    raise RuntimeError('DJANGO_SECRET_KEY insegura: gere uma nova com pelo menos 50 caracteres aleatórios.')
 
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
+# O Render informa o domínio do serviço (ex.: agenda-api.onrender.com)
+if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
 
 
 # Application definition
@@ -191,6 +197,10 @@ REST_FRAMEWORK = {
     'NUM_PROXIES': int(os.environ.get('NUM_PROXIES', '0' if DEBUG else '1')) or None,
 }
 
+# Header com o IP real do cliente, se o proxy fornecer um confiável (ex.: HTTP_TRUE_CLIENT_IP).
+# Vazio = usa X-Forwarded-For com NUM_PROXIES. Confira no log de acesso (campo "ip") após o deploy.
+IP_HEADER = os.environ.get('IP_HEADER', '')
+
 # ── Rate limiting (por IP para anônimos, por usuário no painel) ──────────────
 # Formato "N/periodo" (second, minute, hour, day). Ajustável por variável de ambiente.
 LIMITES_REQUISICAO = {
@@ -236,6 +246,8 @@ CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
 
 # A API usa JWT no header Authorization (sem cookies): credenciais cross-origin desnecessárias.
 CORS_ALLOW_CREDENTIALS = False
+# O navegador guarda o preflight por 1 dia (evita um OPTIONS extra a cada chamada do painel)
+CORS_PREFLIGHT_MAX_AGE = 86400
 
 # ── LGPD ──────────────────────────────────────────────────────────────────────
 # Versão vigente dos Termos/Política (data da publicação). Mude ao alterar o texto.

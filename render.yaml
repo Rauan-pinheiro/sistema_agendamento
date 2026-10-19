@@ -1,0 +1,125 @@
+# Blueprint do Render: API (Web Service Starter) + front (Static Site) + Postgres Basic + cron diário.
+# Uso: Render → New → Blueprint → este repositório. Valores com `sync: false` são pedidos na criação
+# (segredos nunca ficam no git). Depois do 1º deploy, siga docs/02-prontidao-para-mercado.md (go-live).
+
+databases:
+  - name: agenda-db
+    plan: basic-256mb
+    region: virginia            # mais próxima do Brasil entre as regiões do Render
+    databaseName: agenda
+    user: agenda
+    postgresMajorVersion: "17"
+    ipAllowList: []             # só a rede interna do Render acessa o banco
+
+services:
+  # ── API Django ──────────────────────────────────────────────────────────────
+  - type: web
+    name: agenda-api
+    runtime: python
+    plan: starter
+    region: virginia
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: python manage.py migrate --noinput
+    startCommand: gunicorn config.wsgi:application -c gunicorn.conf.py
+    healthCheckPath: /api/v1/health/
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.5"
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_SECRET_KEY          # chave nova gerada pelo Render (rotaciona a antiga do histórico)
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agenda-db
+          property: connectionString
+      - key: DB_POOL
+        value: "true"
+      - key: NUM_PROXIES
+        value: "1"
+      - key: LOG_FORMATO
+        value: json
+      - key: CORS_ALLOWED_ORIGINS       # ex.: https://agenda-front.onrender.com (sem barra no fim)
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS       # mesma origem do admin, ex.: https://agenda-api.onrender.com
+        sync: false
+      - key: DJANGO_ADMIN_URL           # caminho difícil de adivinhar, terminando com "/"
+        sync: false
+      - key: CLOUDINARY_URL             # cloudinary://<api_key>:<api_secret>@<cloud_name>
+        sync: false
+
+  # ── Front React ─────────────────────────────────────────────────────────────
+  - type: web
+    name: agenda-front
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_API_URL               # ex.: https://agenda-api.onrender.com
+        sync: false
+    routes:
+      - type: rewrite                   # SPA: rotas do React caem no index.html
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        # Ajuste o connect-src se a API mudar de domínio
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://res.cloudinary.com https://i.ytimg.com; media-src 'self' blob: https://res.cloudinary.com; font-src 'self'; connect-src 'self' https://agenda-api.onrender.com https://api.cloudinary.com; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: "camera=(), microphone=(), geolocation=(), payment=()"
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000
+      - path: /assets/*                 # arquivos com hash no nome: cache longo
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+
+  # ── Rotina diária: limpa uploads órfãos e alerta o uso do Cloudinary ────────
+  - type: cron
+    name: agenda-rotina-midia
+    runtime: python
+    plan: starter
+    region: virginia
+    schedule: "0 9 * * *"               # 06:00 em Fortaleza (UTC-3)
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # verificar_uso_midia falha acima de 15 créditos → o Render notifica a falha por e-mail
+    startCommand: python manage.py limpar_midia_orfa && python manage.py verificar_uso_midia
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.5"
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: agenda-api
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agenda-db
+          property: connectionString
+      - key: LOG_FORMATO
+        value: json
+      - key: CLOUDINARY_URL
+        sync: false

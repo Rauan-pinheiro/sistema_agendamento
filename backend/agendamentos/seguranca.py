@@ -45,6 +45,9 @@ class LimitePorEscopo(ScopedRateThrottle):
     def get_rate(self):
         return getattr(settings, 'LIMITES_REQUISICAO', {}).get(self.scope)
 
+    def get_ident(self, request):
+        return ip_do_cliente(request)
+
 
 # ── Erros ─────────────────────────────────────────────────────────────────────
 
@@ -73,7 +76,9 @@ def tratar_excecao(exc, context):
 # ── Middleware de requisição ─────────────────────────────────────────────────
 
 def ip_do_cliente(request) -> str:
-    """IP real atrás do proxy do Render (mesma regra do rate limiting: NUM_PROXIES)."""
+    """IP real atrás do proxy do Render (usado no rate limiting e nos logs)."""
+    if settings.IP_HEADER and request.META.get(settings.IP_HEADER):
+        return request.META[settings.IP_HEADER].split(',')[0].strip()
     xff = request.META.get('HTTP_X_FORWARDED_FOR')
     proxies = settings.REST_FRAMEWORK.get('NUM_PROXIES')
     if xff and proxies:

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { API_BASE } from './base';
 import type {
   Empresa,
   Servico,
@@ -10,7 +11,7 @@ import type {
 } from '../types';
 
 // Cliente sem JWT — rotas públicas não devem disparar o interceptor de 401/redirect
-const publicApi = axios.create({ baseURL: '/api/v1' });
+const publicApi = axios.create({ baseURL: API_BASE });
 
 /** Empresa + serviços + profissionais em uma única requisição (com cache no servidor). */
 export async function getPaginaPublica(slug: string): Promise<PaginaPublica> {
