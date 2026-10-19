@@ -183,9 +183,9 @@ export function ConfiguracaoPage() {
         <form className="config-section-body" onSubmit={handleEmpresaSubmit}>
           <div className="form-row">
             <div className="form-group">
-              <label>Nome Fantasia</label>
+              <label htmlFor="configuracao-1">Nome Fantasia</label>
               <input
-                name="nome_fantasia"
+                id="configuracao-1" name="nome_fantasia"
                 value={empresaForm.nome_fantasia}
                 onChange={handleEmpresaChange}
                 placeholder="Ex: Barbearia do João"
@@ -193,9 +193,9 @@ export function ConfiguracaoPage() {
               />
             </div>
             <div className="form-group">
-              <label>Link Público</label>
+              <label htmlFor="configuracao-2">Link Público</label>
               <input
-                name="slug"
+                id="configuracao-2" name="slug"
                 value={empresaForm.slug}
                 onChange={handleEmpresaChange}
                 placeholder="Ex: barbearia-joao"
@@ -207,9 +207,9 @@ export function ConfiguracaoPage() {
             </div>
           </div>
           <div className="form-group" style={{ maxWidth: 280 }}>
-            <label>WhatsApp de Contato</label>
+            <label htmlFor="configuracao-3">WhatsApp de Contato</label>
             <input
-              name="whatsapp_contato"
+              id="configuracao-3" name="whatsapp_contato"
               value={empresaForm.whatsapp_contato}
               onChange={handleEmpresaChange}
               placeholder="(85) 99999-0000"
@@ -246,18 +246,18 @@ export function ConfiguracaoPage() {
         <form className="config-section-body" onSubmit={handlePerfilSubmit}>
           <div className="form-row">
             <div className="form-group">
-              <label>Nome de Usuário</label>
+              <label htmlFor="configuracao-4">Nome de Usuário</label>
               <input
-                value={perfilForm.username}
+                id="configuracao-4" value={perfilForm.username}
                 onChange={e => setPerfilForm(prev => ({ ...prev, username: e.target.value }))}
                 placeholder="Ex: joaosilva"
                 required
               />
             </div>
             <div className="form-group">
-              <label>E-mail</label>
+              <label htmlFor="configuracao-5">E-mail</label>
               <input
-                type="email"
+                id="configuracao-5" type="email"
                 value={perfilForm.email}
                 onChange={e => setPerfilForm(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="joao@email.com"
@@ -288,9 +288,9 @@ export function ConfiguracaoPage() {
         </div>
         <form className="config-section-body" onSubmit={handleSenhaSubmit}>
           <div className="form-group" style={{ maxWidth: 340 }}>
-            <label>Senha Atual</label>
+            <label htmlFor="configuracao-6">Senha Atual</label>
             <input
-              type="password"
+              id="configuracao-6" type="password"
               value={senhaForm.password_atual}
               onChange={e => setSenhaForm(prev => ({ ...prev, password_atual: e.target.value }))}
               placeholder="••••••••"
@@ -300,9 +300,9 @@ export function ConfiguracaoPage() {
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Nova Senha</label>
+              <label htmlFor="configuracao-7">Nova Senha</label>
               <input
-                type="password"
+                id="configuracao-7" type="password"
                 value={senhaForm.password_nova}
                 onChange={e => setSenhaForm(prev => ({ ...prev, password_nova: e.target.value }))}
                 placeholder="Mínimo 8 caracteres"
@@ -311,9 +311,9 @@ export function ConfiguracaoPage() {
               />
             </div>
             <div className="form-group">
-              <label>Confirmar Nova Senha</label>
+              <label htmlFor="configuracao-8">Confirmar Nova Senha</label>
               <input
-                type="password"
+                id="configuracao-8" type="password"
                 value={senhaForm.password_nova_confirm}
                 onChange={e => setSenhaForm(prev => ({ ...prev, password_nova_confirm: e.target.value }))}
                 placeholder="Repita a nova senha"

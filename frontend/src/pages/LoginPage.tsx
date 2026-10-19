@@ -19,7 +19,7 @@ export function LoginPage() {
       await login(username, password);
       navigate('/dashboard');
     } catch {
-      setError('Usuário ou senha inválidos.');
+      setError('Usuário ou senha não conferem. Confira e tente de novo.');
     } finally {
       setLoading(false);
     }
@@ -29,15 +29,15 @@ export function LoginPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <div className="auth-logo-icon">
+          <div className="auth-logo-icon" aria-hidden>
             <CalendarDays size={20} />
           </div>
           <span className="auth-logo-text">AgendaFácil</span>
         </div>
 
-        <div>
-          <h1 className="auth-title">Boas-vindas</h1>
-          <p className="auth-subtitle">Acesse o painel da sua empresa</p>
+        <div className="auth-cabecalho">
+          <h1 className="auth-title">Entrar no painel</h1>
+          <p className="auth-subtitle">Veja a agenda do dia e confirme os horários dos clientes.</p>
         </div>
 
         <form onSubmit={handleSubmit}>

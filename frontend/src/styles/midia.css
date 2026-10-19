@@ -1,0 +1,107 @@
+/* ── Anexos do agendamento (fotos e vídeos) ──────────────────────────────── */
+.anexos { display: flex; flex-direction: column; gap: 8px; }
+.anexos-header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.anexos-cota { font-size: var(--t-14); color: var(--text-muted); }
+.anexos-dica { font-size: var(--t-14); color: var(--text-muted); margin: 0; }
+.anexos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  transition: outline-color var(--t);
+  outline: 2px dashed transparent;
+  outline-offset: 4px;
+}
+.anexos-grid--drop { outline-color: var(--primary); }
+.anexo-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.anexo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.anexo-thumb:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.anexo-thumb-vazio { font-size: var(--t-14); color: var(--text-muted); }
+.anexo-play {
+  position: absolute; inset: auto auto 6px 6px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(15, 23, 42, .7); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.anexo-adicionar {
+  flex-direction: column; gap: 4px;
+  border-style: dashed; color: var(--text-muted); font-size: var(--t-14); font-family: inherit;
+}
+.anexo-adicionar:hover { color: var(--primary); border-color: var(--primary); }
+.anexo-envio {
+  cursor: default; flex-direction: column; align-items: stretch; justify-content: flex-end;
+  gap: 4px; padding: 6px; font-size: var(--t-12); text-align: left;
+}
+.anexo-envio-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.anexo-envio-estado { color: var(--text-muted); }
+.anexo-envio-erro { color: var(--perigo); line-height: 1.25; font-weight: 600; }
+.anexo-envio--erro { border-color: var(--danger); }
+.anexo-envio-fechar { position: absolute; top: 2px; right: 2px; }
+.anexo-progresso { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+.anexo-progresso > div { height: 100%; background: var(--primary); transition: width 120ms linear; }
+.anexo-lightbox { display: flex; flex-direction: column; align-items: center; gap: 10px; outline: none; }
+.anexo-lightbox img,
+.anexo-lightbox video {
+  max-width: 100%; max-height: 65vh; border-radius: var(--radius-sm); background: #000;
+}
+.anexo-lightbox-nav { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) {
+  .anexo-progresso > div { transition: none; }
+}
+
+/* ── Vitrine do serviço (painel) ─────────────────────────────────────────── */
+.anexo-play--yt { background: #B3261E; }
+.vitrine-youtube { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.vitrine-youtube input { flex: 1; min-width: 180px; }
+.vitrine-youtube .form-error { flex-basis: 100%; margin: 0; }
+.vitrine-youtube-icone { color: var(--text-muted); flex-shrink: 0; }
+
+/* ── YouTube "fachada" (player carrega só no clique) ───────────────────── */
+.yt-facade {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; border: 0; padding: 0;
+  border-radius: var(--radius-sm); overflow: hidden; background: #000; cursor: pointer; display: block;
+}
+.yt-facade img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .9; transition: opacity var(--t); }
+.yt-facade:hover img { opacity: 1; }
+.yt-facade iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.yt-facade-play {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 64px; height: 44px; border-radius: 12px; background: #B3261E; color: #fff;
+  display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md);
+}
+.yt-facade:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+/* ── Detalhes do serviço (modal "Ver mais") ─────────────────────────────── */
+.detalhe-servico { display: flex; flex-direction: column; gap: 14px; }
+.detalhe-meta { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.detalhe-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.detalhe-meta span:first-child { color: var(--primary-hover); }
+.detalhe-galeria { display: flex; flex-direction: column; gap: 8px; }
+.detalhe-midia {
+  width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--surface-hover); display: flex; align-items: center; justify-content: center;
+}
+.detalhe-midia .yt-facade { aspect-ratio: auto; height: 100%; border-radius: 0; }
+.detalhe-midia-img, .detalhe-midia-video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.detalhe-thumbs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scroll-snap-type: x mandatory; }
+.detalhe-thumb {
+  position: relative; flex: 0 0 56px; height: 56px; padding: 0; border-radius: 6px; overflow: hidden;
+  border: 2px solid transparent; background: var(--surface-hover); cursor: pointer; scroll-snap-align: start;
+}
+.detalhe-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detalhe-thumb--ativo { border-color: var(--primary); }
+.detalhe-thumb:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.detalhe-descricao { font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-line; overflow-wrap: anywhere; }
+

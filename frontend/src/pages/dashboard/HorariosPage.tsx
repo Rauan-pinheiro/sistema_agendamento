@@ -5,6 +5,7 @@ import { listAllProfissionais } from '../../api/profissionais';
 import type { HorarioFuncionamento, Profissional } from '../../types';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
+import { useFeedback } from '../../context/FeedbackContext';
 
 const DIAS = [
   { value: 0, label: 'Segunda-feira' },
@@ -19,6 +20,7 @@ const DIAS = [
 const FORM_VAZIO = { dia_semana: 0, hora_inicio: '08:00', hora_fim: '18:00', intervalo_min: 30 };
 
 export function HorariosPage() {
+  const { confirmar, toast } = useFeedback();
   const [profissionais, setProfissionais] = useState<Profissional[]>([]);
   // null = grade geral da empresa; number = id do profissional selecionado
   const [gradeSelecionada, setGradeSelecionada] = useState<number | null>(null);
@@ -97,9 +99,20 @@ export function HorariosPage() {
   }
 
   async function remover(id: number) {
-    if (!confirm('Remover este horário de funcionamento?')) return;
-    await deleteHorario(id);
-    carregar();
+    const ok = await confirmar({
+      titulo: 'Remover este horário?',
+      mensagem: 'Os clientes deixam de ver horários livres neste dia da semana.',
+      confirmar: 'Remover horário',
+      perigo: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteHorario(id);
+      toast('Horário removido.');
+      carregar();
+    } catch {
+      toast('Não foi possível remover o horário. Tente de novo.', 'erro');
+    }
   }
 
   const diasDisponiveis = DIAS.filter(
@@ -191,10 +204,10 @@ export function HorariosPage() {
                   <td>{h.hora_fim.slice(0, 5)}</td>
                   <td>{h.intervalo_min} min</td>
                   <td className="table-actions">
-                    <button className="icon-btn" title="Editar" onClick={() => abrirEditar(h)}>
+                    <button className="icon-btn" title="Editar" aria-label="Editar" onClick={() => abrirEditar(h)}>
                       <Pencil size={14} />
                     </button>
-                    <button className="icon-btn icon-btn--danger" title="Excluir" onClick={() => remover(h.id)}>
+                    <button className="icon-btn icon-btn--danger" title="Excluir" aria-label="Excluir" onClick={() => remover(h.id)}>
                       <Trash2 size={14} />
                     </button>
                   </td>
@@ -219,9 +232,9 @@ export function HorariosPage() {
         }
       >
         <div className="form-group">
-          <label>Dia da semana</label>
+          <label htmlFor="horarios-1">Dia da semana</label>
           <select
-            value={form.dia_semana}
+            id="horarios-1" value={form.dia_semana}
             disabled={!!editando}
             onChange={(e) => setForm((f) => ({ ...f, dia_semana: Number(e.target.value) }))}
           >
@@ -233,17 +246,17 @@ export function HorariosPage() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Início</label>
+            <label htmlFor="horarios-2">Início</label>
             <input
-              type="time"
+              id="horarios-2" type="time"
               value={form.hora_inicio}
               onChange={(e) => setForm((f) => ({ ...f, hora_inicio: e.target.value }))}
             />
           </div>
           <div className="form-group">
-            <label>Fim</label>
+            <label htmlFor="horarios-3">Fim</label>
             <input
-              type="time"
+              id="horarios-3" type="time"
               value={form.hora_fim}
               onChange={(e) => setForm((f) => ({ ...f, hora_fim: e.target.value }))}
             />
@@ -251,9 +264,9 @@ export function HorariosPage() {
         </div>
 
         <div className="form-group">
-          <label>Intervalo entre slots (minutos)</label>
+          <label htmlFor="horarios-4">Intervalo entre slots (minutos)</label>
           <input
-            type="number"
+            id="horarios-4" type="number"
             min={5}
             max={240}
             step={5}

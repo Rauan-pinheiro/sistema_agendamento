@@ -3,6 +3,8 @@ export interface Empresa {
   nome_fantasia: string;
   slug: string;
   whatsapp_contato: string;
+  /** Cor de destaque da página pública (#RRGGBB). */
+  cor_destaque: string;
 }
 
 export interface Profissional {

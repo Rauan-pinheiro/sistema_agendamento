@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { FeedbackProvider } from './context/FeedbackContext';
 import { PrivateRoute } from './routes/PrivateRoute';
 
 // Code splitting por rota: o cliente final baixa só a página pública;
@@ -27,9 +28,10 @@ const ConfiguracaoPage = lazy(() =>
 function App() {
   return (
     <ThemeProvider>
+      <FeedbackProvider>
       <AuthProvider>
         <BrowserRouter>
-          <Suspense fallback={<div className="public-loading">Carregando...</div>}>
+          <Suspense fallback={<div className="public-loading" role="status">Carregando…</div>}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
@@ -49,6 +51,7 @@ function App() {
           </Suspense>
         </BrowserRouter>
       </AuthProvider>
+      </FeedbackProvider>
     </ThemeProvider>
   );
 }

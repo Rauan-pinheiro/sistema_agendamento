@@ -95,25 +95,25 @@ export function RegisterPage() {
     <div className="auth-page">
       <div className="auth-card auth-card--wide">
         <div className="auth-logo">
-          <div className="auth-logo-icon">
+          <div className="auth-logo-icon" aria-hidden>
             <CalendarDays size={20} />
           </div>
           <span className="auth-logo-text">AgendaFácil</span>
         </div>
 
-        <div>
-          <h1 className="auth-title">Crie sua conta</h1>
-          <p className="auth-subtitle">Configure o painel do seu negócio em minutos</p>
+        <div className="auth-cabecalho">
+          <h1 className="auth-title">Cadastrar sua empresa</h1>
+          <p className="auth-subtitle">Em seguida você cadastra serviços e horários e já pode divulgar seu link.</p>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="form-section">
-            <p className="form-section-title">Dados de acesso</p>
+            <h2 className="form-section-title">Seu acesso</h2>
             <div className="form-row">
               <div className="form-group">
-                <label>Usuário</label>
+                <label htmlFor="register-1">Usuário</label>
                 <input
-                  name="username"
+                  id="register-1" name="username"
                   value={form.username}
                   onChange={handleChange}
                   required
@@ -122,9 +122,9 @@ export function RegisterPage() {
                 />
               </div>
               <div className="form-group">
-                <label>E-mail</label>
+                <label htmlFor="register-2">E-mail</label>
                 <input
-                  type="email"
+                  id="register-2" type="email"
                   name="email"
                   value={form.email}
                   onChange={handleChange}
@@ -135,9 +135,9 @@ export function RegisterPage() {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Senha</label>
+                <label htmlFor="register-3">Senha</label>
                 <input
-                  type="password"
+                  id="register-3" type="password"
                   name="password"
                   value={form.password}
                   onChange={handleChange}
@@ -147,9 +147,9 @@ export function RegisterPage() {
                 />
               </div>
               <div className="form-group">
-                <label>Confirmar senha</label>
+                <label htmlFor="register-4">Confirmar senha</label>
                 <input
-                  type="password"
+                  id="register-4" type="password"
                   name="password_confirm"
                   value={form.password_confirm}
                   onChange={handleChange}
@@ -163,11 +163,11 @@ export function RegisterPage() {
           <div className="form-divider" />
 
           <div className="form-section">
-            <p className="form-section-title">Dados da empresa</p>
+            <h2 className="form-section-title">Sua empresa</h2>
             <div className="form-group">
-              <label>Nome da empresa</label>
+              <label htmlFor="register-5">Nome da empresa</label>
               <input
-                name="nome_fantasia"
+                id="register-5" name="nome_fantasia"
                 value={form.nome_fantasia}
                 onChange={handleChange}
                 required
@@ -177,9 +177,9 @@ export function RegisterPage() {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Link público (slug)</label>
+                <label htmlFor="register-6">Link público (slug)</label>
                 <input
-                  name="slug"
+                  id="register-6" name="slug"
                   value={form.slug}
                   onChange={handleChange}
                   required
@@ -191,9 +191,9 @@ export function RegisterPage() {
                 <span className="form-hint">/{form.slug || 'sua-empresa'}</span>
               </div>
               <div className="form-group">
-                <label>WhatsApp</label>
+                <label htmlFor="register-7">WhatsApp</label>
                 <input
-                  name="whatsapp_contato"
+                  id="register-7" name="whatsapp_contato"
                   value={form.whatsapp_contato}
                   onChange={handleWhatsapp}
                   required
@@ -205,7 +205,7 @@ export function RegisterPage() {
             </div>
           </div>
 
-          {error && <p className="form-error">{error}</p>}
+          {error && <p className="form-error" role="alert">{error}</p>}
           <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading}>
             {loading && <span className="btn-spinner" />}
             {loading ? 'Criando conta...' : 'Criar conta'}

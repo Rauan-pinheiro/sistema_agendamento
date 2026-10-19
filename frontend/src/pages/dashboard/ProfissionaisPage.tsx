@@ -7,6 +7,7 @@ import type { Profissional } from '../../types';
 import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
+import { useFeedback } from '../../context/FeedbackContext';
 
 type FormData = { nome: string; especialidade: string; ativo: boolean };
 const EMPTY: FormData = { nome: '', especialidade: '', ativo: true };
@@ -17,6 +18,7 @@ function validateForm(form: FormData): string {
 }
 
 export function ProfissionaisPage() {
+  const { confirmar, toast } = useFeedback();
   const [profissionais, setProfissionais] = useState<Profissional[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -70,17 +72,24 @@ export function ProfissionaisPage() {
       await updateProfissional(p.id, { ativo: !p.ativo });
       fetchProfissionais();
     } catch {
-      alert('Erro ao alterar status.');
+      toast('Não foi possível alterar o status. Tente de novo.', 'erro');
     }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Excluir este profissional? Agendamentos vinculados perderão a referência.')) return;
+    const ok = await confirmar({
+      titulo: 'Excluir este profissional?',
+      mensagem: 'Os agendamentos dele continuam no histórico, mas sem profissional vinculado.',
+      confirmar: 'Excluir profissional',
+      perigo: true,
+    });
+    if (!ok) return;
     try {
       await deleteProfissional(id);
+      toast('Profissional excluído.');
       fetchProfissionais();
     } catch {
-      alert('Não foi possível excluir.');
+      toast('Não foi possível excluir o profissional. Tente de novo.', 'erro');
     }
   }
 
@@ -162,13 +171,13 @@ export function ProfissionaisPage() {
                     </button>
                   </td>
                   <td className="table-actions">
-                    <button className="btn-icon" onClick={() => openEdit(p)} title="Editar">
+                    <button className="btn-icon" onClick={() => openEdit(p)} title="Editar" aria-label="Editar">
                       <Pencil size={14} />
                     </button>
                     <button
                       className="btn-icon btn-icon--danger"
                       onClick={() => handleDelete(p.id)}
-                      title="Excluir"
+                      title="Excluir" aria-label="Excluir"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -194,18 +203,18 @@ export function ProfissionaisPage() {
         }
       >
         <div className="form-group">
-          <label>Nome</label>
+          <label htmlFor="profissionais-1">Nome</label>
           <input
-            value={form.nome}
+            id="profissionais-1" value={form.nome}
             onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
             autoFocus
             placeholder="Ex: Carlos Silva"
           />
         </div>
         <div className="form-group">
-          <label>Especialidade <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</span></label>
+          <label htmlFor="profissionais-2">Especialidade <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</span></label>
           <input
-            value={form.especialidade}
+            id="profissionais-2" value={form.especialidade}
             onChange={(e) => setForm((f) => ({ ...f, especialidade: e.target.value }))}
             placeholder="Ex: Barbeiro, Colorista..."
           />
