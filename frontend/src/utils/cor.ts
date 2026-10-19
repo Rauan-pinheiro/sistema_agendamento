@@ -3,6 +3,7 @@
  * Espelha a validação do servidor (serializers._validar_cor_destaque).
  */
 const TINTA = '#17262A';
+const FUNDO_CLARO = '#F6F7F4';
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 export function luminancia(hex: string): number {
@@ -33,7 +34,9 @@ export function corLegivel(hex: string): boolean {
 /** Variáveis CSS da página pública para a cor da empresa (cai no pinho se inválida). */
 export function estiloDestaque(hex: string | undefined): Record<string, string> {
   const cor = hex && corLegivel(hex) ? hex : '#165C50';
-  return { '--destaque': cor, '--sobre-destaque': textoSobre(cor) };
+  // Como cor de texto (links, "Ver mais") a cor precisa de 4,5:1 sobre o fundo claro; senão, tinta.
+  const comoTexto = contraste(cor, FUNDO_CLARO) >= 4.5 ? cor : TINTA;
+  return { '--destaque': cor, '--sobre-destaque': textoSobre(cor), '--destaque-texto': comoTexto };
 }
 
 /** Sugestões já validadas para o seletor do painel. */

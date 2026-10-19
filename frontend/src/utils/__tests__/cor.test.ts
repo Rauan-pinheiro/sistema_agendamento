@@ -25,6 +25,11 @@ describe('cor de destaque', () => {
 
   it('cai no pinho quando a cor é inválida', () => {
     expect(estiloDestaque('#808080')['--destaque']).toBe('#165C50');
-    expect(estiloDestaque('#7A2238')).toEqual({ '--destaque': '#7A2238', '--sobre-destaque': '#FFFFFF' });
+    expect(estiloDestaque('#7A2238')).toEqual({ '--destaque': '#7A2238', '--sobre-destaque': '#FFFFFF', '--destaque-texto': '#7A2238' });
+  });
+
+  it('cor clara não vira texto ilegível no fundo claro: usa a tinta', () => {
+    expect(estiloDestaque('#FFD25E')['--destaque-texto']).toBe('#17262A');
+    for (const c of CORES_SUGERIDAS) expect(contraste(estiloDestaque(c)['--destaque-texto'], '#F6F7F4')).toBeGreaterThanOrEqual(4.5);
   });
 });

@@ -11,9 +11,10 @@
 .pub-header h1 { font-size: clamp(2.25rem, 9vw, 3.25rem); font-weight: 800; letter-spacing: -0.025em; line-height: 1; }
 .pub-whatsapp {
   display: inline-flex; align-items: center; gap: var(--e-2); width: fit-content; min-height: var(--alvo-toque);
-  font-weight: 700; color: var(--destaque); text-decoration: none;
+  font-weight: 700; color: var(--destaque-texto, var(--destaque)); text-decoration: none;
 }
 :root[data-theme="dark"] .pub-whatsapp { color: var(--text); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pub-whatsapp { color: var(--text); } }
 .pub-whatsapp:hover { text-decoration: underline; }
 
 .pub-secao { padding: var(--e-8) 0 var(--e-2); display: flex; flex-direction: column; gap: var(--e-3); scroll-margin-top: var(--e-4); }
@@ -47,9 +48,10 @@
 .pub-servico-capa { width: 64px; height: 64px; border-radius: var(--r-sm); object-fit: cover; background: var(--surface-2); }
 .pub-ver-mais {
   display: inline-flex; align-items: center; gap: 2px; width: fit-content; min-height: 36px; margin-top: 2px; padding: 0;
-  background: none; border: 0; font-size: var(--t-16); font-weight: 700; color: var(--destaque);
+  background: none; border: 0; font-size: var(--t-16); font-weight: 700; color: var(--destaque-texto, var(--destaque));
 }
 :root[data-theme="dark"] .pub-ver-mais { color: var(--text); text-decoration: underline; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pub-ver-mais { color: var(--text); text-decoration: underline; } }
 .pub-ver-mais:hover { text-decoration: underline; }
 
 /* Profissionais */
@@ -94,6 +96,7 @@
   animation: marcar 260ms ease-out;
 }
 :root[data-theme="dark"] .pub-horario[aria-pressed="true"] { color: var(--text); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pub-horario[aria-pressed="true"] { color: var(--text); } }
 
 .pub-aviso { padding: var(--e-4); border-radius: var(--r-md); background: var(--surface-2); color: var(--text-muted); }
 .pub-aviso strong { color: var(--text); }
