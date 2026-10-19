@@ -1,33 +1,37 @@
 """
-Integração com o Cloudinary para anexos de mídia (fotos e vídeos).
+Mídia (fotos e vídeos): regras do produto + interface única de armazenamento.
+
+Este módulo não conhece o provedor. Views, serializers, signals e comandos usam só
+as funções daqui (assinar upload, ler metadados, URL, tornar público, apagar, listar,
+uso). O provedor concreto fica atrás de `ProvedorMidia` e é escolhido por
+settings.MIDIA_PROVEDOR — hoje 'cloudinary' (midia_cloudinary.py). Migrar para o
+Cloudflare R2 = escrever outro provedor com os mesmos métodos, sem tocar no resto.
 
 Fluxo de upload (o arquivo nunca passa pelo servidor do Render):
   1. O dono pede uma assinatura → `gerar_assinatura_upload()`.
      O servidor escolhe a pasta e o public_id (aleatório) e restringe os formatos
-     aceitos (`allowed_formats`). Como esses parâmetros entram na assinatura,
-     o navegador não consegue enviar para outra pasta nem trocar os formatos.
-  2. O navegador envia o arquivo direto ao Cloudinary (com barra de progresso).
-  3. O dono confirma → `obter_metadados()` consulta a Admin API e devolve o
-     formato *detectado pelo Cloudinary a partir do conteúdo* (não da extensão)
-     e o tamanho real. Se algo não bater, o arquivo é apagado.
+     aceitos. Como esses parâmetros entram na assinatura, o navegador não consegue
+     enviar para outra pasta nem trocar os formatos.
+  2. O navegador faz POST multipart em `upload_url` com `campos` + o arquivo.
+  3. O dono confirma → `obter_metadados()` devolve o formato *detectado pelo
+     provedor a partir do conteúdo* (não da extensão) e o tamanho real. Se algo
+     não bater, o arquivo é apagado.
 
-Privacidade: anexos de agendamento usam a entrega `authenticated` — só podem ser
-vistos por URLs assinadas, que a API entrega apenas ao dono da empresa. Mídias de
-serviço são vitrine pública (entrega `upload`), mas também chegam como
-`authenticated` e só são promovidas a públicas depois de validadas.
+Privacidade: anexos de agendamento são privados (só URLs assinadas, entregues
+apenas ao dono). Mídias de serviço são vitrine pública, mas também chegam privadas
+e só são promovidas a públicas depois de validadas.
 """
 import logging
 import re
 import secrets
 import time
 import unicodedata
+from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import datetime
+from functools import lru_cache
+from typing import Protocol
 
-import cloudinary
-import cloudinary.api
-import cloudinary.exceptions
-import cloudinary.uploader
-import cloudinary.utils
 from django.conf import settings
 
 log = logging.getLogger(__name__)
@@ -39,8 +43,6 @@ FORMATOS = {
     'imagem': {'jpg', 'png', 'webp'},
     'video': {'mp4', 'webm'},
 }
-# Cloudinary chama de "image"/"video" o resource_type
-RESOURCE_TYPE = {'imagem': 'image', 'video': 'video'}
 MIME_PARA_TIPO = {
     'image/jpeg': 'imagem', 'image/png': 'imagem', 'image/webp': 'imagem',
     'video/mp4': 'video', 'video/webm': 'video',
@@ -52,17 +54,67 @@ EXTENSOES = {
 
 
 class MidiaIndisponivel(Exception):
-    """Cloudinary não configurado ou fora do ar."""
+    """Armazenamento não configurado ou fora do ar."""
+
+
+@dataclass
+class Metadados:
+    public_id: str
+    tipo: str
+    formato: str
+    bytes: int
+    largura: int | None
+    altura: int | None
+    duracao_seg: float | None
+
+
+@dataclass
+class ArquivoArmazenado:
+    public_id: str
+    tipo: str            # 'imagem', 'video' ou 'raw' (formato inesperado)
+    resource_type: str
+    entrega: str
+    criado_em: datetime
+
+
+@dataclass
+class UsoArmazenamento:
+    creditos_usados: float
+    creditos_limite: float | None
+    armazenamento_bytes: int
+    banda_bytes: int
+
+
+class ProvedorMidia(Protocol):
+    """Interface que todo provedor de armazenamento implementa."""
+    nome: str
+
+    def configurado(self) -> bool: ...
+    def descritor_upload(self, *, public_id: str, tipo: str, entrega: str, timestamp: int) -> dict: ...
+    def metadados(self, public_id: str, tipo: str, entrega: str) -> Metadados | None: ...
+    def apagar(self, public_id: str, tipo: str, resource_type: str | None, entrega: str) -> None: ...
+    def tornar_publico(self, public_id: str, tipo: str) -> None: ...
+    def urls(self, public_id: str, tipo: str, entrega: str) -> dict: ...
+    def listar(self, prefixo: str) -> Iterator[ArquivoArmazenado]: ...
+    def uso(self) -> UsoArmazenamento: ...
+
+
+@lru_cache(maxsize=1)
+def provedor() -> ProvedorMidia:
+    nome = getattr(settings, 'MIDIA_PROVEDOR', 'cloudinary')
+    if nome == 'cloudinary':
+        from .midia_cloudinary import ProvedorCloudinary
+        return ProvedorCloudinary()
+    raise MidiaIndisponivel(f'Provedor de mídia desconhecido: {nome}')
 
 
 def configurado() -> bool:
-    cfg = cloudinary.config()
-    return bool(cfg.cloud_name and cfg.api_key and cfg.api_secret)
+    return provedor().configurado()
 
 
 def _exigir_configuracao():
     if not configurado():
-        raise MidiaIndisponivel('Armazenamento de mídia não configurado (CLOUDINARY_URL).')
+        raise MidiaIndisponivel('Armazenamento de mídia não configurado.')
 
 
 def limite_bytes(tipo: str) -> int:
@@ -109,93 +161,44 @@ def public_id_valido(public_id: str, pasta: str) -> bool:
 
 
 def gerar_assinatura_upload(*, pasta: str, tipo: str, entrega: str = TIPO_ENTREGA) -> dict:
-    """Parâmetros assinados para o upload direto do navegador."""
+    """Descritor do upload direto do navegador (upload_url + campos assinados + limites)."""
     _exigir_configuracao()
-    cfg = cloudinary.config()
     public_id = f'{pasta}/{secrets.token_urlsafe(_TOKEN_LEN)}'
-    params = {
-        'timestamp': int(time.time()),
-        'public_id': public_id,
-        'type': entrega,
-        'allowed_formats': ','.join(sorted(FORMATOS[tipo])),
-        'overwrite': 'false',
-    }
-    params['signature'] = cloudinary.utils.api_sign_request(params, cfg.api_secret)
-    resource_type = RESOURCE_TYPE[tipo]
-    return {
-        **params,
-        'api_key': cfg.api_key,
-        'cloud_name': cfg.cloud_name,
-        'resource_type': resource_type,
-        'upload_url': f'https://api.cloudinary.com/v1_1/{cfg.cloud_name}/{resource_type}/upload',
-        'max_bytes': limite_bytes(tipo),
-    }
-
-
-@dataclass
-class Metadados:
-    public_id: str
-    tipo: str
-    formato: str
-    bytes: int
-    largura: int | None
-    altura: int | None
-    duracao_seg: float | None
+    descritor = provedor().descritor_upload(
+        public_id=public_id, tipo=tipo, entrega=entrega, timestamp=int(time.time()),
+    )
+    return {**descritor, 'public_id': public_id, 'max_bytes': limite_bytes(tipo)}
 
 
 def obter_metadados(public_id: str, tipo: str, entrega: str = TIPO_ENTREGA) -> Metadados | None:
-    """Metadados autoritativos do Cloudinary; None se o arquivo não existir."""
+    """Metadados autoritativos do provedor; None se o arquivo não existir."""
     _exigir_configuracao()
-    try:
-        r = cloudinary.api.resource(public_id, resource_type=RESOURCE_TYPE[tipo], type=entrega)
-    except cloudinary.exceptions.NotFound:
-        return None
-    except cloudinary.exceptions.Error as exc:
-        raise MidiaIndisponivel(str(exc)) from exc
-    return Metadados(
-        public_id=r['public_id'],
-        tipo=tipo,
-        formato=(r.get('format') or '').lower(),
-        bytes=int(r.get('bytes') or 0),
-        largura=r.get('width'),
-        altura=r.get('height'),
-        duracao_seg=r.get('duration'),
-    )
+    return provedor().metadados(public_id, tipo, entrega)
 
 
 def apagar(public_id: str, tipo: str, resource_type: str | None = None,
            entrega: str = TIPO_ENTREGA) -> None:
-    """Apaga o arquivo no Cloudinary. Falhas são registradas, não propagadas."""
+    """Apaga o arquivo no provedor. Falhas são registradas, não propagadas."""
     if not configurado():
         return
     try:
-        cloudinary.uploader.destroy(
-            public_id, resource_type=resource_type or RESOURCE_TYPE[tipo],
-            type=entrega, invalidate=True,
-        )
+        provedor().apagar(public_id, tipo, resource_type, entrega)
     except Exception:  # noqa: BLE001 — limpeza best-effort
-        log.exception('Falha ao apagar mídia %s no Cloudinary', public_id)
+        log.exception('Falha ao apagar mídia %s', public_id)
 
 
 def promover_para_publico(public_id: str, tipo: str) -> None:
     """
-    Torna público um arquivo já validado. Uploads da vitrine chegam como
-    `authenticated` (privados) e só viram `upload` (públicos) depois da
-    confirmação — assim uma assinatura nunca serve para hospedar arquivos
-    arbitrários publicamente. Levanta MidiaIndisponivel em caso de falha.
+    Torna público um arquivo já validado. Uploads da vitrine chegam privados e só
+    viram públicos depois da confirmação — assim uma assinatura nunca serve para
+    hospedar arquivos arbitrários publicamente. Levanta MidiaIndisponivel em caso de falha.
     """
     _exigir_configuracao()
-    try:
-        cloudinary.uploader.rename(
-            public_id, public_id, resource_type=RESOURCE_TYPE[tipo],
-            type=TIPO_ENTREGA, to_type=ENTREGA_PUBLICA, invalidate=True,
-        )
-    except cloudinary.exceptions.Error as exc:
-        raise MidiaIndisponivel(str(exc)) from exc
+    provedor().tornar_publico(public_id, tipo)
 
 
 def validar_metadados(meta: Metadados, tipo: str) -> str | None:
-    """Confere o formato detectado pelo Cloudinary e o tamanho real. Retorna o erro ou None."""
+    """Confere o formato detectado pelo provedor e o tamanho real. Retorna o erro ou None."""
     if meta.formato not in FORMATOS[tipo]:
         return 'Tipo de arquivo não permitido. Envie JPG, PNG, WEBP, MP4 ou WEBM.'
     if meta.bytes > limite_bytes(tipo):
@@ -207,27 +210,15 @@ def urls_assinadas(public_id: str, tipo: str, entrega: str = TIPO_ENTREGA) -> di
     """URLs de exibição (original otimizado) e miniatura. Assinadas quando privadas."""
     if not configurado():
         return {'url': None, 'thumb_url': None}
-    comum = {'type': entrega, 'sign_url': entrega == TIPO_ENTREGA, 'secure': True}
-    if tipo == 'imagem':
-        url, _ = cloudinary.utils.cloudinary_url(
-            public_id, resource_type='image', **comum,
-            transformation=[{'width': 1600, 'height': 1600, 'crop': 'limit',
-                             'quality': 'auto', 'fetch_format': 'auto'}],
-        )
-        thumb, _ = cloudinary.utils.cloudinary_url(
-            public_id, resource_type='image', **comum,
-            transformation=[{'width': 320, 'height': 320, 'crop': 'fill', 'gravity': 'auto',
-                             'quality': 'auto', 'fetch_format': 'auto'}],
-        )
-    else:
-        url, _ = cloudinary.utils.cloudinary_url(
-            public_id, resource_type='video', **comum,
-            transformation=[{'quality': 'auto'}],
-        )
-        # Poster do vídeo: quadro inicial em JPG
-        thumb, _ = cloudinary.utils.cloudinary_url(
-            public_id, resource_type='video', format='jpg', **comum,
-            transformation=[{'start_offset': 0, 'width': 320, 'height': 320, 'crop': 'fill',
-                             'quality': 'auto'}],
-        )
-    return {'url': url, 'thumb_url': thumb}
+    return provedor().urls(public_id, tipo, entrega)
+
+
+def listar_arquivos(prefixo: str | None = None) -> Iterator[ArquivoArmazenado]:
+    """Todos os arquivos sob o prefixo (padrão: a pasta raiz do sistema)."""
+    _exigir_configuracao()
+    return provedor().listar(prefixo or settings.MIDIA_PASTA_RAIZ + '/')
+
+
+def uso_atual() -> UsoArmazenamento:
+    _exigir_configuracao()
+    return provedor().uso()

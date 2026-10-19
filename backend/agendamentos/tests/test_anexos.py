@@ -247,3 +247,27 @@ class LimparMidiaOrfaTests(APITestCase):
             call_command('limpar_midia_orfa', stdout=StringIO())
         apagar.assert_called_once_with('agenda/e1/ag1/orfao', 'imagem', resource_type='image',
                                        entrega='authenticated')
+
+
+class UsoMidiaTests(APITestCase):
+    def _rodar(self, usados):
+        from io import StringIO
+        from django.core.management import call_command
+        uso = midia.UsoArmazenamento(creditos_usados=usados, creditos_limite=25,
+                                     armazenamento_bytes=0, banda_bytes=0)
+        saida = StringIO()
+        with mock.patch.object(midia, 'configurado', return_value=True), \
+                mock.patch.object(midia, 'uso_atual', return_value=uso):
+            call_command('verificar_uso_midia', stdout=saida)
+        return saida.getvalue()
+
+    def test_abaixo_do_alerta(self):
+        self.assertIn('Abaixo do alerta de 15', self._rodar(9.5))
+
+    def test_acima_do_alerta_falha_para_notificar(self):
+        from django.core.management.base import CommandError
+        with self.assertRaisesMessage(CommandError, 'Passou do alerta de 15'):
+            self._rodar(15.2)
+
+    def test_provedor_padrao_isolado_na_interface(self):
+        self.assertEqual(midia.provedor().nome, 'cloudinary')
