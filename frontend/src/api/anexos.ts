@@ -73,14 +73,4 @@ export async function removerAnexo(agendamentoId: number, anexoId: number): Prom
   await api.delete(`/agendamentos/${agendamentoId}/anexos/${anexoId}/`);
 }
 
-/** Extrai a mensagem de erro amigável de uma resposta da API. */
-export function mensagemDeErro(err: unknown, padrao = 'Não foi possível concluir. Tente novamente.'): string {
-  const dados = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
-  if (dados) {
-    const valor = dados.erro ?? Object.values(dados)[0];
-    if (Array.isArray(valor)) return String(valor[0]);
-    if (typeof valor === 'string') return valor;
-  }
-  if (err instanceof Error && err.message) return err.message;
-  return padrao;
-}
+export { mensagemDeErro } from '../utils/erros';

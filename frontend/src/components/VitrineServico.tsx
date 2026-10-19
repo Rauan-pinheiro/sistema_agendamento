@@ -1,6 +1,6 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { Link2 } from 'lucide-react';
-import { mensagemDeErro } from '../api/anexos';
+import { mensagemDeErro } from '../utils/erros';
 import {
   adicionarYoutube, assinarMidiaServico, confirmarMidiaServico, listMidiasServico,
   removerMidiaServico, reordenarMidiasServico,

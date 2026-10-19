@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState, type DragEvent, type ReactNod
 import {
   ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ImagePlus, Play, RefreshCw, Trash2, X,
 } from 'lucide-react';
-import { enviarParaCloudinary, mensagemDeErro } from '../api/anexos';
+import { enviarParaCloudinary } from '../api/anexos';
+import { mensagemDeErro } from '../utils/erros';
 import type { AssinaturaUpload } from '../types';
 import { ACCEPT_MIDIA, comprimirImagem, formatarBytes, validarArquivo, type TipoMidia } from '../utils/midia';
 import { Modal } from './Modal';
