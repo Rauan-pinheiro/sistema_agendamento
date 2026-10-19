@@ -244,6 +244,14 @@ class ValidacaoReservaNaGradeTests(APITestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn('data_hora', resp.data)
 
+    def test_dono_pode_encaixar_fora_da_grade_pelo_painel(self):
+        self.client.force_authenticate(self.emp.owner)
+        resp = self.client.post('/api/v1/agendamentos/', {
+            'servicos_ids': [self.corte.id], 'nome_cliente': 'Ana', 'whatsapp_cliente': '85988887777',
+            'data_hora': amanha_as(19).isoformat(),
+        }, format='json')
+        self.assertEqual(resp.status_code, 201, resp.data)
+
     def test_dono_tambem_nao_agenda_com_profissional_inativo(self):
         inativo = criar_profissional(self.emp, 'Inativa')
         inativo.ativo = False

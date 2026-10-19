@@ -551,7 +551,13 @@ class HorarioFuncionamentoSerializer(serializers.ModelSerializer):
 
         empresa = self.context.get('empresa') or getattr(self.instance, 'empresa', None)
         profissional = data.get('profissional', getattr(self.instance, 'profissional', None))
-        dia_semana = data.get('dia_semana') or getattr(self.instance, 'dia_semana', None)
+        # 0 (segunda-feira) é um valor válido: não usar `or` aqui
+        dia_semana = data['dia_semana'] if 'dia_semana' in data else getattr(self.instance, 'dia_semana', None)
+
+        if profissional is not None and empresa and profissional.empresa_id != empresa.pk:
+            raise serializers.ValidationError(
+                {'profissional': 'O profissional não pertence à sua empresa.'}
+            )
 
         if empresa and dia_semana is not None:
             qs = HorarioFuncionamento.objects.filter(empresa=empresa, dia_semana=dia_semana)

@@ -57,7 +57,6 @@ class EmpresaDoUsuarioMixin:
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
         ctx['empresa'] = self._empresa()
-        ctx['publico'] = True
         return ctx
 
     def perform_create(self, serializer):
