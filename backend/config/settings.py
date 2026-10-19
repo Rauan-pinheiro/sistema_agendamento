@@ -185,8 +185,10 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_CLASSES': ['agendamentos.seguranca.LimitePorEscopo'],
     'EXCEPTION_HANDLER': 'agendamentos.seguranca.tratar_excecao',
     # Quantos proxies à frente da API acrescentam o X-Forwarded-For (Render: 1).
-    # Define o IP usado no rate limiting e nos logs; sem isso todos dividiriam o IP do proxy.
-    'NUM_PROXIES': int(os.environ['NUM_PROXIES']) if os.environ.get('NUM_PROXIES') else None,
+    # Define o IP usado no rate limiting e nos logs; sem isso todos os clientes dividiriam
+    # o IP do proxy (um único balde: 10 logins/min para o sistema inteiro). Em produção o
+    # padrão é 1; só em desenvolvimento (sem proxy) fica desligado.
+    'NUM_PROXIES': int(os.environ.get('NUM_PROXIES', '0' if DEBUG else '1')) or None,
 }
 
 # ── Rate limiting (por IP para anônimos, por usuário no painel) ──────────────
@@ -243,6 +245,10 @@ AGENDAMENTO_MAX_DIAS_ANTECEDENCIA = int(os.environ.get('AGENDAMENTO_MAX_DIAS_ANT
 # Credenciais via CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
 # (lida automaticamente pelo SDK). Limites do plano Free do Cloudinary: imagem
 # até 10 MB e vídeo até 100 MB por arquivo.
+# Provedor atrás da interface de agendamentos/midia.py ('cloudinary'; futuro: 'r2')
+MIDIA_PROVEDOR = os.environ.get('MIDIA_PROVEDOR', 'cloudinary')
+# Alerta quando o uso do mês passa deste número de créditos (Cloudinary Free: 25)
+MIDIA_ALERTA_CREDITOS = float(os.environ.get('MIDIA_ALERTA_CREDITOS', 15))
 MIDIA_PASTA_RAIZ = os.environ.get('MIDIA_PASTA_RAIZ', 'agenda')
 MIDIA_MAX_BYTES_IMAGEM = int(os.environ.get('MIDIA_MAX_BYTES_IMAGEM', 10 * 1024 * 1024))
 MIDIA_MAX_BYTES_VIDEO = int(os.environ.get('MIDIA_MAX_BYTES_VIDEO', 100 * 1024 * 1024))

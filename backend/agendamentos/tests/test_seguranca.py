@@ -3,6 +3,7 @@ import json
 import logging
 from unittest import mock
 
+from django.conf import settings
 from django.core.cache import cache
 from django.test import override_settings
 from rest_framework.test import APITestCase
@@ -100,3 +101,21 @@ class LogEstruturadoTests(APITestCase):
         self.assertEqual(dados['request_id'], 'abc')
         self.assertEqual(dados['status'], 200)
         self.assertEqual(dados['nivel'], 'INFO')
+
+
+@override_settings(LIMITES_REQUISICAO=LIMITES_BAIXOS)
+class IpAtrasDoProxyTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_clientes_diferentes_atras_do_proxy_tem_baldes_separados(self):
+        from rest_framework.settings import api_settings
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, 'NUM_PROXIES': 1}):
+            self.assertEqual(api_settings.NUM_PROXIES, 1)
+            criar_empresa('proxy')
+            url = '/api/v1/public/proxy/pagina/'
+            for _ in range(5):
+                self.client.get(url, HTTP_X_FORWARDED_FOR='200.1.1.1', REMOTE_ADDR='10.0.0.1')
+            bloqueado = self.client.get(url, HTTP_X_FORWARDED_FOR='200.1.1.1', REMOTE_ADDR='10.0.0.1')
+            outro = self.client.get(url, HTTP_X_FORWARDED_FOR='200.2.2.2', REMOTE_ADDR='10.0.0.1')
+        self.assertEqual((bloqueado.status_code, outro.status_code), (429, 200))
