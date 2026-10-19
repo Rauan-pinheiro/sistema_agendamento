@@ -61,6 +61,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'agendamentos.seguranca.MiddlewareRequisicao',
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.gzip.GZipMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -181,7 +182,43 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_THROTTLE_CLASSES': ['agendamentos.seguranca.LimitePorEscopo'],
+    'EXCEPTION_HANDLER': 'agendamentos.seguranca.tratar_excecao',
+    # Quantos proxies à frente da API acrescentam o X-Forwarded-For (Render: 1).
+    # Define o IP usado no rate limiting e nos logs; sem isso todos dividiriam o IP do proxy.
+    'NUM_PROXIES': int(os.environ['NUM_PROXIES']) if os.environ.get('NUM_PROXIES') else None,
 }
+
+# ── Rate limiting (por IP para anônimos, por usuário no painel) ──────────────
+# Formato "N/periodo" (second, minute, hour, day). Ajustável por variável de ambiente.
+LIMITES_REQUISICAO = {
+    'login': os.environ.get('LIMITE_LOGIN', '10/min'),
+    'refresh': os.environ.get('LIMITE_REFRESH', '30/min'),
+    'registro': os.environ.get('LIMITE_REGISTRO', '5/hour'),
+    'reserva_publica': os.environ.get('LIMITE_RESERVA_PUBLICA', '30/hour'),
+    'publico': os.environ.get('LIMITE_PUBLICO', '120/min'),
+    'painel': os.environ.get('LIMITE_PAINEL', '600/min'),
+}
+
+# ── Segurança HTTP ────────────────────────────────────────────────────────────
+ADMIN_URL = os.environ.get('DJANGO_ADMIN_URL', 'admin/')
+X_FRAME_OPTIONS = 'DENY'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
+if not DEBUG:
+    # O Render termina o TLS e repassa X-Forwarded-Proto
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', True)
+    SECURE_REDIRECT_EXEMPT = [r'^api/v1/health/$']  # health check interno do Render é HTTP
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', 60 * 60 * 24 * 365))
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+# HSTS sem includeSubDomains/preload: no *.onrender.com (ou num domínio ainda em
+# transição) não controlamos todos os subdomínios. Reavaliar com domínio próprio.
+SILENCED_SYSTEM_CHECKS = ['security.W005', 'security.W021']
 
 # ── Simple JWT ────────────────────────────────────────────────────────────────
 from datetime import timedelta
@@ -195,7 +232,8 @@ SIMPLE_JWT = {
 # ── CORS ──────────────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
 
-CORS_ALLOW_CREDENTIALS = True
+# A API usa JWT no header Authorization (sem cookies): credenciais cross-origin desnecessárias.
+CORS_ALLOW_CREDENTIALS = False
 
 # ── Regras de agendamento ─────────────────────────────────────────────────────
 # Antecedência máxima de uma reserva pela página pública.
@@ -223,15 +261,27 @@ MIDIA_MAX_YOUTUBE_POR_SERVICO = int(os.environ.get('MIDIA_MAX_YOUTUBE_POR_SERVIC
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'filters': {
+        'request_id': {'()': 'agendamentos.logs.FiltroRequestId'},
+    },
     'formatters': {
-        'padrao': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'},
+        'texto': {'format': '%(asctime)s %(levelname)s [%(request_id)s] %(name)s: %(message)s'},
+        'json': {'()': 'agendamentos.logs.FormatadorJson'},
     },
     'handlers': {
-        'console': {'class': 'logging.StreamHandler', 'formatter': 'padrao'},
+        'console': {
+            'class': 'logging.StreamHandler',
+            # LOG_FORMATO=json em produção (uma linha JSON por evento, fácil de filtrar no Render)
+            'formatter': os.environ.get('LOG_FORMATO', 'texto' if DEBUG else 'json'),
+            'filters': ['request_id'],
+        },
     },
     'root': {'handlers': ['console'], 'level': os.environ.get('LOG_LEVEL', 'INFO')},
     'loggers': {
-        'django.request': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+        # 4xx/5xx já saem no log de acesso; 500 com traceback em agendamentos.erros
+        'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+        'agendamentos.acesso': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'agendamentos.erros': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
     },
 }
 
@@ -241,3 +291,7 @@ if 'test' in sys.argv:
     PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
     # Os testes provocam 4xx/5xx de propósito — não poluir a saída
     LOGGING['loggers']['django.request']['level'] = 'CRITICAL'
+    LOGGING['loggers']['agendamentos.acesso']['level'] = 'WARNING'
+    LOGGING['loggers']['agendamentos.erros']['level'] = 'CRITICAL'
+    # Sem rate limiting nos testes (os de segurança ligam com override_settings)
+    LIMITES_REQUISICAO = {}

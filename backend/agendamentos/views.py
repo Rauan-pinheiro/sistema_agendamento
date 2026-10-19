@@ -5,6 +5,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connection, transaction
@@ -543,6 +544,7 @@ class HealthCheckView(APIView):
     """GET /api/v1/health/ — health check do Render e alvo do ping anti-cold-start."""
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
+    sem_limite_de_requisicao = True
 
     def get(self, request):
         try:
@@ -581,6 +583,7 @@ class AgendamentoPublicoViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet
     serializer_class = AgendamentoSerializer
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
+    throttle_scope = 'reserva_publica'
 
     def _empresa(self) -> Empresa:
         if not hasattr(self, '_empresa_cache'):
@@ -751,10 +754,19 @@ class PerfilUsuarioView(APIView):
 
 # ── Registro de novo prestador ────────────────────────────────────────────────
 
+class LoginView(TokenObtainPairView):
+    throttle_scope = 'login'
+
+
+class RefreshView(TokenRefreshView):
+    throttle_scope = 'refresh'
+
+
 class RegistroView(generics.CreateAPIView):
     serializer_class = RegistroSerializer
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
+    throttle_scope = 'registro'
 
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
