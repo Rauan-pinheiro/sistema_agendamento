@@ -190,17 +190,11 @@ export interface AnexosResposta {
 }
 
 /** Parâmetros assinados pelo servidor para o upload direto ao Cloudinary. */
+/** Descritor de upload direto: POST multipart em upload_url com `campos` + o arquivo. */
 export interface AssinaturaUpload {
-  timestamp: number;
   public_id: string;
-  type: string;
-  allowed_formats: string;
-  overwrite: string;
-  signature: string;
-  api_key: string;
-  cloud_name: string;
-  resource_type: 'image' | 'video';
   upload_url: string;
+  campos: Record<string, string>;
   max_bytes: number;
   tipo: 'imagem' | 'video';
   nome: string;

@@ -23,7 +23,8 @@ export async function pedirAssinatura(
  * Envia o arquivo direto do navegador para o Cloudinary (o servidor não recebe
  * o arquivo). Usa XHR para reportar progresso; não envia o JWT do painel.
  */
-export function enviarParaCloudinary(
+/** Envia o arquivo direto ao armazenamento (sem passar pela API), com progresso. */
+export function enviarArquivo(
   file: File,
   a: AssinaturaUpload,
   onProgresso: (pct: number) => void,
@@ -31,14 +32,9 @@ export function enviarParaCloudinary(
 ): Promise<{ public_id: string }> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
+    // Contrato do back-end, independente do provedor: campos assinados + o arquivo por último
+    for (const [chave, valor] of Object.entries(a.campos)) form.append(chave, valor);
     form.append('file', file);
-    form.append('api_key', a.api_key);
-    form.append('timestamp', String(a.timestamp));
-    form.append('signature', a.signature);
-    form.append('public_id', a.public_id);
-    form.append('type', a.type);
-    form.append('allowed_formats', a.allowed_formats);
-    form.append('overwrite', a.overwrite);
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', a.upload_url);
@@ -47,9 +43,10 @@ export function enviarParaCloudinary(
     };
     xhr.onload = () => {
       try {
-        const corpo = JSON.parse(xhr.responseText);
-        if (xhr.status >= 200 && xhr.status < 300) resolve({ public_id: corpo.public_id });
-        else reject(new Error(corpo?.error?.message || 'Falha no envio do arquivo.'));
+        // O public_id é decidido pelo servidor; alguns provedores (S3/R2) respondem 204 sem corpo
+        if (xhr.status >= 200 && xhr.status < 300) return resolve({ public_id: a.public_id });
+        const corpo = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        reject(new Error(corpo?.error?.message || 'Falha no envio do arquivo.'));
       } catch {
         reject(new Error('Resposta inválida do armazenamento.'));
       }

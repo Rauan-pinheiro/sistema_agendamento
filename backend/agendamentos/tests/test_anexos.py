@@ -63,6 +63,11 @@ class AnexosTests(APITestCase):
         # A assinatura confere com os parâmetros devolvidos
         params = {k: r.data[k] for k in ('timestamp', 'public_id', 'type', 'allowed_formats', 'overwrite')}
         self.assertEqual(r.data['signature'], cloudinary.utils.api_sign_request(params, 'segredo'))
+        # Contrato genérico usado pelo navegador: exatamente os campos assinados (+ api_key), sem segredo
+        campos = r.data['campos']
+        self.assertEqual({k: campos[k] for k in params}, {k: str(v) for k, v in params.items()})
+        self.assertEqual(campos['signature'], r.data['signature'])
+        self.assertNotIn('api_secret', campos)
 
     def test_assinatura_video(self):
         r = self.assinar('clip.mp4', 'video/mp4', 15 * MB)

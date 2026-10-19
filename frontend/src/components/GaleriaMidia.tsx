@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type DragEvent, type ReactNod
 import {
   ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ImagePlus, Play, RefreshCw, Trash2, X,
 } from 'lucide-react';
-import { enviarParaCloudinary } from '../api/anexos';
+import { enviarArquivo } from '../api/anexos';
 import { mensagemDeErro } from '../utils/erros';
 import type { AssinaturaUpload } from '../types';
 import { ACCEPT_MIDIA, comprimirImagem, formatarBytes, validarArquivo, type TipoMidia } from '../utils/midia';
@@ -127,7 +127,7 @@ export function GaleriaMidia({ titulo, adaptador, extra, recarregarEm = 0, onTot
         envio.substituirId,
       );
       atualizar(chave, { estado: 'enviando', progresso: 0 });
-      const { public_id } = await enviarParaCloudinary(arquivo, assinatura, (p) => atualizar(chave, { progresso: p }));
+      const { public_id } = await enviarArquivo(arquivo, assinatura, (p) => atualizar(chave, { progresso: p }));
       atualizar(chave, { estado: 'confirmando', progresso: 100 });
       await adaptadorRef.current.confirmar({
         public_id, tipo: assinatura.tipo, nome: assinatura.nome, substituir_id: envio.substituirId,
