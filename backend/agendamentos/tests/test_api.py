@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from agendamentos.models import Agendamento
+from agendamentos.models import Agendamento, HorarioFuncionamento
 
 from .factories import (
     SENHA, amanha_as, criar_empresa, criar_grade_semana, criar_profissional, criar_servico,
@@ -159,6 +159,83 @@ class AgendamentoPublicoTests(APITestCase):
         r1 = self.client.post(self.url, self.payload(profissional=p1.id), format='json')
         r2 = self.client.post(self.url, self.payload(profissional=p2.id), format='json')
         self.assertEqual((r1.status_code, r2.status_code), (201, 201))
+
+
+class ValidacaoReservaNaGradeTests(APITestCase):
+    """A API (não só o front) recusa reservas fora da grade e com profissional inválido."""
+
+    def setUp(self):
+        self.emp = criar_empresa('salao')
+        self.corte = criar_servico(self.emp, 'Corte', 30, '35.00')
+        criar_grade_semana(self.emp)  # 08:00–18:00 todos os dias
+        self.url = '/api/v1/public/salao/agendamentos/'
+
+    def reservar(self, quando, **extra):
+        payload = {
+            'servicos_ids': [self.corte.id], 'nome_cliente': 'Ana',
+            'whatsapp_cliente': '85988887777', 'data_hora': quando.isoformat(),
+        }
+        payload.update(extra)
+        return self.client.post(self.url, payload, format='json')
+
+    def test_rejeita_antes_da_abertura(self):
+        resp = self.reservar(amanha_as(7, 30))
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('data_hora', resp.data)
+
+    def test_rejeita_quando_termina_depois_do_fechamento(self):
+        resp = self.reservar(amanha_as(17, 45))  # 30 min → 18:15
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('data_hora', resp.data)
+
+    def test_aceita_ultimo_horario_que_cabe(self):
+        self.assertEqual(self.reservar(amanha_as(17, 30)).status_code, 201)
+
+    def test_rejeita_dia_fechado(self):
+        HorarioFuncionamento.objects.filter(empresa=self.emp, dia_semana=amanha_as(10).weekday()).delete()
+        resp = self.reservar(amanha_as(10))
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('data_hora', resp.data)
+
+    def test_rejeita_profissional_inativo(self):
+        ativo = criar_profissional(self.emp, 'Ativa')
+        inativo = criar_profissional(self.emp, 'Inativa')
+        inativo.ativo = False
+        inativo.save()
+        resp = self.reservar(amanha_as(10), profissional=inativo.id)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('profissional', resp.data)
+        self.assertEqual(self.reservar(amanha_as(10), profissional=ativo.id).status_code, 201)
+
+    def test_exige_profissional_quando_a_empresa_tem_profissionais(self):
+        criar_profissional(self.emp, 'Única')
+        resp = self.reservar(amanha_as(10))
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('profissional', resp.data)
+
+    def test_grade_propria_do_profissional_prevalece(self):
+        prof = criar_profissional(self.emp, 'Tarde')
+        criar_grade_semana(self.emp, profissional=prof, inicio=time(14, 0), fim=time(18, 0))
+        self.assertEqual(self.reservar(amanha_as(10), profissional=prof.id).status_code, 400)
+        self.assertEqual(self.reservar(amanha_as(14), profissional=prof.id).status_code, 201)
+
+    def test_rejeita_antecedencia_excessiva(self):
+        longe = amanha_as(10) + timedelta(days=400)
+        resp = self.reservar(longe)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('data_hora', resp.data)
+
+    def test_dono_tambem_nao_agenda_com_profissional_inativo(self):
+        inativo = criar_profissional(self.emp, 'Inativa')
+        inativo.ativo = False
+        inativo.save()
+        self.client.force_authenticate(self.emp.owner)
+        resp = self.client.post('/api/v1/agendamentos/', {
+            'servicos_ids': [self.corte.id], 'nome_cliente': 'Ana', 'whatsapp_cliente': '85988887777',
+            'data_hora': amanha_as(10).isoformat(), 'profissional': inativo.id,
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('profissional', resp.data)
 
 
 class EndpointsPublicosTests(APITestCase):

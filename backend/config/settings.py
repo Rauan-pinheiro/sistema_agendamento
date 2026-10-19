@@ -197,6 +197,10 @@ CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
 
 CORS_ALLOW_CREDENTIALS = True
 
+# ── Regras de agendamento ─────────────────────────────────────────────────────
+# Antecedência máxima de uma reserva pela página pública.
+AGENDAMENTO_MAX_DIAS_ANTECEDENCIA = int(os.environ.get('AGENDAMENTO_MAX_DIAS_ANTECEDENCIA', 180))
+
 # ── Mídia (Cloudinary) ────────────────────────────────────────────────────────
 # Credenciais via CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
 # (lida automaticamente pelo SDK). Limites do plano Free do Cloudinary: imagem

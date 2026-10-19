@@ -28,6 +28,7 @@ from .serializers import (
 )
 from .service import (
     calcular_resumo_financeiro, calcular_volume_agendamentos, chave_cache_pagina_publica,
+    resolver_grade,
 )
 
 
@@ -56,6 +57,7 @@ class EmpresaDoUsuarioMixin:
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
         ctx['empresa'] = self._empresa()
+        ctx['publico'] = True
         return ctx
 
     def perform_create(self, serializer):
@@ -589,6 +591,7 @@ class AgendamentoPublicoViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
         ctx['empresa'] = self._empresa()
+        ctx['publico'] = True
         return ctx
 
     def perform_create(self, serializer):
@@ -711,31 +714,7 @@ class HorariosDisponiveisView(generics.GenericAPIView):
 
         return Response({'data': data_str, 'slots': slots})
 
-    @staticmethod
-    def _resolver_horario(
-        empresa: Empresa,
-        dia_semana: int,
-        profissional: Profissional | None,
-    ) -> HorarioFuncionamento | None:
-        """
-        Retorna a grade aplicável seguindo a prioridade:
-        1. Grade do profissional (se informado e existir)
-        2. Grade geral da empresa
-        """
-        if profissional is not None:
-            try:
-                return HorarioFuncionamento.objects.get(
-                    empresa=empresa, profissional=profissional, dia_semana=dia_semana
-                )
-            except HorarioFuncionamento.DoesNotExist:
-                pass  # fallback para grade geral
-
-        try:
-            return HorarioFuncionamento.objects.get(
-                empresa=empresa, profissional__isnull=True, dia_semana=dia_semana
-            )
-        except HorarioFuncionamento.DoesNotExist:
-            return None
+    _resolver_horario = staticmethod(resolver_grade)
 
 
 # ── Perfil do usuário logado ──────────────────────────────────────────────────

@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 from . import midia, youtube
+from .service import erro_fora_da_grade
 from .models import (
     Empresa, Profissional, Servico, Agendamento,
     AgendamentoServico, AnexoAgendamento, HorarioFuncionamento, MidiaServico,
@@ -315,6 +316,18 @@ class AgendamentoSerializer(serializers.ModelSerializer):
                 {'profissional': 'O profissional não pertence à empresa informada.'}
             )
 
+        # Profissional inativo não recebe reservas novas (nem pelo painel)
+        muda_profissional = not self.instance or 'profissional' in data
+        if profissional and muda_profissional and not profissional.ativo:
+            raise serializers.ValidationError(
+                {'profissional': 'Este profissional não está atendendo no momento.'}
+            )
+        # Na página pública, quem tem equipe precisa indicar o profissional:
+        # sem isso a reserva cairia numa agenda "sem profissional" paralela (overbooking).
+        publico = self.context.get('publico', False)
+        if publico and not profissional and empresa and Profissional.objects.filter(empresa=empresa, ativo=True).exists():
+            raise serializers.ValidationError({'profissional': 'Escolha um profissional.'})
+
         # ── Agendamento deve ser no futuro (apenas na criação) ────────────────
         if data_hora and not self.instance:
             if data_hora <= timezone.now():
@@ -327,6 +340,12 @@ class AgendamentoSerializer(serializers.ModelSerializer):
             duracao_total = sum(s.duracao_min for s in servicos)
         else:
             duracao_total = self.instance.duracao_total_min if self.instance else 0
+
+        # A página pública só aceita horários dentro da grade de funcionamento
+        if publico and data_hora and empresa:
+            erro = erro_fora_da_grade(empresa, data_hora, duracao_total, profissional)
+            if erro:
+                raise serializers.ValidationError({'data_hora': erro})
 
         if data_hora and empresa and duracao_total > 0:
             self._validar_conflito_horario(empresa, duracao_total, data_hora, profissional)

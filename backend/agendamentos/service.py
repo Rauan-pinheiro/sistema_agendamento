@@ -4,14 +4,15 @@ Todas as funções recebem um objeto `Empresa` e operam exclusivamente
 nos dados daquele tenant — nunca expõem dados cross-tenant.
 """
 from collections import Counter
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
+from django.conf import settings
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import ExtractHour, ExtractIsoWeekDay, TruncDate
 from django.utils import timezone
 
-from .models import Agendamento, Empresa
+from .models import Agendamento, Empresa, HorarioFuncionamento, Profissional
 
 
 def chave_cache_pagina_publica(slug: str) -> str:
@@ -170,3 +171,43 @@ def calcular_volume_agendamentos(empresa: Empresa) -> dict:
         'por_dia_semana': por_dia_semana,
         'por_hora': por_hora,
     }
+
+
+# ── Regras de reserva (fonte única para API pública, painel e horários disponíveis) ──
+
+def resolver_grade(
+    empresa: Empresa, dia_semana: int, profissional: Profissional | None,
+) -> HorarioFuncionamento | None:
+    """Grade do dia: a do profissional, se ele tiver uma; senão a geral da empresa."""
+    if profissional is not None:
+        grade = HorarioFuncionamento.objects.filter(
+            empresa=empresa, profissional=profissional, dia_semana=dia_semana,
+        ).first()
+        if grade is not None:
+            return grade
+    return HorarioFuncionamento.objects.filter(
+        empresa=empresa, profissional__isnull=True, dia_semana=dia_semana,
+    ).first()
+
+
+def erro_fora_da_grade(
+    empresa: Empresa, data_hora: datetime, duracao_min: int, profissional: Profissional | None,
+) -> str | None:
+    """Mensagem de erro se a reserva não cabe no expediente do dia (fuso local); None se cabe."""
+    local = timezone.localtime(data_hora)
+    max_dias = settings.AGENDAMENTO_MAX_DIAS_ANTECEDENCIA
+    if local.date() > timezone.localdate() + timedelta(days=max_dias):
+        return f'Só é possível agendar com até {max_dias} dias de antecedência.'
+    grade = resolver_grade(empresa, local.weekday(), profissional)
+    if grade is None:
+        return 'Não há atendimento neste dia. Escolha outra data.'
+    inicio = local.replace(tzinfo=None)
+    fim = inicio + timedelta(minutes=duracao_min)
+    abre = datetime.combine(local.date(), grade.hora_inicio)
+    fecha = datetime.combine(local.date(), grade.hora_fim)
+    if inicio < abre or fim > fecha:
+        return (
+            f'Fora do horário de atendimento ({grade.hora_inicio:%H:%M} às {grade.hora_fim:%H:%M}). '
+            'Escolha outro horário.'
+        )
+    return None
