@@ -51,6 +51,7 @@ export function RegisterPage() {
   const [slugEdited, setSlugEdited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [aceite, setAceite] = useState(false);
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
@@ -70,12 +71,14 @@ export function RegisterPage() {
     e.preventDefault();
     const localError = validateLocal(form);
     if (localError) { setError(localError); return; }
+    if (!aceite) { setError('Para criar a conta, aceite os Termos de Uso e a Política de Privacidade.'); return; }
     setError('');
     setLoading(true);
     try {
       const payload: RegistroPayload = {
         ...form,
         whatsapp_contato: normalizePhone(form.whatsapp_contato),
+        aceite_termos: true,
       };
       await registrar(payload);
       navigate('/dashboard');
@@ -204,6 +207,14 @@ export function RegisterPage() {
               </div>
             </div>
           </div>
+
+          <label className="form-aceite">
+            <input type="checkbox" checked={aceite} onChange={(e) => setAceite(e.target.checked)} required />
+            <span>
+              Li e aceito os <Link to="/termos" target="_blank">Termos de Uso</Link> e a{' '}
+              <Link to="/privacidade" target="_blank">Política de Privacidade</Link>.
+            </span>
+          </label>
 
           {error && <p className="form-error" role="alert">{error}</p>}
           <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading}>

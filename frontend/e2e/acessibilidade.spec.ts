@@ -12,6 +12,14 @@ for (const tema of ['light', 'dark'] as const) {
   test.describe(`Acessibilidade WCAG AA — tema ${tema}`, () => {
     test.use({ colorScheme: tema });
 
+    test('termos e privacidade', async ({ page }) => {
+      for (const rota of ['/termos', '/privacidade']) {
+        await page.goto(rota);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await semViolacoes(page);
+      }
+    });
+
     test('login e página pública', async ({ page }) => {
       await page.goto('/login');
       await expect(page.getByRole('button', { name: /entrar/i })).toBeVisible();

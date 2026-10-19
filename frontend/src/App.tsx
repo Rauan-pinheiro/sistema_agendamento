@@ -22,6 +22,8 @@ const HorariosPage = lazy(() =>
   import('./pages/dashboard/HorariosPage').then((m) => ({ default: m.HorariosPage })));
 const FinanceiroPage = lazy(() =>
   import('./pages/dashboard/FinanceiroPage').then((m) => ({ default: m.FinanceiroPage })));
+const TermosPage = lazy(() => import('./pages/legal/PaginasLegais').then((m) => ({ default: m.TermosPage })));
+const PrivacidadePage = lazy(() => import('./pages/legal/PaginasLegais').then((m) => ({ default: m.PrivacidadePage })));
 const ConfiguracaoPage = lazy(() =>
   import('./pages/dashboard/ConfiguracaoPage').then((m) => ({ default: m.ConfiguracaoPage })));
 
@@ -35,6 +37,8 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/termos" element={<TermosPage />} />
+              <Route path="/privacidade" element={<PrivacidadePage />} />
               <Route element={<PrivateRoute />}>
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<AgendamentosPage />} />

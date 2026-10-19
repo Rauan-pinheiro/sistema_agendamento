@@ -81,6 +81,19 @@ def _validar_telefone_br(valor: str) -> str:
 
 # ── Empresa ───────────────────────────────────────────────────────────────────
 
+# Rotas do front e da API: uma empresa com esses slugs ficaria inacessível ou sequestraria a rota
+SLUGS_RESERVADOS = {
+    'admin', 'api', 'dashboard', 'login', 'register', 'cadastro', 'termos', 'privacidade',
+    'static', 'assets', 'health', 'robots.txt', 'favicon.svg',
+}
+
+
+def _validar_slug_reservado(valor: str) -> str:
+    if valor.lower() in SLUGS_RESERVADOS:
+        raise serializers.ValidationError('Este link é reservado pelo sistema. Escolha outro.')
+    return valor
+
+
 class EmpresaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empresa
@@ -89,6 +102,9 @@ class EmpresaSerializer(serializers.ModelSerializer):
 
     def validate_cor_destaque(self, value: str) -> str:
         return _validar_cor_destaque(value)
+
+    def validate_slug(self, value: str) -> str:
+        return _validar_slug_reservado(value)
 
     def validate_nome_fantasia(self, value: str) -> str:
         value = value.strip()
@@ -689,6 +705,7 @@ class RegistroSerializer(serializers.Serializer):
     def validate_slug(self, value: str) -> str:
         if len(value) < 3:
             raise serializers.ValidationError('O link público deve ter pelo menos 3 caracteres.')
+        _validar_slug_reservado(value)
         if Empresa.objects.filter(slug=value).exists():
             raise serializers.ValidationError('Este slug já está em uso.')
         return value

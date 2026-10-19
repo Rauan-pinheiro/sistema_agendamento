@@ -154,3 +154,6 @@
 .calendar-day--today { font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }
 .calendar-day--selected { background: var(--text) !important; color: var(--bg) !important; font-weight: 700; }
 .calendar-day--empty { pointer-events: none; }
+
+.pub-privacidade { font-size: var(--t-14); color: var(--text-muted); line-height: 1.5; }
+.pub-privacidade a { color: var(--text); text-decoration: underline; }

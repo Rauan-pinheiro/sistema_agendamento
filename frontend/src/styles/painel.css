@@ -305,3 +305,9 @@
 }
 .grade-btn:hover { background: var(--surface-2); }
 .grade-btn--active { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+/* Configurações → Privacidade e dados */
+.config-privacidade { display: flex; flex-direction: column; gap: var(--e-6); }
+.config-privacidade > * + * { padding-top: var(--e-6); border-top: 1px solid var(--border); }
+.config-privacidade h4 { font-size: var(--t-16); margin-bottom: var(--e-1); }
+.config-privacidade .config-section-desc { margin-bottom: var(--e-3); }

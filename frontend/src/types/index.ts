@@ -118,6 +118,7 @@ export interface RegistroPayload {
   nome_fantasia: string;
   slug: string;
   whatsapp_contato: string;
+  aceite_termos?: boolean;
 }
 
 export interface HorarioFuncionamento {

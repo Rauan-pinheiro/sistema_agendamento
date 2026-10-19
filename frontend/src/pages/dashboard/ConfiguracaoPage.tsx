@@ -5,6 +5,7 @@ import { updateEmpresa } from '../../api/empresa';
 import { getPerfilUsuario, updatePerfilUsuario } from '../../api/usuario';
 import { formatPhone, normalizePhone, isValidPhone } from '../../utils/phone';
 import type { PerfilUsuario } from '../../types';
+import { PrivacidadeDados } from '../../components/PrivacidadeDados';
 
 type FeedbackState = { type: 'success' | 'error'; message: string } | null;
 
@@ -333,6 +334,8 @@ export function ConfiguracaoPage() {
           </div>
         </form>
       </div>
+
+      <PrivacidadeDados />
     </div>
   );
 }

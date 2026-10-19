@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Check, ChevronRight, Clock, Images, MessageCircle } from 'lucide-react';
 import { createAgendamentoPublico, getHorariosDisponiveis, getPaginaPublica } from '../../api/public';
 import type { Empresa, ProfissionalPublico, ServicoPublico, SlotDisponivel } from '../../types';
@@ -451,6 +451,10 @@ export function PublicPage() {
                   : <span id="pub-zap-dica" className="form-hint">A confirmação chega por aqui.</span>}
               </div>
               {formError && <p className="form-error" role="alert">{formError}</p>}
+              <p className="pub-privacidade">
+                Seu nome e WhatsApp são usados por {empresa?.nome_fantasia ?? 'esta empresa'} apenas para este
+                atendimento. <Link to="/privacidade" target="_blank">Política de privacidade</Link>
+              </p>
             </form>
           </section>
         )}

@@ -24,6 +24,16 @@ class AceiteTermosTests(APITestCase):
         resp = self.client.post('/api/v1/auth/registro/', {**REGISTRO, 'aceite_termos': False})
         self.assertEqual(resp.status_code, 400)
 
+    def test_slug_das_paginas_legais_e_reservado(self):
+        for slug in ('termos', 'privacidade', 'dashboard'):
+            resp = self.client.post('/api/v1/auth/registro/', {**REGISTRO, 'slug': slug, 'aceite_termos': True})
+            self.assertEqual(resp.status_code, 400, slug)
+            self.assertIn('slug', resp.data)
+        emp = criar_empresa('troca')
+        self.client.force_authenticate(emp.owner)
+        resp = self.client.patch(f'/api/v1/empresa/{emp.id}/', {'slug': 'privacidade'}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
     def test_cadastro_registra_data_e_versao_do_aceite(self):
         resp = self.client.post('/api/v1/auth/registro/', {**REGISTRO, 'aceite_termos': True})
         self.assertEqual(resp.status_code, 201, resp.data)

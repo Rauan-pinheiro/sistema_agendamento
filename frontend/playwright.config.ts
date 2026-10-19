@@ -11,6 +11,10 @@ const apiEnv = {
   DATABASE_URL: 'sqlite:///e2e.sqlite3',
   DJANGO_DEBUG: 'true',
   LOG_LEVEL: 'WARNING',
+  // A suíte faz muitos logins e reservas a partir do mesmo IP: limites folgados
+  LIMITE_LOGIN: '1000/min',
+  LIMITE_RESERVA_PUBLICA: '1000/hour',
+  LIMITE_PUBLICO: '5000/min',
 };
 const manage = `${python} ../backend/manage.py`;
 
