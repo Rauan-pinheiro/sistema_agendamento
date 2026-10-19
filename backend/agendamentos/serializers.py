@@ -4,6 +4,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
@@ -652,6 +653,14 @@ class RegistroSerializer(serializers.Serializer):
     nome_fantasia    = serializers.CharField(max_length=150)
     slug             = serializers.SlugField(min_length=3)
     whatsapp_contato = serializers.CharField(max_length=20)
+    aceite_termos    = serializers.BooleanField(write_only=True)
+
+    def validate_aceite_termos(self, value: bool) -> bool:
+        if not value:
+            raise serializers.ValidationError(
+                'Para criar a conta, aceite os Termos de Uso e a Política de Privacidade.'
+            )
+        return value
 
     def validate_username(self, value: str) -> str:
         value = value.strip()
@@ -700,6 +709,7 @@ class RegistroSerializer(serializers.Serializer):
 
     def create(self, validated_data: dict):
         validated_data.pop('password_confirm')
+        validated_data.pop('aceite_termos')
         with transaction.atomic():
             user = User.objects.create_user(
                 username=validated_data['username'],
@@ -711,5 +721,25 @@ class RegistroSerializer(serializers.Serializer):
                 nome_fantasia=validated_data['nome_fantasia'],
                 slug=validated_data['slug'],
                 whatsapp_contato=validated_data['whatsapp_contato'],
+                termos_aceitos_em=timezone.now(),
+                termos_versao=settings.TERMOS_VERSAO,
             )
         return user, empresa
+
+
+# ── LGPD ──────────────────────────────────────────────────────────────────────
+
+class ExcluirContaSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+
+    def validate_password(self, value: str) -> str:
+        if not self.context['request'].user.check_password(value):
+            raise serializers.ValidationError('Senha incorreta.')
+        return value
+
+
+class AnonimizarClienteSerializer(serializers.Serializer):
+    whatsapp = serializers.CharField(max_length=20)
+
+    def validate_whatsapp(self, value: str) -> str:
+        return _validar_telefone_br(value)

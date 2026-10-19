@@ -237,6 +237,10 @@ CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
 # A API usa JWT no header Authorization (sem cookies): credenciais cross-origin desnecessárias.
 CORS_ALLOW_CREDENTIALS = False
 
+# ── LGPD ──────────────────────────────────────────────────────────────────────
+# Versão vigente dos Termos/Política (data da publicação). Mude ao alterar o texto.
+TERMOS_VERSAO = '2026-10-19'
+
 # ── Regras de agendamento ─────────────────────────────────────────────────────
 # Antecedência máxima de uma reserva pela página pública.
 AGENDAMENTO_MAX_DIAS_ANTECEDENCIA = int(os.environ.get('AGENDAMENTO_MAX_DIAS_ANTECEDENCIA', 180))

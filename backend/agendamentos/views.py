@@ -25,7 +25,7 @@ from .serializers import (
     ProfissionalSerializer, ProfissionalPublicSerializer,
     ServicoSerializer, ServicoPublicSerializer, AgendamentoSerializer,
     HorarioFuncionamentoSerializer, RegistroSerializer,
-    PerfilUsuarioSerializer,
+    PerfilUsuarioSerializer, ExcluirContaSerializer, AnonimizarClienteSerializer,
 )
 from .service import (
     calcular_resumo_financeiro, calcular_volume_agendamentos, chave_cache_pagina_publica,
@@ -750,6 +750,87 @@ class PerfilUsuarioView(APIView):
 
         user.save()
         return Response({'username': user.username, 'email': user.email})
+
+
+# ── LGPD: portabilidade e exclusão ────────────────────────────────────────────
+
+class ContaView(APIView):
+    """
+    DELETE /api/v1/conta/ {password} — exclui a conta do dono e TODOS os dados da empresa
+    (serviços, profissionais, grades, agendamentos e arquivos de mídia no armazenamento).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = 'login'  # exige senha: mesmo limite contra tentativa e erro
+
+    def delete(self, request):
+        serializer = ExcluirContaSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        with transaction.atomic():
+            # Agendamentos primeiro: referenciam Servico com PROTECT. Depois a cascata
+            # User → Empresa → resto. Os signals apagam os arquivos após o commit.
+            Agendamento.objects.filter(empresa__owner=user).delete()
+            user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ExportarDadosView(APIView):
+    """GET /api/v1/conta/exportar/ — todos os dados da conta em JSON (portabilidade, art. 18 V)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        empresa = get_empresa_do_usuario(request.user)
+        agendamentos = (
+            Agendamento.objects.filter(empresa=empresa)
+            .select_related('servico', 'profissional')
+            .prefetch_related('agendamento_servicos__servico')
+            .order_by('data_hora')
+        )
+        dados = {
+            'exportado_em': timezone.now().isoformat(),
+            'usuario': {
+                'username': request.user.username, 'email': request.user.email,
+                'criado_em': request.user.date_joined.isoformat(),
+            },
+            'empresa': {
+                **EmpresaSerializer(empresa).data,
+                'termos_aceitos_em': empresa.termos_aceitos_em.isoformat() if empresa.termos_aceitos_em else None,
+                'termos_versao': empresa.termos_versao,
+            },
+            'servicos': ServicoSerializer(Servico.objects.filter(empresa=empresa), many=True).data,
+            'profissionais': ProfissionalSerializer(Profissional.objects.filter(empresa=empresa), many=True).data,
+            'horarios': HorarioFuncionamentoSerializer(
+                HorarioFuncionamento.objects.filter(empresa=empresa), many=True,
+            ).data,
+            'agendamentos': AgendamentoSerializer(agendamentos, many=True).data,
+        }
+        resp = Response(dados)
+        resp['Content-Disposition'] = f'attachment; filename="dados-{empresa.slug}.json"'
+        return resp
+
+
+class AnonimizarClienteView(APIView):
+    """
+    POST /api/v1/clientes/anonimizar/ {whatsapp} — atende o pedido de exclusão de um
+    cliente final: remove nome e telefone dos agendamentos DESTA empresa e apaga os anexos.
+    O histórico (datas, serviços, valores) fica, sem identificar a pessoa.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = AnonimizarClienteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        empresa = get_empresa_do_usuario(request.user)
+        qs = Agendamento.objects.filter(empresa=empresa, whatsapp_cliente=serializer.validated_data['whatsapp'])
+        with transaction.atomic():
+            ids = list(qs.values_list('id', flat=True))
+            # delete() um a um dispara o signal que apaga o arquivo no armazenamento
+            for anexo in AnexoAgendamento.objects.filter(agendamento_id__in=ids):
+                anexo.delete()
+            total = Agendamento.objects.filter(id__in=ids).update(
+                nome_cliente='Cliente removido (LGPD)', whatsapp_cliente='',
+            )
+        return Response({'agendamentos': total})
 
 
 # ── Registro de novo prestador ────────────────────────────────────────────────

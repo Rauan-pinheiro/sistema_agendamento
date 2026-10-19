@@ -22,7 +22,7 @@ class AuthTests(APITestCase):
             'username': 'novo_dono', 'email': 'Novo@Teste.com',
             'password': SENHA, 'password_confirm': SENHA,
             'nome_fantasia': 'Barbearia Nova', 'slug': 'barbearia-nova',
-            'whatsapp_contato': '(85) 99999-0000',
+            'whatsapp_contato': '(85) 99999-0000', 'aceite_termos': True,
         })
         self.assertEqual(resp.status_code, 201, resp.data)
         self.assertIn('access', resp.data)
@@ -43,7 +43,7 @@ class AuthTests(APITestCase):
             resp = self.client.post('/api/v1/auth/registro/', {
                 'username': 'novo_dono1', 'email': 'n@t.com', 'password': fraca,
                 'password_confirm': fraca, 'nome_fantasia': 'X Y', 'slug': 'xy-fraca',
-                'whatsapp_contato': '85999990000',
+                'whatsapp_contato': '85999990000', 'aceite_termos': True,
             })
             self.assertEqual(resp.status_code, 400, fraca)
             self.assertIn('password', resp.data)

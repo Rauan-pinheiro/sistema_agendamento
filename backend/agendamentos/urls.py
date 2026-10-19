@@ -16,6 +16,9 @@ from .views import (
     HorariosDisponiveisView,
     PaginaPublicaView,
     HealthCheckView,
+    ContaView,
+    ExportarDadosView,
+    AnonimizarClienteView,
 )
 
 # ── Rotas privadas (dashboard do prestador) ───────────────────────────────────
@@ -36,6 +39,10 @@ urlpatterns = [
     path('usuario/', PerfilUsuarioView.as_view(), name='usuario-perfil'),
 
     path('health/', HealthCheckView.as_view(), name='health'),
+    # LGPD
+    path('conta/', ContaView.as_view(), name='conta'),
+    path('conta/exportar/', ExportarDadosView.as_view(), name='conta-exportar'),
+    path('clientes/anonimizar/', AnonimizarClienteView.as_view(), name='clientes-anonimizar'),
 
     # ── Rotas públicas (área do cliente, acessada via slug) ───────────────────
     path('public/<slug:slug>/pagina/',
