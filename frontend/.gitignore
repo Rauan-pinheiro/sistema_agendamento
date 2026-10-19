@@ -27,3 +27,6 @@ dist-ssr
 e2e.sqlite3
 e2e-report/
 test-results/
+
+# Cobertura de testes
+coverage/
