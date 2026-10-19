@@ -20,7 +20,9 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    if (error.response?.status !== 401 || original._retry) return Promise.reject(error);
+    // 401 nas rotas de autenticação é "usuário ou senha errados": a tela mostra o erro
+    const rotaDeAuth = typeof original?.url === 'string' && original.url.startsWith('/auth/');
+    if (error.response?.status !== 401 || original._retry || rotaDeAuth) return Promise.reject(error);
 
     if (isRefreshing) {
       return new Promise((resolve, reject) => queue.push({ resolve, reject })).then((token) => {
@@ -34,6 +36,7 @@ api.interceptors.response.use(
     const refresh = localStorage.getItem('refresh');
 
     if (!refresh) {
+      isRefreshing = false;
       localStorage.clear();
       window.location.href = '/login';
       return Promise.reject(error);
