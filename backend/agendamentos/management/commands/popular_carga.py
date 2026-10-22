@@ -6,13 +6,17 @@ Cria dados sintéticos para teste de carga: N empresas (slug carga-1..N, dono
 dono_carga_1..N, senha "Carga-123!"), cada uma com serviços, profissionais,
 grade semanal e um histórico de agendamentos distribuído nos últimos 6 meses
 e nas próximas semanas. Idempotente: apaga e recria as empresas "carga-*".
+
+Cria donos com senha conhecida: com DEBUG desligado (produção) só roda com --forcar,
+para uso em simulações locais e testes de carga. Nunca rode em produção real.
 """
 import random
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import User
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -36,9 +40,14 @@ class Command(BaseCommand):
         parser.add_argument('--empresas', type=int, default=10)
         parser.add_argument('--historico', type=int, default=1500,
                             help='Agendamentos por empresa (padrão 1500).')
+        parser.add_argument('--forcar', action='store_true',
+                            help='Roda mesmo com DEBUG desligado (simulação local / teste de carga).')
 
     @transaction.atomic
     def handle(self, *args, **opts):
+        if not settings.DEBUG and not opts['forcar']:
+            raise CommandError('DEBUG desligado: popular_carga cria donos com senha conhecida. '
+                               'Use --forcar só em simulação local ou teste de carga.')
         rnd = random.Random(42)
         # Agendamentos protegem os serviços (on_delete=PROTECT): apagar antes das empresas
         Agendamento.objects.filter(empresa__owner__username__startswith='dono_carga_').delete()

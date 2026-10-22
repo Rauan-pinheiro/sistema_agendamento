@@ -34,7 +34,7 @@ COMMON="-e DATABASE_URL=$DB -e DJANGO_DEBUG=false -e DJANGO_SECRET_KEY=loadtest 
 
 echo ">> Migrate + dados sintéticos (sem limite de CPU)"
 docker run --rm --network $NET $COMMON agenda-api sh -c \
-  "python manage.py migrate -v0 && python manage.py popular_carga --empresas 10 --historico 1500"
+  "python manage.py migrate -v0 && python manage.py popular_carga --empresas 10 --historico 1500 --forcar"
 
 echo ">> API limitada a ${API_CPUS:-0.1} CPU / 512 MB  (gunicorn: ${GUNICORN_ARGS:-padrão})"
 # shellcheck disable=SC2086
