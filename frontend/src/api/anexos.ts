@@ -20,10 +20,9 @@ export async function pedirAssinatura(
 }
 
 /**
- * Envia o arquivo direto do navegador para o Cloudinary (o servidor não recebe
- * o arquivo). Usa XHR para reportar progresso; não envia o JWT do painel.
+ * Envia o arquivo direto do navegador ao armazenamento (o servidor não recebe o
+ * arquivo). Usa XHR para reportar progresso; não envia o JWT do painel.
  */
-/** Envia o arquivo direto ao armazenamento (sem passar pela API), com progresso. */
 export function enviarArquivo(
   file: File,
   a: AssinaturaUpload,
