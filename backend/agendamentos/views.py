@@ -507,6 +507,9 @@ class FinanceiroResumoView(APIView):
 
 # ── Área pública (sem autenticação) ──────────────────────────────────────────
 
+# Conta suspensa (dono com is_active=False no admin) some da página pública: ver docs/06.
+EMPRESAS_PUBLICAS = Empresa.objects.filter(owner__is_active=True)
+
 class PaginaPublicaView(APIView):
     """
     GET /api/v1/public/<slug>/pagina/
@@ -522,7 +525,7 @@ class PaginaPublicaView(APIView):
         chave = chave_cache_pagina_publica(slug)
         dados = cache.get(chave)
         if dados is None:
-            empresa = get_object_or_404(Empresa, slug=slug)
+            empresa = get_object_or_404(EMPRESAS_PUBLICAS, slug=slug)
             dados = {
                 'empresa': EmpresaPublicSerializer(empresa).data,
                 'servicos': ServicoPublicSerializer(
@@ -565,7 +568,7 @@ class ProfissionalPublicoViewSet(mixins.ListModelMixin, viewsets.GenericViewSet)
     pagination_class = None
 
     def get_queryset(self):
-        empresa = get_object_or_404(Empresa, slug=self.kwargs['slug'])
+        empresa = get_object_or_404(EMPRESAS_PUBLICAS, slug=self.kwargs['slug'])
         return Profissional.objects.filter(empresa=empresa, ativo=True)
 
 
@@ -575,7 +578,7 @@ class ServicoPublicoViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     pagination_class = StandardPagination
 
     def get_queryset(self):
-        empresa = get_object_or_404(Empresa, slug=self.kwargs['slug'])
+        empresa = get_object_or_404(EMPRESAS_PUBLICAS, slug=self.kwargs['slug'])
         return Servico.objects.filter(empresa=empresa)
 
 
@@ -587,7 +590,7 @@ class AgendamentoPublicoViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet
 
     def _empresa(self) -> Empresa:
         if not hasattr(self, '_empresa_cache'):
-            self._empresa_cache = get_object_or_404(Empresa, slug=self.kwargs['slug'])
+            self._empresa_cache = get_object_or_404(EMPRESAS_PUBLICAS, slug=self.kwargs['slug'])
         return self._empresa_cache
 
     def get_serializer_context(self):
@@ -604,7 +607,7 @@ class EmpresaPublicaView(generics.RetrieveAPIView):
     serializer_class = EmpresaPublicSerializer
     permission_classes = [permissions.AllowAny]
     lookup_field = 'slug'
-    queryset = Empresa.objects.all()
+    queryset = EMPRESAS_PUBLICAS
 
 
 class HorariosDisponiveisView(generics.GenericAPIView):
@@ -620,7 +623,7 @@ class HorariosDisponiveisView(generics.GenericAPIView):
     authentication_classes = []
 
     def get(self, request, slug: str):
-        empresa = get_object_or_404(Empresa, slug=slug)
+        empresa = get_object_or_404(EMPRESAS_PUBLICAS, slug=slug)
 
         data_str = request.query_params.get('data')
         if not data_str:

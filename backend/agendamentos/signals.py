@@ -2,6 +2,7 @@
 Invalida o cache da página pública quando o dono altera dados exibidos nela e
 remove do Cloudinary os arquivos de anexos excluídos.
 """
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
@@ -27,6 +28,16 @@ def _invalidar_empresa(sender, instance, **kwargs):
     antigo = getattr(instance, '_slug_original', None)
     if antigo and antigo != instance.slug:
         cache.delete(chave_cache_pagina_publica(antigo))
+
+
+@receiver(post_save, sender=User)
+def _invalidar_dono(sender, instance, update_fields=None, **kwargs):
+    # Suspender/reativar a conta (is_active) muda a página pública. O login só grava last_login.
+    if update_fields and set(update_fields) <= {'last_login'}:
+        return
+    slug = Empresa.objects.filter(owner=instance).values_list('slug', flat=True).first()
+    if slug:
+        cache.delete(chave_cache_pagina_publica(slug))
 
 
 @receiver([post_save, post_delete], sender=Servico)
