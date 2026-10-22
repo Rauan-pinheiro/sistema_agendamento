@@ -1,0 +1,73 @@
+# Simulação local de produção (ver simulacao/README.md). Reproduz o render.yaml:
+#   db    → Postgres 17 "Basic 256 MB"   (0,1 CPU, 256 MB)
+#   api   → Web Service Starter          (0,5 CPU, 512 MB), gunicorn com gunicorn.conf.py, DEBUG off
+#   borda → o papel do Render na frente dos serviços: termina o TLS, repassa
+#           X-Forwarded-For/Proto para a API e serve o Static Site com os headers,
+#           a CSP e o rewrite do render.yaml (Caddyfile gerado por gerar_caddyfile.py)
+# Os valores vêm de simulacao/.env, gerado por simular.sh (segredos de teste, fora do git).
+name: agenda-simulacao
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: agenda
+      POSTGRES_PASSWORD: ${DB_SENHA}
+      POSTGRES_DB: agenda
+    cpus: 0.1
+    mem_limit: 256m
+    volumes: [dados-db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "agenda"]
+      interval: 2s
+      retries: 30
+
+  api:
+    build: ../backend
+    image: agenda-api:simulacao
+    depends_on:
+      db: { condition: service_healthy }
+    cpus: 0.5
+    mem_limit: 512m
+    environment:
+      # ── Iguais ao render.yaml ──
+      DJANGO_DEBUG: "false"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DATABASE_URL: postgres://agenda:${DB_SENHA}@db:5432/agenda
+      DB_POOL: "true"
+      NUM_PROXIES: "1"
+      LOG_FORMATO: json
+      CORS_ALLOWED_ORIGINS: https://localhost:9443
+      CSRF_TRUSTED_ORIGINS: https://localhost:8443
+      DJANGO_ADMIN_URL: painel-simulacao/
+      # ── Só da simulação ──
+      # No Render o domínio entra por RENDER_EXTERNAL_HOSTNAME; "borda" é o nome interno usado pelo k6
+      DJANGO_ALLOWED_HOSTS: localhost,borda
+      # Sem conta no Cloudinary: provedor local (mesmo contrato; recusado no Render)
+      MIDIA_PROVEDOR: ${MIDIA_PROVEDOR:-local}
+      CLOUDINARY_URL: ${CLOUDINARY_URL:-}
+      MIDIA_LOCAL_DIR: /midia
+      MIDIA_LOCAL_URL_BASE: https://localhost:8443
+      PORT: "8000"
+      # Limites de requisição: os do código; simular.sh carga os folga (k6 sai de 1 IP só)
+      LIMITE_LOGIN: ${LIMITE_LOGIN:-10/min}
+      LIMITE_PUBLICO: ${LIMITE_PUBLICO:-120/min}
+      LIMITE_RESERVA_PUBLICA: ${LIMITE_RESERVA_PUBLICA:-30/hour}
+      LIMITE_PAINEL: ${LIMITE_PAINEL:-600/min}
+    volumes: [midia:/midia]
+
+  borda:
+    image: caddy:2.10-alpine
+    depends_on: [api]
+    ports:
+      - "8443:8443"   # API   → https://localhost:8443
+      - "9443:9443"   # front → https://localhost:9443
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../frontend/dist:/srv:ro
+      - dados-caddy:/data
+
+volumes:
+  dados-db:
+  dados-caddy:
+  midia:

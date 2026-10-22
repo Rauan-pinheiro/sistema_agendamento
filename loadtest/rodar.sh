@@ -5,7 +5,7 @@
 #   Postgres : 0.1 CPU / 256 MB  (Render Free Postgres)
 #
 # Uso: ./rodar.sh <rotulo> [variáveis extras para a API, ex.: "-e DB_CONN_MAX_AGE=60"]
-# Variáveis: GUNICORN_ARGS (padrão: config do Render "gunicorn config.wsgi"), K6_EXTRA
+# Variáveis: GUNICORN_ARGS (padrão: gunicorn.conf.py, o mesmo do Render), K6_EXTRA
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -30,7 +30,12 @@ echo ">> Build da API"
 docker build -q -t agenda-api ../backend >/dev/null
 
 DB=postgres://postgres:pg@lt-db:5432/agenda
-COMMON="-e DATABASE_URL=$DB -e DJANGO_DEBUG=false -e DJANGO_SECRET_KEY=loadtest -e DJANGO_ALLOWED_HOSTS=*"
+# Chave forte descartável (a API recusa chaves curtas com DEBUG=false). Sem TLS neste
+# laboratório: sem redirecionamento HTTPS. Os 50 usuários do k6 saem do mesmo IP, então
+# os limites de requisição por IP ficam folgados (em produção cada cliente tem o seu IP).
+SECRET=$(openssl rand -hex 48)
+LIMITES="-e LIMITE_LOGIN=100000/min -e LIMITE_PUBLICO=100000/min -e LIMITE_RESERVA_PUBLICA=100000/hour -e LIMITE_PAINEL=100000/min"
+COMMON="-e DATABASE_URL=$DB -e DJANGO_DEBUG=false -e DJANGO_SECRET_KEY=$SECRET -e DJANGO_ALLOWED_HOSTS=* -e SECURE_SSL_REDIRECT=false -e NUM_PROXIES=0 $LIMITES"
 
 echo ">> Migrate + dados sintéticos (sem limite de CPU)"
 docker run --rm --network $NET $COMMON agenda-api sh -c \
@@ -39,8 +44,8 @@ docker run --rm --network $NET $COMMON agenda-api sh -c \
 echo ">> API limitada a ${API_CPUS:-0.1} CPU / 512 MB  (gunicorn: ${GUNICORN_ARGS:-padrão})"
 # shellcheck disable=SC2086
 docker run -d --name lt-api --network $NET --cpus=${API_CPUS:-0.1} --memory=512m $COMMON $API_ENV \
-  -e GUNICORN_CMD_ARGS="$GUNICORN_ARGS" -p 8000:8000 agenda-api \
-  gunicorn config.wsgi:application --bind 0.0.0.0:8000 >/dev/null
+  -e GUNICORN_CMD_ARGS="$GUNICORN_ARGS" -e PORT=8000 -p 8000:8000 agenda-api \
+  gunicorn config.wsgi:application -c gunicorn.conf.py >/dev/null
 T0=$(date +%s)
 until curl -sf -o /dev/null http://localhost:8000/api/v1/public/carga-1/; do
   sleep 2

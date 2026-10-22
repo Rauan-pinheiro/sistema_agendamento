@@ -35,3 +35,7 @@ coverage/
 .idea/
 .DS_Store
 Thumbs.db
+
+# ── Simulação local de produção (gerados por simulacao/simular.sh) ──────────
+simulacao/Caddyfile
+simulacao/resultados/
