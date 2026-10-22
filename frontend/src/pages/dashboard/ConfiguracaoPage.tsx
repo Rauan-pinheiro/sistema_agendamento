@@ -205,7 +205,7 @@ export function ConfiguracaoPage() {
                 required
               />
               <span className="form-hint config-slug-preview">
-                devflow.app/<strong>{empresaForm.slug || 'seu-link'}</strong>
+                {window.location.host}/<strong>{empresaForm.slug || 'seu-link'}</strong>
               </span>
             </div>
           </div>
@@ -296,7 +296,7 @@ export function ConfiguracaoPage() {
               id="configuracao-6" type="password"
               value={senhaForm.password_atual}
               onChange={e => setSenhaForm(prev => ({ ...prev, password_atual: e.target.value }))}
-              placeholder="••••••••"
+              placeholder="Sua senha atual"
               autoComplete="current-password"
               required
             />

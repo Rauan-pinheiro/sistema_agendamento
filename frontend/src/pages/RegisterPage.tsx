@@ -187,7 +187,7 @@ export function RegisterPage() {
                   onChange={handleChange}
                   required
                   minLength={3}
-                  pattern="[a-z0-9-]+"
+                  pattern="[a-z0-9\-]+"
                   title="Apenas letras minúsculas, números e hífens"
                   placeholder="barbearia-joao"
                 />

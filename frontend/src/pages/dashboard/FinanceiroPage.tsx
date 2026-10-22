@@ -278,11 +278,11 @@ export function FinanceiroPage() {
       {/* Taxa de confirmação — destaque separado */}
       {!loading && resumo && resumo.total_agendamentos > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <div className="financeiro-card financeiro-card--taxa" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, padding: '16px 22px', overflow: 'visible' }}>
+          <div className="financeiro-card financeiro-card--taxa" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, padding: '16px 22px' }}>
             <div style={{ flexShrink: 0, color: 'var(--success-hover)' }}>
               <Percent size={20} />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: '1 1 180px', minWidth: 0 }}>
               <span className="financeiro-card-label">Taxa de confirmação</span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
                 <span className="financeiro-card-value" style={{ fontSize: 26 }}>
@@ -294,7 +294,7 @@ export function FinanceiroPage() {
               </div>
             </div>
             {/* Barra de progresso */}
-            <div style={{ width: 160, flexShrink: 0 }}>
+            <div style={{ flex: '1 1 160px' }}>
               <div style={{ height: 8, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
                 <div
                   style={{

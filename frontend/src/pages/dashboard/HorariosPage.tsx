@@ -161,7 +161,7 @@ export function HorariosPage() {
 
       {loading ? (
         <div className="table-wrapper">
-          <table className="data-table">
+          <table className="data-table table-responsive">
             <thead>
               <tr><th>Dia</th><th>Início</th><th>Fim</th><th>Intervalo</th><th></th></tr>
             </thead>
@@ -190,7 +190,7 @@ export function HorariosPage() {
         </div>
       ) : (
         <div className="table-wrapper">
-          <table className="data-table">
+          <table className="data-table table-responsive">
             <thead>
               <tr>
                 <th>Dia</th>
@@ -203,10 +203,10 @@ export function HorariosPage() {
             <tbody>
               {horarios.map((h) => (
                 <tr key={h.id}>
-                  <td style={{ fontWeight: 600 }}>{DIAS.find((d) => d.value === h.dia_semana)?.label}</td>
-                  <td>{h.hora_inicio.slice(0, 5)}</td>
-                  <td>{h.hora_fim.slice(0, 5)}</td>
-                  <td>{h.intervalo_min} min</td>
+                  <td data-label="Dia" style={{ fontWeight: 600 }}>{DIAS.find((d) => d.value === h.dia_semana)?.label}</td>
+                  <td data-label="Início">{h.hora_inicio.slice(0, 5)}</td>
+                  <td data-label="Fim">{h.hora_fim.slice(0, 5)}</td>
+                  <td data-label="Intervalo">{h.intervalo_min} min</td>
                   <td className="table-actions">
                     <button className="icon-btn" title="Editar" aria-label="Editar" onClick={() => abrirEditar(h)}>
                       <Pencil size={14} />
@@ -279,7 +279,7 @@ export function HorariosPage() {
           />
         </div>
 
-        {erro && <p className="form-error">{erro}</p>}
+        {erro && <p className="form-error" role="alert">{erro}</p>}
       </Modal>
     </div>
   );
