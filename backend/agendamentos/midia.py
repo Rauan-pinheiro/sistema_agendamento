@@ -105,6 +105,9 @@ def provedor() -> ProvedorMidia:
     if nome == 'cloudinary':
         from .midia_cloudinary import ProvedorCloudinary
         return ProvedorCloudinary()
+    if nome == 'local':  # só desenvolvimento e simulação local (ver midia_local.py)
+        from .midia_local import ProvedorLocal
+        return ProvedorLocal()
     raise MidiaIndisponivel(f'Provedor de mídia desconhecido: {nome}')
 
 

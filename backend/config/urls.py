@@ -1,19 +1,4 @@
-"""
-URL configuration for config project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
+"""Rotas da API (/api/v1/) e do admin (caminho configurável em DJANGO_ADMIN_URL)."""
 from django.conf import settings
 from django.contrib import admin
 from django.urls import path, include
@@ -31,3 +16,13 @@ urlpatterns = [
     # ── App ───────────────────────────────────────────────────────────────────
     path('api/v1/', include('agendamentos.urls')),
 ]
+
+if settings.MIDIA_PROVEDOR == 'local':
+    # Fazem o papel do Cloudinary em desenvolvimento e na simulação local (midia_local.py)
+    from agendamentos import midia_local
+
+    urlpatterns += [
+        path('api/v1/midia-local/upload/', midia_local.receber_upload, name='midia_local_upload'),
+        path('api/v1/midia-local/arquivo/<str:entrega>/<path:public_id>',
+             midia_local.servir_arquivo, name='midia_local_arquivo'),
+    ]

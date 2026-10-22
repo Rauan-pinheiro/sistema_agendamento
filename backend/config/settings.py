@@ -263,6 +263,12 @@ AGENDAMENTO_MAX_DIAS_ANTECEDENCIA = int(os.environ.get('AGENDAMENTO_MAX_DIAS_ANT
 # até 10 MB e vídeo até 100 MB por arquivo.
 # Provedor atrás da interface de agendamentos/midia.py ('cloudinary'; futuro: 'r2')
 MIDIA_PROVEDOR = os.environ.get('MIDIA_PROVEDOR', 'cloudinary')
+# 'local' guarda os arquivos em disco: só para desenvolvimento e simulação na própria máquina.
+# No Render o disco é apagado a cada deploy, então lá ele é recusado.
+if MIDIA_PROVEDOR == 'local' and os.environ.get('RENDER'):
+    raise RuntimeError('MIDIA_PROVEDOR=local não pode ser usado no Render: use cloudinary.')
+MIDIA_LOCAL_DIR = os.environ.get('MIDIA_LOCAL_DIR', str(BASE_DIR / 'midia-local'))
+MIDIA_LOCAL_URL_BASE = os.environ.get('MIDIA_LOCAL_URL_BASE', 'http://localhost:8000')
 # Alerta quando o uso do mês passa deste número de créditos (Cloudinary Free: 25)
 MIDIA_ALERTA_CREDITOS = float(os.environ.get('MIDIA_ALERTA_CREDITOS', 15))
 MIDIA_PASTA_RAIZ = os.environ.get('MIDIA_PASTA_RAIZ', 'agenda')
