@@ -12,7 +12,7 @@ from django.db.models import Count, Q, Sum
 from django.db.models.functions import ExtractHour, ExtractIsoWeekDay, TruncDate
 from django.utils import timezone
 
-from .models import Agendamento, Empresa, HorarioFuncionamento, Profissional
+from .models import Agendamento, AgendamentoServico, Empresa, HorarioFuncionamento, Profissional
 
 
 def chave_cache_pagina_publica(slug: str) -> str:
@@ -98,20 +98,22 @@ def calcular_resumo_financeiro(empresa: Empresa, mes_ref: date | None = None) ->
         )
     ]
 
-    # Breakdown por serviço (para gráfico de rosca)
+    # Breakdown por serviço (para gráfico de rosca): soma o preço gravado em cada item,
+    # então um agendamento com Corte + Barba conta para os dois serviços.
     por_servico = [
         {
-            'servico': item['servico__nome'] or '—',
+            'servico': item['servico__nome'],
             'total':   item['total'],
             'receita': str(
                 (item['receita'] or Decimal('0')).quantize(Decimal('0.01'))
             ),
         }
         for item in (
-            confirmados_qs
+            AgendamentoServico.objects
+            .filter(agendamento__in=confirmados_qs)
             .values('servico__nome')
-            .annotate(total=Count('id'), receita=Sum('preco_total'))
-            .order_by('-receita')
+            .annotate(total=Count('id'), receita=Sum('preco'))
+            .order_by('-receita', 'servico__nome')
         )
     ]
 

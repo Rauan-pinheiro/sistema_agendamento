@@ -271,17 +271,17 @@ class AgendamentoSerializer(serializers.ModelSerializer):
         `servico` em dados legados. Usa o prefetch de `agendamento_servicos__servico`
         quando a view o fornece (evita N+1 na listagem).
         """
-        servicos = [link.servico for link in obj.agendamento_servicos.all()]
-        if not servicos and obj.servico:
-            servicos = [obj.servico]
+        itens = [(link.servico, link.preco) for link in obj.agendamento_servicos.all()]
+        if not itens and obj.servico:
+            itens = [(obj.servico, obj.preco_total)]
         return [
             {
                 'id': s.id,
                 'nome': s.nome,
                 'duracao_min': s.duracao_min,
-                'preco': str(s.preco),
+                'preco': str(preco),  # preço da época da reserva
             }
-            for s in servicos
+            for s, preco in itens
         ]
 
     def validate_nome_cliente(self, value: str) -> str:
@@ -435,7 +435,7 @@ class AgendamentoSerializer(serializers.ModelSerializer):
 
         for ordem, s in enumerate(servicos):
             AgendamentoServico.objects.create(
-                agendamento=agendamento, servico=s, ordem=ordem
+                agendamento=agendamento, servico=s, ordem=ordem, preco=s.preco
             )
 
         return agendamento
@@ -460,7 +460,7 @@ class AgendamentoSerializer(serializers.ModelSerializer):
             AgendamentoServico.objects.filter(agendamento=instance).delete()
             for ordem, s in enumerate(servicos):
                 AgendamentoServico.objects.create(
-                    agendamento=instance, servico=s, ordem=ordem
+                    agendamento=instance, servico=s, ordem=ordem, preco=s.preco
                 )
             instance.duracao_total_min = sum(s.duracao_min for s in servicos)
             instance.preco_total = sum(s.preco for s in servicos)

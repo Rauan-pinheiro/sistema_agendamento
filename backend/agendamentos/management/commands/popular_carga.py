@@ -78,7 +78,7 @@ class Command(BaseCommand):
                 ), escolhidos))
             Agendamento.objects.bulk_create([a for a, _ in ags], batch_size=500)
             for ag, escolhidos in ags:
-                links += [AgendamentoServico(agendamento=ag, servico=s, ordem=o)
+                links += [AgendamentoServico(agendamento=ag, servico=s, ordem=o, preco=s.preco)
                           for o, s in enumerate(escolhidos)]
             AgendamentoServico.objects.bulk_create(links, batch_size=1000)
             self.stdout.write(f'  {emp.slug}: {len(ags)} agendamentos')

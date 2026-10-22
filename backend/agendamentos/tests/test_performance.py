@@ -25,7 +25,7 @@ def _ag(empresa, servicos, quando, status='pendente'):
         preco_total=sum(s.preco for s in servicos),
     )
     for i, s in enumerate(servicos):
-        AgendamentoServico.objects.create(agendamento=ag, servico=s, ordem=i)
+        AgendamentoServico.objects.create(agendamento=ag, servico=s, ordem=i, preco=s.preco)
     return ag
 
 

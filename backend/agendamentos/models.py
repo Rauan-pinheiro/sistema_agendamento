@@ -114,6 +114,9 @@ class AgendamentoServico(models.Model):
     )
     servico = models.ForeignKey(Servico, on_delete=models.PROTECT)
     ordem = models.PositiveSmallIntegerField(default=0)
+    # Preço do serviço no momento da reserva: o financeiro soma por item e não muda
+    # quando o dono reajusta o preço do serviço depois.
+    preco = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0.00'))
 
     class Meta:
         ordering = ['ordem']
