@@ -191,6 +191,7 @@ export function PublicPage() {
   }
   function escolherSlot(e: MouseEvent<HTMLButtonElement>) {
     setSlotSelecionado(e.currentTarget.dataset.dt ?? '');
+    setFormError('');
     requestAnimationFrame(() => dadosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
@@ -372,6 +373,9 @@ export function PublicPage() {
               </button>
             </div>
             {mostrarCalendario && <CalendarPicker value={dataSelecionada} onChange={escolherData} min={hoje} />}
+
+            {/* Horário tomado por outra pessoa: o formulário some junto com o horário, então o aviso fica aqui */}
+            {formError && !slotSelecionado && <p className="form-error" role="alert">{formError}</p>}
 
             {!dataSelecionada ? (
               <p className="pub-secao-dica">Escolha um dia para ver os horários livres.</p>
