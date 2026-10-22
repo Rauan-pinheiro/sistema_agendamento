@@ -1,8 +1,49 @@
 # 02 — Prontidão para o mercado
 
 Data: 19/10/2026 · Branch: `fase-5-prontidao` (empilhada sobre `fase-4-redesign`)
+**Atualizado em 22/10/2026** (branches `fase-6` a `fase-9`): ver a seção 0.
 
-## Veredito: **pronto com ressalvas**
+## 0. Atualização de 22/10/2026: status das ressalvas
+
+**Veredito: pronto para o deploy, com ressalvas que dependem só de você** (nenhuma é de código).
+
+| # | Ressalva (19/10) | Status em 22/10 | Detalhe |
+|---|---|---|---|
+| 1 | Responsável nos Termos e na Política | ✅ **Resolvido no código** | `RESPONSAVEL` = Rauan Pinheiro Lima, pessoa física, WhatsApp como canal LGPD (15 dias). Sem CPF. `TERMOS_VERSAO = 2026-10-22` (docs/03, seção 3) |
+| 1b | Revisão jurídica dos textos | ⏳ **Depende de você** | Um advogado precisa revisar antes de cobrar o primeiro cliente |
+| 1c | E-mail de contato | ⏳ Opcional | `email: '[E-MAIL]'` em `PaginasLegais.tsx`; não aparece enquanto estiver assim |
+| 2 | Cobrança | ⏳ **Depende de você** (decisão de negócio) | Manual por Pix para os 5 primeiros. Agora há como **suspender e reativar** um cliente pelo admin (docs/06, seção 2) |
+| 3 | Log drain com retenção de 6 meses | ⏳ **Depende de você** (conta e configuração) | Passo a passo no docs/05, seção 6 |
+| 4 | Primeiro deploy e medições em produção | ⏳ **Depende de você** | Kit completo: docs/05 (passo a passo), `scripts/preflight.sh`, simulação local aprovada (docs/04) |
+| — | Contas: Render, Cloudinary, Better Stack, UptimeRobot | ⏳ **Depende de você** | docs/05, seção 0.1 |
+
+**O que foi resolvido em código de 19 a 22/10** (docs/03 e docs/04):
+- Financeiro "por serviço" com preço por item (migração preserva a receita; testada sobre cópia de dados).
+- Testes de componentes React (carrinho, formulário de reserva, anexos, páginas legais) e dos comandos `arquivar_agendamentos` e `popular_carga` (este agora exige `--forcar` em produção).
+- 7 bugs de interface achados na jornada manual (ex.: aviso de horário tomado que não aparecia; validação do link ignorada pelo navegador; tabela de horários cortada no celular).
+- 1 vulnerabilidade alta nova (`follow-redirects`) corrigida; gitleaks limpo no histórico.
+- Simulação local de produção aprovada: 0 violações de CSP, CORS/CSRF/SPA corretos, IP real nos logs, k6 com 0% de erro.
+- Suspensão de clientes pelo admin (com permissão), código do erro visível para o suporte, provedor de mídia local para desenvolvimento.
+- Kit de deploy: `.env.example`, README novo, docs/05 (deploy), docs/06 (operação), `scripts/preflight.sh`, validador do `render.yaml`.
+
+### Só falta você (em ordem)
+
+1. **Advogado:** revisar `/termos` e `/privacidade` (texto em `frontend/src/pages/legal/PaginasLegais.tsx`). Se mudar algo, atualizar `VERSAO` e `TERMOS_VERSAO`.
+2. *(Opcional)* Trocar `[E-MAIL]` pelo e-mail de contato na constante `RESPONSAVEL`.
+3. **Merge na `main`:** PR de `fase-9-prontidao-final` → `main` (inclui todas as fases). Antes, `bash scripts/preflight.sh` deve terminar em OK.
+4. **Contas:** Render (com cartão), Cloudinary (copiar a `CLOUDINARY_URL`), Better Stack e UptimeRobot.
+5. **Deploy:** Render → New → Blueprint, preencher as 6 variáveis (docs/05, seções 2 e 3).
+6. **Conferir os endereços** e, se mudaram, corrigir CORS, `VITE_API_URL` e a CSP (docs/05, 3.3).
+7. **Verificação pós-deploy** pelo celular no 4G: health check, fluxo completo, IPs reais, cache do site, rotina diária (docs/05, seção 4).
+8. **Superusuário** pelo Shell do Render (docs/05, seção 5).
+9. **Log drain** com retenção de 180 dias (docs/05, seção 6).
+10. **Monitor de uptime** (docs/05, seção 7).
+11. **Primeiro backup** e teste de restauração (docs/05, seção 8).
+12. **Cobrança:** definir o valor e a forma (Pix manual) e combinar com os primeiros clientes.
+
+---
+
+## Veredito original (19/10/2026): **pronto com ressalvas**
 
 O código está pronto para os primeiros 5 clientes pagantes: a API valida tudo o que antes só o front
 validava, o isolamento entre empresas tem teste de ataque automatizado, há rate limiting, headers de
@@ -99,12 +140,12 @@ O painel exige login e não é medido pelo Lighthouse: lá a acessibilidade é v
 | Alto (negócio) | Cobrança recorrente integrada | Decisão de provedor pendente. Até lá, cobrança manual |
 | Médio | Recuperação de senha por e-mail | Exige provedor de e-mail (ex.: Resend, SES). Contorno: `python manage.py changepassword <usuario>` no shell do Render |
 | Médio | JWT no `localStorage` | Mitigado pela CSP sem `unsafe-inline` em scripts. Evolução: refresh token em cookie `HttpOnly` + blacklist |
-| Médio | Financeiro "por serviço" atribui agendamentos com vários serviços ao primeiro (#18 da Fase 1) | Guardar preço por item em `AgendamentoServico` |
+| ~~Médio~~ | ~~Financeiro "por serviço" atribui agendamentos com vários serviços ao primeiro (#18 da Fase 1)~~ | ✅ Resolvido em 22/10 (docs/03) |
 | Médio | Rastreamento de erros (Sentry ou similar) | Hoje: logs JSON + `codigo` na resposta para correlacionar |
 | Médio | Retenção automática dos dados de clientes finais (ex.: anonimizar após 24 meses) | Hoje: anonimização sob demanda pelo painel |
 | Médio | Cache e rate limit em memória do processo | Corretos com 1 processo gunicorn (configuração atual). Ao escalar para mais instâncias, usar Redis (Render Key Value) |
 | Baixo | Bloqueio de login por usuário (além do IP) | Não feito de propósito: permitiria travar a conta de um dono conhecido. Reavaliar com CAPTCHA |
-| Baixo | Testes unitários de componentes React; comandos `arquivar_agendamentos` e `popular_carga` sem teste | Fluxos cobertos pelo E2E |
+| ~~Baixo~~ | ~~Testes unitários de componentes React; comandos `arquivar_agendamentos` e `popular_carga` sem teste~~ | ✅ Resolvido em 22/10 (docs/03) |
 | Baixo | HSTS `includeSubDomains`/`preload` | Só com domínio próprio |
 
 ## 4. Segurança: OWASP Top 10 (2021)
@@ -160,6 +201,9 @@ O painel exige login e não é medido pelo Lighthouse: lá a acessibilidade é v
 
 ## 8. Checklist de go-live
 
+> **Substituído em 22/10/2026** pelo passo a passo completo em [docs/05](05-deploy-passo-a-passo.md)
+> e pela lista "Só falta você" na seção 0. Mantido abaixo como registro.
+
 **Antes do deploy**
 - [ ] Preencher `RESPONSAVEL` em `PaginasLegais.tsx`, revisar os textos com um advogado e, se mudar algo, atualizar `VERSAO` e `TERMOS_VERSAO`.
 - [ ] Fazer merge das branches das fases na `main` (estão empilhadas: 1 → 2 → 3 → 4 → 5).
@@ -197,6 +241,9 @@ que marca a empresa como ativa ou inadimplente e um bloqueio suave do painel.
 **Provedor de e-mail** (recuperação de senha e avisos): Resend ou Amazon SES.
 
 ## 10. Próximos passos priorizados
+
+> Atualizado em 22/10/2026: os itens 1 (parte de código) e 6 (financeiro por item) foram feitos.
+> A ordem atual está na seção 0, "Só falta você".
 
 1. Preencher o responsável e revisar juridicamente os Termos e a Política.
 2. Fazer merge na `main` e o primeiro deploy pelo Blueprint, seguindo o checklist (seção 8).
