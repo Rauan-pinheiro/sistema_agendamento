@@ -72,7 +72,7 @@ Peça que escreva **do WhatsApp cadastrado** na empresa e informe o **usuário**
 conta. Confira no admin (**Empresas** → busque pelo WhatsApp). Não altere nada se não bater.
 
 ### 3.3 "Deu erro" (o cliente manda print)
-As mensagens de erro do sistema mostram um **código** (ex.: `Código: 5a9eadda9ea74ad7`). No Better
+Quando o servidor falha, a mensagem de erro termina com um **código** (ex.: `(código 5a9eadda9ea74ad7)`). No Better
 Stack (ou em **agenda-api → Logs**), busque esse código: aparece a requisição e, se for erro 500, o
 detalhe técnico logo abaixo. Mande para o desenvolvedor junto com o print.
 
