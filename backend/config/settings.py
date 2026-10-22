@@ -251,7 +251,7 @@ CORS_PREFLIGHT_MAX_AGE = 86400
 
 # ── LGPD ──────────────────────────────────────────────────────────────────────
 # Versão vigente dos Termos/Política (data da publicação). Mude ao alterar o texto.
-TERMOS_VERSAO = '2026-10-19'
+TERMOS_VERSAO = '2026-10-22'
 
 # ── Regras de agendamento ─────────────────────────────────────────────────────
 # Antecedência máxima de uma reserva pela página pública.

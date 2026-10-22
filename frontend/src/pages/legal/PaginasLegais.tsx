@@ -3,17 +3,52 @@ import { Link } from 'react-router-dom';
 
 /**
  * Termos de Uso e Política de Privacidade.
- * ANTES DO GO-LIVE: preencha os dados do responsável abaixo e peça revisão jurídica.
- * Ao mudar o texto, atualize VERSAO aqui e TERMOS_VERSAO no back-end (settings.py).
+ * Os textos precisam de revisão jurídica antes de cobrar o primeiro cliente.
+ * Ao mudar o texto ou o RESPONSAVEL, atualize VERSAO aqui e TERMOS_VERSAO no back-end
+ * (settings.py): o cadastro grava a versão aceita por cada dono.
+ */
+
+/**
+ * Quem oferece o serviço. Hoje: pessoa física (autônomo).
+ * NUNCA coloque o CPF aqui: este arquivo é público (vai no site e no repositório).
+ *
+ * Ao abrir uma ME (ou outro tipo de empresa):
+ *   - nome: a razão social;
+ *   - qualidade: ex. 'microempresa' (o texto passa a dizer "<razão social>, microempresa, CNPJ …");
+ *   - cnpj: o CNPJ (o CNPJ é público, pode ficar aqui);
+ *   - revise com o advogado se o foro e o canal de atendimento continuam os mesmos;
+ *   - atualize VERSAO e TERMOS_VERSAO.
  */
 const RESPONSAVEL = {
-  nome: '[Nome ou razão social]',
-  documento: '[CPF ou CNPJ]',
-  email: '[e-mail de contato]',
-  foro: '[Cidade/UF]',
+  nome: 'Rauan Pinheiro Lima',
+  qualidade: 'pessoa física',
+  cnpj: '', // vazio enquanto for pessoa física
+  whatsapp: '(88) 98868-4207',
+  whatsappLink: 'https://wa.me/5588988684207',
+  email: '[E-MAIL]', // opcional: enquanto estiver como [E-MAIL] ou vazio, não aparece nas páginas
+  foro: '', // opcional: "Cidade/UF"; vazio = foro do domicílio do responsável
 };
-const VERSAO = '19 de outubro de 2026';
+const VERSAO = '22 de outubro de 2026';
 const PRODUTO = 'AgendaFácil';
+const PRAZO_RESPOSTA = '15 dias';
+
+const emailPreenchido = /^[^\s@[\]]+@[^\s@]+$/.test(RESPONSAVEL.email);
+/** "Rauan Pinheiro Lima, pessoa física" (com CNPJ, quando houver). */
+const IDENTIFICACAO = [RESPONSAVEL.nome, RESPONSAVEL.qualidade, RESPONSAVEL.cnpj && `CNPJ ${RESPONSAVEL.cnpj}`]
+  .filter(Boolean).join(', ');
+
+/** Canais de atendimento: WhatsApp sempre; e-mail só quando preenchido. */
+function Contato() {
+  return (
+    <>
+      WhatsApp{' '}
+      <a href={RESPONSAVEL.whatsappLink} target="_blank" rel="noopener noreferrer">{RESPONSAVEL.whatsapp}</a>
+      {emailPreenchido && (
+        <> ou e-mail <a href={`mailto:${RESPONSAVEL.email}`}>{RESPONSAVEL.email}</a></>
+      )}
+    </>
+  );
+}
 
 function Documento({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
@@ -23,7 +58,7 @@ function Documento({ titulo, children }: { titulo: string; children: ReactNode }
       <p className="legal-versao">Versão de {VERSAO}</p>
       {children}
       <p className="legal-rodape">
-        Dúvidas: <a href={`mailto:${RESPONSAVEL.email}`}>{RESPONSAVEL.email}</a> ·{' '}
+        Dúvidas: <Contato /> ·{' '}
         <Link to="/termos">Termos de Uso</Link> · <Link to="/privacidade">Política de Privacidade</Link>
       </p>
     </main>
@@ -34,8 +69,9 @@ export function TermosPage() {
   return (
     <Documento titulo="Termos de Uso">
       <p>
-        Estes termos regem o uso do {PRODUTO}, oferecido por {RESPONSAVEL.nome} ({RESPONSAVEL.documento}), por
-        empresas e profissionais (“prestador”) que usam o sistema para receber agendamentos dos seus clientes.
+        Estes termos regem o uso do {PRODUTO}, oferecido por {IDENTIFICACAO} (“responsável”), por empresas e
+        profissionais (“prestador”) que usam o sistema para receber agendamentos dos seus clientes. Atendimento:{' '}
+        <Contato />.
       </p>
 
       <h2>1. O serviço</h2>
@@ -48,7 +84,7 @@ export function TermosPage() {
       <h2>2. Conta</h2>
       <p>
         Você é responsável pelas informações do cadastro, pela guarda da sua senha e por tudo o que for feito na sua
-        conta. Avise-nos imediatamente se suspeitar de acesso indevido.
+        conta. Avise o responsável imediatamente se suspeitar de acesso indevido.
       </p>
 
       <h2>3. Assinatura e pagamento</h2>
@@ -79,7 +115,7 @@ export function TermosPage() {
 
       <h2>6. Disponibilidade e backups</h2>
       <p>
-        Empregamos esforços razoáveis para manter o serviço disponível e fazemos cópias de segurança do banco de dados.
+        O responsável emprega esforços razoáveis para manter o serviço disponível e faz cópias de segurança do banco de dados.
         Podem ocorrer interrupções para manutenção ou por falhas de terceiros (hospedagem, internet).
       </p>
 
@@ -87,20 +123,20 @@ export function TermosPage() {
       <p>
         Você pode exportar todos os seus dados e excluir a sua conta a qualquer momento em <em>Configurações</em>. A
         exclusão remove definitivamente a empresa, os serviços, os profissionais, os agendamentos e os arquivos de
-        mídia. Podemos suspender contas que violem estes termos ou com pagamento em atraso, após aviso.
+        mídia. O responsável pode suspender contas que violem estes termos ou com pagamento em atraso, após aviso.
       </p>
 
       <h2>8. Responsabilidade</h2>
       <p>
         O {PRODUTO} não se responsabiliza pela prestação dos serviços agendados, que é feita exclusivamente pelo
-        prestador, nem por perdas indiretas. Nossa responsabilidade total fica limitada ao valor pago nos últimos 12
+        prestador, nem por perdas indiretas. A responsabilidade total de quem oferece o {PRODUTO} fica limitada ao valor pago nos últimos 12
         meses, salvo o que a lei não permitir limitar.
       </p>
 
       <h2>9. Alterações e foro</h2>
       <p>
-        Podemos atualizar estes termos; mudanças relevantes serão avisadas com antecedência. Fica eleito o foro de{' '}
-        {RESPONSAVEL.foro}, salvo disposição legal em contrário.
+        Estes termos podem ser atualizados; mudanças relevantes serão avisadas com antecedência. Fica eleito o foro{' '}
+        {RESPONSAVEL.foro ? `de ${RESPONSAVEL.foro}` : 'do domicílio do responsável'}, salvo disposição legal em contrário.
       </p>
     </Documento>
   );
@@ -110,14 +146,15 @@ export function PrivacidadePage() {
   return (
     <Documento titulo="Política de Privacidade">
       <p>
-        Esta política explica como o {PRODUTO} ({RESPONSAVEL.nome}, {RESPONSAVEL.documento}) trata dados pessoais, de
-        acordo com a Lei nº 13.709/2018 (LGPD).
+        Esta política explica como o {PRODUTO}, oferecido por {IDENTIFICACAO}, trata dados pessoais, de acordo com
+        a Lei nº 13.709/2018 (LGPD).
       </p>
 
       <h2>1. Quem trata os dados</h2>
       <ul>
         <li>
-          <strong>Dados de quem tem conta</strong> (donos de empresa): o {PRODUTO} é o <strong>controlador</strong>.
+          <strong>Dados de quem tem conta</strong> (donos de empresa): o responsável pelo {PRODUTO},{' '}
+          {RESPONSAVEL.nome}, é o <strong>controlador</strong>.
         </li>
         <li>
           <strong>Dados de quem agenda</strong> (clientes finais): a empresa em que você agendou é a{' '}
@@ -144,7 +181,7 @@ export function PrivacidadePage() {
           (art. 7º, IX) e Marco Civil da Internet.
         </li>
       </ul>
-      <p>Não vendemos dados, não fazemos publicidade direcionada e não usamos cookies de rastreamento.</p>
+      <p>O {PRODUTO} não vende dados, não faz publicidade direcionada e não usa cookies de rastreamento.</p>
 
       <h2>3. Armazenamento no navegador</h2>
       <p>
@@ -152,7 +189,7 @@ export function PrivacidadePage() {
         preferência de tema claro ou escuro. Nada disso é compartilhado com terceiros.
       </p>
 
-      <h2>4. Com quem compartilhamos</h2>
+      <h2>4. Com quem os dados são compartilhados</h2>
       <p>Somente com fornecedores necessários para operar o serviço, que seguem contratos de proteção de dados:</p>
       <ul>
         <li><strong>Render</strong> (hospedagem da aplicação e do banco de dados, nos Estados Unidos);</li>
@@ -161,7 +198,7 @@ export function PrivacidadePage() {
       </ul>
       <p>
         Essas transferências internacionais ocorrem com as garantias previstas no art. 33 da LGPD (cláusulas
-        contratuais dos fornecedores). Também podemos fornecer dados quando exigido por lei ou ordem judicial.
+        contratuais dos fornecedores). Dados também podem ser fornecidos quando exigido por lei ou ordem judicial.
       </p>
 
       <h2>5. Por quanto tempo</h2>
@@ -174,17 +211,19 @@ export function PrivacidadePage() {
       <h2>6. Seus direitos</h2>
       <p>
         Você pode pedir confirmação de tratamento, acesso, correção, portabilidade, anonimização ou exclusão dos seus
-        dados, e informações sobre compartilhamento (art. 18 da LGPD):
+        dados, e informações sobre compartilhamento (art. 18 da LGPD). O canal para esses pedidos é o <Contato />.
+        A resposta é dada em até {PRAZO_RESPOSTA}. Para proteger seus dados, podem ser pedidas informações que
+        confirmem que o pedido é seu.
       </p>
       <ul>
         <li>
-          <strong>Donos de empresa:</strong> em <em>Configurações → Privacidade e dados</em> você exporta todos os dados
-          da conta e pode excluí-la.
+          <strong>Donos de empresa:</strong> além do canal acima, em <em>Configurações → Privacidade e dados</em> você
+          mesmo exporta todos os dados da conta e pode excluí-la.
         </li>
         <li>
-          <strong>Clientes finais:</strong> fale com a empresa em que agendou; ela consegue remover seu nome e telefone
-          pelo painel. Se preferir, escreva para <a href={`mailto:${RESPONSAVEL.email}`}>{RESPONSAVEL.email}</a> e
-          encaminharemos o pedido.
+          <strong>Clientes finais:</strong> fale com a empresa em que agendou, que é a controladora dos seus dados e
+          consegue remover seu nome e telefone pelo painel. Se preferir, use o canal acima e o pedido será
+          encaminhado a ela.
         </li>
       </ul>
 
@@ -195,10 +234,10 @@ export function PrivacidadePage() {
         temporários assinados) e cópias de segurança do banco.
       </p>
 
-      <h2>8. Contato do encarregado</h2>
+      <h2>8. Canal de comunicação (encarregado)</h2>
       <p>
-        Encarregado pelo tratamento de dados: {RESPONSAVEL.nome} — <a href={`mailto:${RESPONSAVEL.email}`}>{RESPONSAVEL.email}</a>.
-        Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).
+        Responsável pelo atendimento aos titulares de dados: {RESPONSAVEL.nome}, pelo <Contato />. Você também pode
+        reclamar à Autoridade Nacional de Proteção de Dados (ANPD).
       </p>
     </Documento>
   );
