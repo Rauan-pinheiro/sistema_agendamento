@@ -1,9 +1,9 @@
 # Frontend — SaaS de Agendamento
 
-> **Visão geral do ecossistema** → [`../README_ROOT.md`](../README_ROOT.md)
+> **Visão geral do ecossistema** → [`../README.md`](../README.md)
 > **Documentação do Backend** → [`../backend/README_BACKEND.md`](../backend/README_BACKEND.md)
 
-Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, build servido pelo Django via WhiteNoise.
+Stack: **React + TypeScript + Vite** — Axios com interceptor JWT, publicado como Static Site no Render (separado da API).
 
 ---
 

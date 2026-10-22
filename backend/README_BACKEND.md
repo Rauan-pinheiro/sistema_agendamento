@@ -1,9 +1,9 @@
 # Backend — SaaS de Agendamento
 
-> **Visão geral do ecossistema** → [`../README_ROOT.md`](../README_ROOT.md)
+> **Visão geral do ecossistema** → [`../README.md`](../README.md)
 > **Documentação do Frontend** → [`../frontend/README_FRONTEND.md`](../frontend/README_FRONTEND.md)
 
-Stack: **Python / Django + Django Rest Framework** — SQLite (dev) → MySQL via Cloud SQL (prod).
+Stack: **Python / Django + Django Rest Framework** — SQLite (dev) → PostgreSQL 17 no Render (prod). As notas sobre MySQL abaixo são históricas.
 
 ---
 

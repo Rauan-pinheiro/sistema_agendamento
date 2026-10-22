@@ -1,142 +1,82 @@
-# SaaS de Agendamento Multi-Tenant — Visão Geral do Monorrepo
+# AgendaFácil
 
-> **Documentação detalhada por camada:**
-> - API e modelos de dados → [`backend/README_BACKEND.md`](backend/README_BACKEND.md)
-> - Interface, design system e UX → [`frontend/README_FRONTEND.md`](frontend/README_FRONTEND.md)
->
-> Backlogs técnicos, histórico de implementações e armadilhas conhecidas vivem dentro de cada subpasta acima. Este arquivo concentra apenas as decisões de produto e infraestrutura que afetam o ecossistema como um todo.
+Sistema de agendamento online por assinatura (SaaS) para prestadores de serviço: barbearias,
+salões, estúdios, clínicas. Cada empresa ganha uma **página pública** (`/<slug>`) onde o cliente
+escolhe os serviços, o profissional, o dia e o horário e faz a reserva sem criar conta. O dono
+gerencia tudo num **painel**: agendamentos (confirmar, cancelar, mandar mensagem no WhatsApp,
+anexar fotos e vídeos), serviços com vitrine ("Ver mais" com fotos, vídeos e YouTube),
+profissionais, horários de funcionamento, financeiro do mês e privacidade (exportar dados e
+excluir a conta, conforme a LGPD).
 
----
+## Arquitetura
 
-## 1. Visão Geral
-
-Sistema SaaS focado em prestadores de serviços (barbearias, clínicas, etc.). Cada assinante possui um ambiente isolado para gestão de horários, serviços e clientes, além de uma página pública acessada via slug para receber agendamentos de clientes finais.
-
----
-
-## 2. Arquitetura e Stack
-
-- **Backend:** Python / Django + Django Rest Framework
-- **Banco de Dados:** SQLite (desenvolvimento) → MySQL via Cloud SQL (produção)
-- **Frontend:** React + TypeScript + Vite — consome a API REST via Axios com interceptor JWT; build servido pelo próprio Django via WhiteNoise (sem serviço de frontend separado)
-- **Infra:** Google Cloud Platform (GCP), região `southamerica-east1` (São Paulo) — elimina latência para usuários brasileiros
-- **Containerização:** Docker — `Dockerfile` para o backend e `docker-compose.yml` para desenvolvimento local; obrigatório para deploy no Cloud Run
-- **Estratégia de Produto:** Web-First (mobile e desktop em planos futuros)
-
-### Por que GCP em vez de Railway + Vercel
-
-Railway não possui região no Brasil — cada chamada de API percorreria ~180–250 ms de ida e volta (Brasil → EUA → Brasil). Com Cloud Run em São Paulo, backend, banco e frontend ficam na mesma região, eliminando essa latência. O React build é servido pelo Django com WhiteNoise, mantendo tudo em um único serviço sem custo de CDN separado no early-stage.
-
-### Arquitetura de produção
+Monorrepo com dois aplicativos. A **API** (`backend/`) é Django 6 + Django REST Framework com
+autenticação JWT, multi-tenant por linha (todo dado de negócio pertence a uma `Empresa` e toda
+rota privada filtra pela empresa do usuário, com teste de ataque automatizado). Em produção ela
+roda no Render como Web Service (gunicorn) com PostgreSQL 17, e um Cron Job diário limpa uploads
+órfãos e alerta o consumo de mídia. O **front** (`frontend/`) é React 19 + TypeScript + Vite,
+publicado como Static Site separado, com CSP restritiva. Fotos e vídeos não passam pelo
+servidor: o navegador envia direto ao **Cloudinary** com uma assinatura gerada pela API (atrás de
+uma interface de armazenamento, `agendamentos/midia.py`, que permite trocar de provedor). Toda a
+infraestrutura está descrita em [`render.yaml`](render.yaml).
 
 ```
-Usuário (Brasil)
-    ↓
-Cloud Run — Django + WhiteNoise (serve React build + API REST)
-    ↓
-Cloud SQL — MySQL (mesma região southamerica-east1)
+Navegador ──► Static Site (React) ──► API Django (gunicorn) ──► PostgreSQL
+    │                                     │
+    └──── upload direto assinado ────► Cloudinary ◄── Cron diário (órfãos e alerta de uso)
 ```
 
----
+## Rodar localmente
 
-## 3. Estrutura Multi-Tenant (Isolamento de Dados)
+Pré-requisitos: **Python 3.13**, **Node 22** e Git. Sem nenhuma configuração, a API usa SQLite e
+o modo de desenvolvimento.
 
-- Estratégia: **Shared Database, Isolated Rows** (isolamento via chave estrangeira).
-- `Empresa` é o Tenant. Todo model de negócio herda de `BaseModel`, que carrega uma `ForeignKey` obrigatória para `Empresa`.
-- Cada empresa possui um `slug` único que gera sua página pública de agendamentos.
-- O isolamento é aplicado nas views: `get_queryset` sempre filtra por `empresa=request.user.empresa`, garantindo que um prestador nunca acesse dados de outro.
+```bash
+# API (http://localhost:8000)
+cd backend
+python -m venv venv
+venv\Scripts\activate            # Windows  (Linux/macOS: source venv/bin/activate)
+pip install -r requirements-dev.txt
+python manage.py migrate
+python manage.py createsuperuser  # opcional: acesso ao /admin/
+python manage.py runserver
 
----
-
-## 10. Pendente para v1.0 (antes do deploy)
-
-> Todos os itens abaixo são de infraestrutura global e devem ser concluídos antes do primeiro deploy em produção.
-
-- [ ] **Variáveis de ambiente** — extrair `SECRET_KEY`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS` para `.env` com `python-decouple` ou `django-environ`
-- [ ] **WhiteNoise** — instalar e configurar para o Django servir o build do React em produção
-- [ ] **Build do frontend** — rodar `npm run build` e copiar o `dist/` para dentro do projeto Django (ou configurar o `Dockerfile` para fazer isso no build)
-- [ ] **Dockerizar o backend** — criar `Dockerfile` para o Django (imagem base `python:3.x-slim`, instalar dependências, copiar código, rodar `gunicorn`)
-- [ ] **docker-compose para desenvolvimento** — `docker-compose.yml` subindo Django + MySQL localmente com um único `docker compose up`, substituindo a necessidade de dois terminais separados
-- [ ] **Deploy no GCP Cloud Run** — criar projeto no GCP, configurar Cloud SQL (MySQL) na região `southamerica-east1`, fazer push da imagem para o Artifact Registry e deploy no Cloud Run; configurar `ALLOWED_HOSTS`, `SECRET_KEY` e `DATABASE_URL` via variáveis de ambiente do Cloud Run
-
----
-
-## 15. Funcionalidades Premium (planos avançados / atualizações futuras)
-
-> Esta seção registra funcionalidades que exigem custo operacional, integrações externas pagas ou infraestrutura adicional — adequadas para um plano pago mais completo ou releases futuras após validação do produto. Sempre que uma ideia de feature "premium" surgir durante o desenvolvimento, ela é documentada aqui antes de ser priorizada.
-
----
-
-### WhatsApp automático (lembretes e confirmações sem clique humano)
-
-> **Por que é premium?** Exige API externa paga (WhatsApp Business API) + infraestrutura de fila de tarefas. O plano básico cobre o botão manual `wa.me` (implementado), que não tem custo algum.
-
-**Dependências técnicas necessárias:**
-
-- **API do WhatsApp** — única forma de enviar mensagens programaticamente:
-  - **Z-API / Evolution API** — provedores brasileiros, ~R$50–150/mês, integração via `POST` HTTP simples; escolha prática para early-stage
-  - **Twilio / Meta Cloud API** — solução oficial Meta, mais robusta, exige aprovação prévia de templates junto à Meta
-- **Agendador de tarefas** — para disparar na hora certa sem interação humana:
-  - **Celery + Redis** — padrão Django para filas; Redis seria novo serviço na infra GCP
-  - **Cloud Scheduler + Cloud Run Job** — alternativa GCP-nativa sem Redis, mas exige segunda imagem Docker
-
-**Fluxo de dados:**
-```
-Cloud Scheduler (cron a cada hora)
-    ↓
-Django management command / Cloud Run Job
-    ↓  filtra Agendamento onde data_hora ∈ [now+47h, now+49h] e status=confirmado
-Z-API / Evolution API
-    ↓  POST com whatsapp_cliente + mensagem formatada
-Cliente recebe mensagem no WhatsApp
+# Front (http://localhost:5173), em outro terminal
+cd frontend
+npm install
+npm run dev
 ```
 
-- [ ] **Lembrete automático 48h antes** — `management command` `enviar_lembretes` agendado via Cloud Scheduler; mensagem: _"Olá {nome_cliente}! Lembrete: seu agendamento de {servico_nome} é amanhã, {data_hora}. Qualquer dúvida, entre em contato!"_
-- [ ] **Confirmação automática imediata** — ao criar agendamento via página pública, disparar mensagem instantânea para `whatsapp_cliente` com resumo completo do agendamento
+Abra <http://localhost:5173/register> para criar uma conta. Para ter dados de exemplo:
+`python manage.py popular_carga --empresas 1 --historico 40` (login `dono_carga_1` / `Carga-123!`,
+página pública `/carga-1`).
 
----
+**Fotos e vídeos sem Cloudinary:** antes do `runserver`, defina `MIDIA_PROVEDOR=local` (os
+arquivos ficam em `backend/midia-local/`). Para usar o Cloudinary, defina `CLOUDINARY_URL`.
+Todas as variáveis estão explicadas em [`backend/.env.example`](backend/.env.example) e
+[`frontend/.env.example`](frontend/.env.example).
 
-### Controle de acesso por função (RBAC)
+## Testes
 
-> **Por que é premium?** Adiciona complexidade ao modelo de autenticação. No plano básico, cada empresa tem um único dono (`owner`). Com RBAC, seria possível ter múltiplos usuários com papéis distintos por empresa.
+| O quê | Comando |
+|---|---|
+| API (unitários e integração) | `cd backend && python manage.py test` |
+| API com cobertura | `cd backend && python -m coverage run manage.py test && python -m coverage report` |
+| Front (componentes e utilitários) | `cd frontend && npm test` |
+| Lint do front | `cd frontend && npm run lint` |
+| E2E (Playwright, desktop e celular; sobe API e front sozinho) | `cd frontend && npx playwright install chromium && npm run e2e` |
+| Tudo o que precisa passar antes de um deploy | `bash scripts/preflight.sh` |
+| Simulação local de produção (Docker) | [`simulacao/README.md`](simulacao/README.md) |
+| Teste de carga (k6) | [`loadtest/README.md`](loadtest/README.md) |
 
-- [ ] **Múltiplos usuários por empresa** — model `MembroEmpresa` com roles `dono`, `gerente`, `profissional`; permissões distintas por role (ex: profissional vê apenas seus próprios agendamentos; gerente confirma/cancela mas não altera serviços)
+## Documentação
 
----
-
-### Pagamento online no momento do agendamento
-
-> **Por que é premium?** Exige integração com gateway de pagamento e lógica de confirmação condicional — o agendamento só é efetivado após o pagamento ser aprovado.
-
-- [ ] **Reserva com pagamento antecipado** — cliente paga no momento do agendamento via MercadoPago ou Stripe; agendamento criado com status `aguardando_pagamento` e confirmado automaticamente após webhook de pagamento aprovado; prestador configura por serviço se exige pagamento antecipado ou não
-
----
-
-### Estratégia de monetização e quando implementar o sistema de planos
-
-O sistema de planos **não deve ser implementado antes das features premium estarem funcionando**. Criar restrições sem ter algo a oferecer no upgrade é complexidade sem retorno.
-
-**Roadmap de monetização:**
-```
-v1.0 → deploy com todas as features básicas gratuitas (custo = só hospedagem ~R$80–150/mês)
-v1.1 → profissionais, financeiro, paleta revisada ✅ (implementado)
-v1.2 → redesign frontend premium, design system, dark/light, KPIs, skeleton, mobile nav ✅ (implementado)
-v1.3 → página de profissionais, horários por profissional, gráfico de volume, calendário visual,
-        descrição nos serviços, validação completa frontend + backend ✅ (implementado)
-v1.4 → página de Configurações (empresa + conta + senha), branding DevFlow, animações CSS,
-        endpoint /api/v1/usuario/ ✅ (implementado)
-v1.5 → seleção múltipla de serviços (M2M com ordem, duracao_total_min, preco_total,
-        multi-select na página pública) ✅ (implementado)
-v1.6 → separação Agendamentos × Financeiro (privacidade), redesign premium aba "Hoje",
-        cards expandíveis ✅; pendente: tooltips nos KPIs financeiros, layout grid responsivo,
-        auto-refresh inteligente, responsividade 100%
-v1.7 → deploy GCP (Cloud Run + Cloud SQL), WhiteNoise, Dockerfile, variáveis de ambiente
-v1.8 → features premium (WhatsApp automático, pagamento online), sistema de planos e cobrança
-```
-
-**Como implementar tecnicamente (quando chegar a hora):**
-
-1. Adicionar campo `plano` em `Empresa` com choices (`basico`, `profissional`, `premium`)
-2. No backend, checar `request.user.empresa.plano` nas views que controlam features premium antes de executar a ação — retornar `HTTP 403` com mensagem de upgrade se o plano não cobrir
-3. No frontend, o dashboard lê o plano da empresa (já retornado em `GET /api/v1/empresa/`) e oculta ou bloqueia visualmente as features indisponíveis, exibindo um prompt de upgrade no lugar
-4. Integrar MercadoPago ou Stripe: ao assinar, o gateway dispara um webhook que atualiza `empresa.plano` — acesso liberado instantaneamente sem intervenção manual
+| Documento | Conteúdo |
+|---|---|
+| [docs/05 — Deploy passo a passo](docs/05-deploy-passo-a-passo.md) | **Como publicar no Render**, do zero |
+| [docs/06 — Operação](docs/06-operacao.md) | Rotina semanal, clientes, senha, quando subir de plano |
+| [docs/02 — Prontidão para o mercado](docs/02-prontidao-para-mercado.md) | Veredito, segurança (OWASP), LGPD, ressalvas |
+| [docs/01 — Auditoria e capacidade](docs/01-auditoria-e-capacidade.md) | Testes de carga e escolha dos planos |
+| [docs/03 — Correções](docs/03-correcoes.md) · [docs/04 — Simulação de produção](docs/04-simulacao-producao.md) | Histórico das fases finais |
+| [backend/README_BACKEND.md](backend/README_BACKEND.md) · [frontend/README_FRONTEND.md](frontend/README_FRONTEND.md) | Modelos, endpoints, fluxos e decisões técnicas |
+| [docs/roadmap-produto.md](docs/roadmap-produto.md) | Ideias para depois do lançamento |
