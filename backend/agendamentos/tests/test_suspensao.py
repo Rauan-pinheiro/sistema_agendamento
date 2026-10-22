@@ -1,5 +1,5 @@
 """Suspender um cliente = desmarcar "Ativo" no usuário dono (admin). Ver docs/06."""
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.core.cache import cache
 from rest_framework.test import APITestCase
 
@@ -71,3 +71,23 @@ class AdminSuspensaoTests(APITestCase):
         emp.owner.refresh_from_db()
         self.assertTrue(emp.owner.is_active)
         self.assertEqual(self.client.get(url + '?q=studio').status_code, 200)
+
+    def test_equipe_sem_permissao_de_alterar_usuarios_nao_suspende(self):
+        cache.clear()
+        emp = criar_empresa('studio')
+        atendente = User.objects.create_user('atendente', 'a@x.com', SENHA, is_staff=True)
+        atendente.user_permissions.add(*Permission.objects.filter(codename__in=['view_empresa', 'change_empresa']))
+        self.client.force_login(atendente)
+        self.client.post('/admin/agendamentos/empresa/', {'action': 'suspender', '_selected_action': [emp.pk]})
+        emp.owner.refresh_from_db()
+        self.assertTrue(emp.owner.is_active)
+
+    def test_nao_suspende_conta_da_equipe(self):
+        cache.clear()
+        emp = criar_empresa('studio')
+        emp.owner.is_staff = True
+        emp.owner.save()
+        self.client.force_login(User.objects.create_superuser('root', 'root@x.com', SENHA))
+        self.client.post('/admin/agendamentos/empresa/', {'action': 'suspender', '_selected_action': [emp.pk]})
+        emp.owner.refresh_from_db()
+        self.assertTrue(emp.owner.is_active)

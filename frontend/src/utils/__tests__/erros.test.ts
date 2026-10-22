@@ -22,6 +22,11 @@ describe('mensagemDeErro', () => {
     expect(msg).not.toMatch(/network/i);
   });
 
+  it('500 da API mostra o código para o suporte achar o erro nos logs', () => {
+    const msg = mensagemDeErro(resposta(500, { erro: 'Tivemos um problema.', codigo: '5a9eadda9ea74ad7' }));
+    expect(msg).toBe('O servidor teve um problema. Tente de novo em instantes. (código 5a9eadda9ea74ad7)');
+  });
+
   it('500 sem corpo útil vira mensagem amigável', () => {
     const msg = mensagemDeErro(resposta(500, '<html>Server Error</html>'));
     expect(msg).toMatch(/servidor/i);

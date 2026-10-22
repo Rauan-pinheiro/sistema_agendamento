@@ -24,7 +24,12 @@ export function mensagemDeErro(err: unknown, padrao = PADRAO): string {
     const status = e.response?.status;
     if (!e.response) return 'Sem conexão com o servidor. Verifique sua internet e tente novamente.';
     if (status === 429) return 'Muitas tentativas em pouco tempo. Aguarde um minuto e tente de novo.';
-    if (status && status >= 500) return 'O servidor teve um problema. Tente de novo em instantes.';
+    if (status && status >= 500) {
+      // `codigo` = X-Request-ID: o suporte busca nos logs (docs/06, "Deu erro")
+      const codigo = (e.response.data as { codigo?: unknown } | undefined)?.codigo;
+      const sufixo = typeof codigo === 'string' && codigo ? ` (código ${codigo})` : '';
+      return `O servidor teve um problema. Tente de novo em instantes.${sufixo}`;
+    }
     return primeiraMensagem(e.response.data) ?? padrao;
   }
   if (err instanceof Error && err.message) return err.message;
