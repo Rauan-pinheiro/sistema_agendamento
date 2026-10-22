@@ -1,0 +1,37 @@
+# Regras gerais do repositório (backend/ e frontend/ têm .gitignore próprios).
+
+# Segredos: nunca versionar. Os modelos ficam em .env.example
+.env
+.env.*
+!.env.example
+
+# Bancos locais
+*.sqlite3
+*.db
+
+# Dependências e builds
+node_modules/
+dist/
+build/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Uploads locais (a mídia de produção fica no Cloudinary)
+media/
+uploads/
+
+# Resultados brutos de teste de carga e E2E (podem conter dados e tokens)
+loadtest/resultados/**/k6.json
+loadtest/resultados/**/api.log
+frontend/e2e-report/
+frontend/test-results/
+coverage/
+.coverage
+
+# Editor e sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
