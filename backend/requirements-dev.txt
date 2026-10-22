@@ -1,2 +1,7 @@
 -r requirements.txt
 coverage==7.10.6
+# Auditoria de dependências (scripts/preflight.sh)
+pip-audit==2.10.1
+# Validação do render.yaml contra o schema oficial do Render (scripts/validar_render_yaml.py)
+PyYAML==6.0.3
+jsonschema==4.25.1
