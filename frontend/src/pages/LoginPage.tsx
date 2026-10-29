@@ -26,7 +26,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="auth-page">
+    <main className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
           <div className="auth-logo-icon" aria-hidden>
@@ -76,6 +76,6 @@ export function LoginPage() {
           Não tem conta? <Link to="/register">Cadastre sua empresa</Link>
         </p>
       </div>
-    </div>
+    </main>
   );
 }

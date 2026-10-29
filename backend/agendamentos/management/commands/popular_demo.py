@@ -105,6 +105,12 @@ class Command(BaseCommand):
         if d['fotos']:
             emp.capa_public_id, _ = _copiar_foto(d['capa'], midia.pasta_da_empresa(emp.pk))
             emp.save(update_fields=['capa_public_id'])
+            # Capa em larguras menores, como o srcset do Cloudinary (ver ProvedorLocal.url_imagem)
+            for largura in midia.LARGURAS_CAPA[:-1]:
+                variante = FOTOS / f'{d["capa"]}@{largura}.webp'
+                if variante.exists():
+                    destino = Path(settings.MIDIA_LOCAL_DIR) / midia.ENTREGA_PUBLICA / f'{emp.capa_public_id}@{largura}.webp'
+                    shutil.copyfile(variante, destino)
 
         servicos = []
         for nome, dur, preco, foto, desc in d['servicos']:

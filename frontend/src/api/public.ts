@@ -13,10 +13,34 @@ import type {
 // Cliente sem JWT — rotas públicas não devem disparar o interceptor de 401/redirect
 const publicApi = axios.create({ baseURL: API_BASE });
 
+const adiantadas = new Map<string, Promise<PaginaPublica>>();
+
 /** Empresa + serviços + profissionais em uma única requisição (com cache no servidor). */
 export async function getPaginaPublica(slug: string): Promise<PaginaPublica> {
+  const adiantada = adiantadas.get(slug);
+  if (adiantada) {
+    adiantadas.delete(slug); // usa só uma vez: "tentar de novo" faz uma requisição nova
+    return adiantada;
+  }
   const { data } = await publicApi.get<PaginaPublica>(`/public/${slug}/pagina/`);
   return data;
+}
+
+/**
+ * Começa a buscar a página pública antes de o React montar a rota (chamado em main.tsx) e,
+ * quando os dados chegam, pré-carrega a capa no tamanho certo. Encurta o caminho até o LCP.
+ */
+export function adiantarPaginaPublica(slug: string): void {
+  const p = publicApi.get<PaginaPublica>(`/public/${slug}/pagina/`).then((r) => r.data);
+  p.then((d) => {
+    const capa = d.empresa.capa;
+    if (!capa) return;
+    const link = document.createElement('link');
+    Object.assign(link, { rel: 'preload', as: 'image', href: capa.url, imageSrcset: capa.srcset, imageSizes: '100vw' });
+    link.setAttribute('fetchpriority', 'high');
+    document.head.appendChild(link);
+  }).catch(() => {});
+  adiantadas.set(slug, p);
 }
 
 export async function getEmpresaPublica(slug: string): Promise<Empresa> {

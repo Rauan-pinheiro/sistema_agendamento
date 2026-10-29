@@ -116,7 +116,11 @@ class ProvedorLocal:
         return {'url': url, 'thumb_url': url if tipo == 'imagem' else None}
 
     def url_imagem(self, public_id: str, largura: int, altura: int | None) -> str:
-        return self.urls(public_id, 'imagem', ENTREGA_PUBLICA)['url']  # sem redimensionamento local
+        # Sem redimensionamento local; usa a variante '<public_id>@<largura>' se existir
+        # (o modo demonstração grava versões menores da capa para imitar o srcset do Cloudinary)
+        variante = f'{public_id}@{largura}'
+        alvo = variante if _caminho(variante, ENTREGA_PUBLICA) else public_id
+        return self.urls(alvo, 'imagem', ENTREGA_PUBLICA)['url']
 
     def listar(self, prefixo: str) -> Iterator[ArquivoArmazenado]:
         for entrega in (TIPO_ENTREGA, ENTREGA_PUBLICA):

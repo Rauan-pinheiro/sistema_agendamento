@@ -36,6 +36,7 @@ class PopularDemoTests(TestCase):
             self.assertTrue(canto.agendamento_set.exists())
             pagina = self.client.get('/api/v1/public/demo-studio-lume/pagina/').json()
             self.assertIn('/midia-local/arquivo/upload/', pagina['empresa']['capa']['url'])
+            self.assertIn('@640 640w', pagina['empresa']['capa']['srcset'])  # variante menor no celular
             # Rodar de novo recria sem duplicar
             call_command('popular_demo', stdout=open(os.devnull, "w"))
             self.assertEqual(Empresa.objects.filter(slug__startswith='demo-').count(), 2)
