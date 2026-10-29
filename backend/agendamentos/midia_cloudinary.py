@@ -95,7 +95,7 @@ class ProvedorCloudinary:
             )
             thumb, _ = cloudinary.utils.cloudinary_url(
                 public_id, resource_type='image', **comum,
-                transformation=[{'width': 320, 'height': 320, 'crop': 'fill', 'gravity': 'auto',
+                transformation=[{'width': 480, 'height': 480, 'crop': 'fill', 'gravity': 'auto',
                                  'quality': 'auto', 'fetch_format': 'auto'}],
             )
         else:

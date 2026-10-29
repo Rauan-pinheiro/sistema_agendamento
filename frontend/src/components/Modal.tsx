@@ -11,13 +11,15 @@ interface ModalProps {
   wide?: boolean;
   /** No celular, abre como "bottom sheet" (encostado embaixo, ao alcance do polegar). */
   sheet?: boolean;
+  /** Superfície do design system (ex.: "sup-vitrine"): o portal fica fora da página. */
+  superficie?: string;
 }
 
 /**
  * Renderizado via portal no <body>: funciona mesmo quando aberto de dentro de
  * cards com overflow/transform. Fecha com Esc e devolve o foco ao sair.
  */
-export function Modal({ open, onClose, title, children, footer, wide, sheet }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, wide, sheet, superficie }: ModalProps) {
   const tituloId = useId();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,7 +38,7 @@ export function Modal({ open, onClose, title, children, footer, wide, sheet }: M
   if (!open) return null;
 
   return createPortal(
-    <div className={`modal-backdrop${sheet ? ' modal-backdrop--sheet' : ''}`} onClick={onClose}>
+    <div className={`modal-backdrop${sheet ? ' modal-backdrop--sheet' : ''}${superficie ? ` ${superficie}` : ''}`} onClick={onClose}>
       <div
         ref={ref}
         className={`modal${sheet ? ' modal--sheet' : ''}`}

@@ -3,10 +3,8 @@ import { Check, Clock, Play, Plus } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { YoutubeFacade } from '../../components/YoutubeFacade';
 import type { MidiaServico, ServicoPublico } from '../../types';
+import { fmtBRL, fmtDuracao } from './util';
 
-function fmtBRL(valor: number): string {
-  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
 
 function Midia({ m, titulo }: { m: MidiaServico; titulo: string }) {
   if (m.tipo === 'youtube') return <YoutubeFacade key={m.id} videoId={m.youtube_id} titulo={titulo} />;
@@ -59,10 +57,11 @@ export function ServicoDetalhes({ servico, selecionado, onToggle, onClose }: {
       title={servico?.nome ?? ''}
       wide
       sheet
+      superficie="sup-vitrine"
       footer={servico && (
         <button
           type="button"
-          className={`btn btn-full ${selecionado ? 'btn-secondary' : 'btn-primary'}`}
+          className={`btn btn-full ${selecionado ? 'btn-secondary' : 'btn-destaque'}`}
           onClick={() => { onToggle(); setIndice(0); onClose(); }}
         >
           {selecionado
@@ -76,7 +75,7 @@ export function ServicoDetalhes({ servico, selecionado, onToggle, onClose }: {
           <p className="detalhe-meta">
             <span>{fmtBRL(Number(servico.preco))}</span>
             <span aria-hidden>·</span>
-            <span><Clock size={13} aria-hidden /> {servico.duracao_min} min</span>
+            <span><Clock size={13} aria-hidden /> {fmtDuracao(servico.duracao_min)}</span>
           </p>
 
           {atual && (

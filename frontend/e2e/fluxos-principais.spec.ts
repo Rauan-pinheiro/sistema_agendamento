@@ -5,12 +5,12 @@ import { expect, test } from '@playwright/test';
 test('cliente agenda pela página pública e o dono vê no painel', async ({ page }) => {
   const nome = `Cliente E2E ${test.info().project.name} ${Date.now()}`;
   await page.goto('/carga-1');
-  await page.getByRole('button', { name: /^Escolher Corte masculino/ }).click();
-  const prof = page.locator('.pub-profissional').first();
+  await page.getByRole('button', { name: /^Adicionar Corte masculino/ }).click();
+  const prof = page.locator('.membro').first();
   if (await prof.count()) await prof.click();
   // Quinto dia da faixa (o último botão é "Outra data"); longe dos dias usados nos outros testes
-  await page.locator('.pub-dia').nth(4).click();
-  await page.locator('.pub-horario:not([disabled])').last().click();
+  await page.getByRole('group', { name: 'Próximos dias' }).getByRole('button').nth(4).click();
+  await page.locator('.chip-horario:not([disabled])').last().click();
   await page.getByLabel('Seu nome').fill(nome);
   await page.getByLabel('WhatsApp').fill('85988887777');
   await expect(page.getByRole('link', { name: 'Política de privacidade' })).toBeVisible();

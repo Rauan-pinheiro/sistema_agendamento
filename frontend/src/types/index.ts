@@ -5,6 +5,9 @@ export interface Empresa {
   whatsapp_contato: string;
   /** Cor de destaque da página pública (#RRGGBB). */
   cor_destaque: string;
+  /** Capa da página pública em srcset; null sem foto (a página usa o gradiente da cor). */
+  capa?: { url: string; srcset: string } | null;
+  logo_url?: string | null;
 }
 
 export interface Profissional {
@@ -13,6 +16,7 @@ export interface Profissional {
   nome: string;
   especialidade: string;
   ativo: boolean;
+  foto_url?: string | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -22,6 +26,7 @@ export interface ProfissionalPublico {
   id: number;
   nome: string;
   especialidade: string;
+  foto_url?: string | null;
 }
 
 export interface Servico {

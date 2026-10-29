@@ -31,12 +31,12 @@ test.describe('Ver mais do serviço', () => {
     // ── Cliente: página pública ─────────────────────────────────────────────
     await page.goto('/carga-1');
     const nomeExato = new RegExp(`^${nomeServico.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
-    const card = page.locator('.service-card').filter({ has: page.locator('.service-name', { hasText: nomeExato }) });
+    const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: nomeExato }) });
     await card.getByRole('button', { name: /ver mais/i }).click();
 
     const modal = page.getByRole('dialog', { name: nomeServico });
     await expect(modal).toBeVisible();
-    const marcar = card.locator('.pub-servico-marcar');
+    const marcar = card.getByRole('button', { name: /^Adicionar / });
     await expect(marcar).toHaveAttribute('aria-pressed', 'false'); // "Ver mais" não marca o serviço
     await expect(modal.locator('iframe')).toHaveCount(0); // player ainda não carregou
 

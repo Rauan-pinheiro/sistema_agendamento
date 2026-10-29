@@ -59,7 +59,8 @@ export function corLegivel(hex: string): boolean {
  *  --destaque        preenchimento (botões, seleção): 3:1 contra a superfície e 4,5:1 para o texto sobre ela
  *  --sobre-destaque  texto sobre o preenchimento
  *  --destaque-suave  fundo de seleção
- *  --destaque-texto  cor como texto: 4,5:1 sobre o fundo e sobre o tom suave
+ *  --destaque-texto  cor como texto: 4,5:1 sobre o fundo, a superfície e o tom suave
+ *  --destaque-profundo  fim do gradiente da capa sem foto (afasta do texto, nunca aproxima)
  */
 export function variaveisDestaque(hex: string | null | undefined, tema: TemaCor): Record<string, string> {
   const base = hex && HEX.test(hex) ? hex.toUpperCase() : COR_PADRAO;
@@ -68,11 +69,13 @@ export function variaveisDestaque(hex: string | null | undefined, tema: TemaCor)
   let fill = ajustar(base, surface, 3);
   for (let i = 0; i < 24 && contraste(fill, textoSobre(fill)) < 4.5; i++) fill = misturar(fill, rumo, 0.08);
   const suave = misturar(fill, surface, tema === 'dark' ? 0.8 : 0.86);
+  const sobre = textoSobre(fill);
   return {
     '--destaque': fill,
-    '--sobre-destaque': textoSobre(fill),
+    '--sobre-destaque': sobre,
     '--destaque-suave': suave,
-    '--destaque-texto': ajustar(ajustar(base, bg, 4.5), suave, 4.5),
+    '--destaque-texto': ajustar(ajustar(ajustar(base, bg, 4.5), suave, 4.5), surface, 4.5),
+    '--destaque-profundo': misturar(fill, sobre === '#FFFFFF' ? '#000000' : '#FFFFFF', 0.35),
   };
 }
 

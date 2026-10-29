@@ -48,6 +48,8 @@ describe('cor de destaque', () => {
         expect(contraste(v['--destaque'], v['--sobre-destaque']), `${c} texto sobre`).toBeGreaterThanOrEqual(4.5);
         expect(contraste(v['--destaque-texto'], bg), `${c} como texto`).toBeGreaterThanOrEqual(4.5);
         expect(contraste(v['--destaque-texto'], v['--destaque-suave']), `${c} texto no suave`).toBeGreaterThanOrEqual(4.5);
+        expect(contraste(v['--destaque-texto'], surface), `${c} texto na superfície`).toBeGreaterThanOrEqual(4.5);
+        expect(contraste(v['--destaque-profundo'], v['--sobre-destaque']), `${c} capa sem foto`).toBeGreaterThanOrEqual(4.5);
       }
     });
   }

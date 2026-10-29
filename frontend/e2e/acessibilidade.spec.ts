@@ -25,15 +25,15 @@ for (const tema of ['light', 'dark'] as const) {
       await expect(page.getByRole('button', { name: /entrar/i })).toBeVisible();
       await semViolacoes(page);
       await page.goto('/carga-1');
-      await expect(page.getByRole('heading', { name: 'O que você vai fazer?' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Serviços' })).toBeVisible();
       await semViolacoes(page);
       // Estado com serviço, dia e horário escolhidos (botões marcados e barra de resumo)
-      await page.getByRole('button', { name: /^Escolher Corte masculino/ }).click();
-      const prof = page.locator('.pub-profissional').first();
+      await page.getByRole('button', { name: /^Adicionar Corte masculino/ }).click();
+      const prof = page.locator('.membro').first();
       if (await prof.count()) await prof.click();
-      await page.locator('.pub-dia').nth(2).click();
-      await page.locator('.pub-horario:not([disabled])').first().click();
-      await expect(page.locator('.pub-horario[aria-pressed="true"]')).toHaveCount(1);
+      await page.getByRole('group', { name: 'Próximos dias' }).getByRole('button').nth(2).click();
+      await page.locator('.chip-horario:not([disabled])').first().click();
+      await expect(page.locator('.chip-horario[aria-pressed="true"]')).toHaveCount(1);
       await semViolacoes(page);
     });
 

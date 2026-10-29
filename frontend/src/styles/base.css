@@ -75,3 +75,6 @@ button:disabled { cursor: not-allowed; }
     scroll-behavior: auto !important;
   }
 }
+
+/* Carregamento do chunk da rota (Suspense em App.tsx) */
+.public-loading { min-height: 60dvh; display: grid; place-items: center; color: var(--text-muted); }

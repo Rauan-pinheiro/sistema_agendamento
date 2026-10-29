@@ -1,109 +1,69 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type RefObject } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Check, ChevronRight, Clock, Images, MessageCircle } from 'lucide-react';
+import { CalendarX2, Check, CloudOff, PauseCircle, Scissors, SearchX } from 'lucide-react';
 import { createAgendamentoPublico, getHorariosDisponiveis, getPaginaPublica } from '../../api/public';
-import type { Empresa, ProfissionalPublico, ServicoPublico, SlotDisponivel } from '../../types';
+import { Avatar, Campo, ChipHorario, EstadoVazio, Skeleton } from '../../components/ui';
 import { useCorEmpresa } from '../../hooks/useCorEmpresa';
+import type { Empresa, ProfissionalPublico, ServicoPublico, SlotDisponivel } from '../../types';
 import { formatPhone, isValidPhone, normalizePhone } from '../../utils/phone';
+import { CalendarPicker } from './CalendarPicker';
+import { CapaEmpresa } from './CapaEmpresa';
+import { CartaoServico } from './CartaoServico';
+import { ResumoVisita } from './ResumoVisita';
 import { ServicoDetalhes } from './ServicoDetalhes';
+import { DIAS_CURTOS, deIso, fmtBRL, fmtDuracao, fotoDoServico, isoLocal, labelDia, turno } from './util';
 
-const DIAS_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-const DIAS_CURTOS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto',
-  'setembro', 'outubro', 'novembro', 'dezembro'];
 const DIAS_NA_FAIXA = 14;
 
-/** Data local YYYY-MM-DD (toISOString usa UTC e erraria o dia à noite). */
-function isoLocal(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function deIso(iso: string): Date {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-function fmtBRL(valor: number): string {
-  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: valor % 1 ? 2 : 0 });
-}
-function labelDia(iso: string): string {
-  const d = deIso(iso);
-  return `${DIAS_SEMANA[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]}`;
-}
-function initials(nome: string): string {
-  return nome.split(' ').slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase();
-}
-function turno(hora: string): 'Manhã' | 'Tarde' | 'Noite' {
-  const h = Number(hora.slice(0, 2));
-  return h < 12 ? 'Manhã' : h < 18 ? 'Tarde' : 'Noite';
-}
+type Consulta = { chave: string; slots: SlotDisponivel[]; fechado: boolean; erro: boolean };
+type ErroPagina = 'nao-encontrada' | 'suspensa' | 'rede';
 
-/* ── Calendário (outra data) ─────────────────────────────────────────────── */
-function CalendarPicker({ value, onChange, min }: { value: string; onChange: (d: string) => void; min: string }) {
-  const base = value ? deIso(value) : new Date();
-  const [ano, setAno] = useState(base.getFullYear());
-  const [mes, setMes] = useState(base.getMonth());
-  const minimo = deIso(min);
-  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
-  const primeiro = (new Date(ano, mes, 1).getDay() + 6) % 7; // segunda = 0
-  const podeVoltar = new Date(ano, mes, 1) > new Date(minimo.getFullYear(), minimo.getMonth(), 1);
-
-  function mudar(delta: number) {
-    const d = new Date(ano, mes + delta, 1);
-    setAno(d.getFullYear());
-    setMes(d.getMonth());
-  }
-
+/* ── Estados de página inteira ───────────────────────────────────────────── */
+function Carregando() {
   return (
-    <div className="calendar-picker">
-      <div className="calendar-header">
-        <button type="button" className="calendar-nav-btn" onClick={() => mudar(-1)} disabled={!podeVoltar} aria-label="Mês anterior">‹</button>
-        <span className="calendar-month-label" aria-live="polite">{MESES[mes]} de {ano}</span>
-        <button type="button" className="calendar-nav-btn" onClick={() => mudar(1)} aria-label="Próximo mês">›</button>
-      </div>
-      <div className="calendar-weekdays" aria-hidden>
-        {['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map((d) => <span key={d} className="calendar-weekday">{d}</span>)}
-      </div>
-      <div className="calendar-days">
-        {Array.from({ length: primeiro }, (_, i) => <span key={`v${i}`} className="calendar-day calendar-day--empty" />)}
-        {Array.from({ length: diasNoMes }, (_, i) => {
-          const dia = new Date(ano, mes, i + 1);
-          const iso = isoLocal(dia);
-          const passado = dia < minimo;
-          return (
-            <button
-              key={iso}
-              type="button"
-              disabled={passado}
-              aria-pressed={value === iso}
-              aria-label={labelDia(iso)}
-              onClick={() => onChange(iso)}
-              className={['calendar-day', passado && 'calendar-day--past', value === iso && 'calendar-day--selected',
-                iso === min && 'calendar-day--today'].filter(Boolean).join(' ')}
-            >
-              {i + 1}
-            </button>
-          );
-        })}
+    <div className="sup-vitrine pub-pagina" aria-busy="true">
+      <span className="sr-only" role="status">Carregando…</span>
+      <div className="capa capa--esqueleto"><Skeleton altura="100%" /></div>
+      <div className="pub-corpo">
+        <div className="cartoes">
+          {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} altura={240} className="esqueleto-cartao" />)}
+        </div>
       </div>
     </div>
   );
 }
 
-type Consulta = { chave: string; slots: SlotDisponivel[]; fechado: boolean; erro: boolean };
+function PaginaErro({ tipo, onTentar }: { tipo: ErroPagina; onTentar: () => void }) {
+  const conteudo = {
+    'nao-encontrada': { icone: SearchX, titulo: 'Página não encontrada', texto: 'Confira se o link está completo ou peça o link certo para a empresa.' },
+    suspensa: { icone: PauseCircle, titulo: 'Agendamento online indisponível', texto: 'Esta empresa pausou o agendamento online por enquanto. Fale com ela diretamente para marcar seu horário.' },
+    rede: { icone: CloudOff, titulo: 'Não foi possível carregar', texto: 'Confira sua conexão com a internet e tente de novo.' },
+  }[tipo];
+  return (
+    <main className="sup-vitrine pub-pagina pub-estado">
+      <EstadoVazio icone={conteudo.icone} titulo={conteudo.titulo} nivel={2}
+        acao={tipo === 'rede' && <button type="button" className="btn btn-primary" onClick={onTentar}>Tentar de novo</button>}>
+        {conteudo.texto}
+      </EstadoVazio>
+    </main>
+  );
+}
 
 /* ── Página ──────────────────────────────────────────────────────────────── */
 export function PublicPage() {
   const { slug } = useParams<{ slug: string }>();
+  const hoje = isoLocal(new Date());
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [servicos, setServicos] = useState<ServicoPublico[]>([]);
   const [profissionais, setProfissionais] = useState<ProfissionalPublico[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [erro, setErro] = useState<ErroPagina | null>(null);
+  const [tentativa, setTentativa] = useState(0);
 
   const [servicosIds, setServicosIds] = useState<number[]>([]);
   const [detalheId, setDetalheId] = useState<number | null>(null);
   const [profEscolhido, setProfEscolhido] = useState<number | null>(null);
-  const [dataSelecionada, setDataSelecionada] = useState('');
+  const [dataSelecionada, setDataSelecionada] = useState(hoje);
   const [mostrarCalendario, setMostrarCalendario] = useState(false);
   const [slotSelecionado, setSlotSelecionado] = useState('');
   const [consulta, setConsulta] = useState<Consulta | null>(null);
@@ -119,22 +79,31 @@ export function PublicPage() {
 
   const quandoRef = useRef<HTMLElement>(null);
   const dadosRef = useRef<HTMLElement>(null);
-  const hoje = isoLocal(new Date());
+
+  useCorEmpresa(empresa?.cor_destaque);
 
   useEffect(() => {
     if (!slug) return;
+    let vivo = true;
     getPaginaPublica(slug)
-      .then((p) => { setEmpresa(p.empresa); setServicos(p.servicos); setProfissionais(p.profissionais); })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
-  }, [slug]);
+      .then((p) => {
+        if (!vivo) return;
+        setEmpresa(p.empresa); setServicos(p.servicos); setProfissionais(p.profissionais); setErro(null);
+      })
+      .catch((e: { response?: { status?: number } }) => {
+        if (!vivo) return;
+        const st = e?.response?.status;
+        setErro(st === 404 ? 'nao-encontrada' : st === 410 ? 'suspensa' : 'rede');
+      });
+    return () => { vivo = false; };
+  }, [slug, tentativa]);
 
   // Um profissional só: escolhido automaticamente; vários: a pessoa escolhe
   const profissionalId = profissionais.length === 1 ? profissionais[0].id : profEscolhido;
   const precisaProfissional = profissionais.length > 1;
   const dataLiberada = servicosIds.length > 0 && (!precisaProfissional || profissionalId !== null);
 
-  // Horários: derivados da "chave" da consulta — sem setState síncrono em efeito
+  // Horários: derivados da "chave" da consulta (sem setState síncrono em efeito)
   const chaveConsulta = dataLiberada && dataSelecionada && slug
     ? `${slug}|${dataSelecionada}|${servicosIds.join(',')}|${profissionalId ?? ''}|${recarga}` : '';
   useEffect(() => {
@@ -155,10 +124,12 @@ export function PublicPage() {
     () => servicosIds.map((id) => servicos.find((s) => s.id === id)).filter(Boolean) as ServicoPublico[],
     [servicosIds, servicos],
   );
-  const duracaoTotal = selecionados.reduce((a, s) => a + s.duracao_min, 0);
-  const precoTotal = selecionados.reduce((a, s) => a + Number(s.preco), 0);
   const slotAtual = slots.find((s) => s.datetime === slotSelecionado);
   const profAtual = profissionais.find((p) => p.id === profissionalId);
+
+  // Vitrine com foto quando a maioria dos serviços tem foto; senão, lista compacta (empresa sem fotos)
+  const comFoto = servicos.filter((s) => fotoDoServico(s)).length;
+  const modoCartao = comFoto > 0 && comFoto * 2 >= servicos.length ? 'foto' : 'compacto';
 
   const porTurno = useMemo(() => {
     const grupos: Record<string, SlotDisponivel[]> = {};
@@ -173,26 +144,27 @@ export function PublicPage() {
   }), []);
   const dataForaDaFaixa = dataSelecionada && !proximosDias.some((d) => isoLocal(d) === dataSelecionada);
 
-  function limparAgenda() {
-    setSlotSelecionado('');
-  }
+  const rolar = (ref: RefObject<HTMLElement | null>) =>
+    requestAnimationFrame(() => ref.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
+
   function toggleServico(id: number) {
     setServicosIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-    limparAgenda();
+    setSlotSelecionado('');
   }
   function escolherProfissional(id: number) {
     setProfEscolhido(id);
-    limparAgenda();
+    setSlotSelecionado('');
+    rolar(quandoRef);
   }
   function escolherData(iso: string) {
     setDataSelecionada(iso);
     setMostrarCalendario(false);
-    limparAgenda();
+    setSlotSelecionado('');
   }
   function escolherSlot(e: MouseEvent<HTMLButtonElement>) {
     setSlotSelecionado(e.currentTarget.dataset.dt ?? '');
     setFormError('');
-    requestAnimationFrame(() => dadosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    rolar(dadosRef);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -223,7 +195,7 @@ export function PublicPage() {
         msg ? String(Array.isArray(msg) ? msg[0] : msg)
           : 'Não foi possível concluir o agendamento. Confira sua conexão e tente de novo.',
       );
-      if (dados?.data_hora) { setSlotSelecionado(''); setRecarga((n) => n + 1); } // horário tomado: recarrega a grade
+      if (dados?.data_hora) { setSlotSelecionado(''); setRecarga((n) => n + 1); rolar(quandoRef); } // horário tomado
     } finally {
       setSubmitting(false);
     }
@@ -233,267 +205,160 @@ export function PublicPage() {
     setConfirmado(null);
     setServicosIds([]);
     setProfEscolhido(null);
-    setDataSelecionada('');
+    setDataSelecionada(hoje);
     setSlotSelecionado('');
     setFormError('');
   }
 
-  useCorEmpresa(empresa?.cor_destaque);
-  const estilo = undefined;
+  if (erro) return <PaginaErro tipo={erro} onTentar={() => { setErro(null); setTentativa((n) => n + 1); }} />;
+  if (!empresa) return <Carregando />;
 
-  if (loading) return <div className="public-loading" role="status">Carregando…</div>;
-  if (notFound) {
+  if (confirmado) {
+    const duracao = selecionados.reduce((a, s) => a + s.duracao_min, 0);
+    const total = selecionados.reduce((a, s) => a + Number(s.preco), 0);
     return (
-      <div className="public-not-found">
-        <h2>Página não encontrada</h2>
-        <p>Confira se o link está completo ou peça o link certo para a empresa.</p>
-      </div>
-    );
-  }
-
-  if (confirmado && empresa) {
-    return (
-      <div className="pub pub-sucesso" style={estilo}>
-        <div className="pub-sucesso-card">
-          <div className="pub-sucesso-icone" aria-hidden><Check size={28} strokeWidth={3} /></div>
-          <h2>Pedido de agendamento enviado</h2>
+      <main className="sup-vitrine pub-pagina pub-estado">
+        <div className="pub-sucesso">
+          <span className="pub-sucesso-icone" aria-hidden><Check size={28} strokeWidth={3} /></span>
+          <h1>Pedido de agendamento enviado</h1>
           <div className="pub-sucesso-detalhe">
             <strong>{labelDia(confirmado.data)}, {confirmado.hora}</strong>
             <span>{selecionados.map((s) => s.nome).join(' + ')}{profAtual ? `, com ${profAtual.nome}` : ''}</span>
-            <span className="text-muted">{fmtBRL(precoTotal)}, cerca de {duracaoTotal} min</span>
+            <span className="text-muted">{fmtBRL(total)}, cerca de {fmtDuracao(duracao)}</span>
           </div>
           <p className="text-muted">{empresa.nome_fantasia} vai confirmar pelo WhatsApp {formatPhone(whatsappCliente)}.</p>
           <button type="button" className="btn btn-secondary btn-full" onClick={recomecar}>Fazer outro agendamento</button>
         </div>
-      </div>
+      </main>
     );
   }
 
-  const acaoBarra = !dataLiberada || !slotSelecionado
-    ? { rotulo: 'Escolher horário', tipo: 'button' as const }
-    : { rotulo: submitting ? 'Agendando…' : 'Agendar', tipo: 'submit' as const };
+  const acao = !dataLiberada
+    ? { rotulo: 'Escolha o profissional', tipo: 'button' as const, desabilitado: true, carregando: false }
+    : !slotSelecionado
+      ? { rotulo: 'Escolher horário', tipo: 'button' as const, desabilitado: false, carregando: false, onClick: () => rolar(quandoRef) }
+      : { rotulo: submitting ? 'Agendando…' : 'Agendar', tipo: 'submit' as const, desabilitado: submitting, carregando: submitting };
 
   return (
-    <div className="pub" style={estilo}>
-      <div className="pub-conteudo">
-        <header className="pub-header">
-          <p className="pub-header-sub">Agende online e receba a confirmação no WhatsApp</p>
-          <h1>{empresa?.nome_fantasia}</h1>
-          {empresa?.whatsapp_contato && (
-            <a href={`https://wa.me/55${empresa.whatsapp_contato}`} className="pub-whatsapp" target="_blank" rel="noopener noreferrer">
-              <MessageCircle size={18} aria-hidden /> {formatPhone(empresa.whatsapp_contato)}
-            </a>
-          )}
-        </header>
+    <div className="sup-vitrine pub-pagina">
+      <CapaEmpresa empresa={empresa} />
 
-        <section className="pub-secao" aria-labelledby="titulo-servicos">
-          <h2 id="titulo-servicos">O que você vai fazer?</h2>
-          {servicos.length === 0 ? (
-            <p className="pub-aviso">Esta empresa ainda não cadastrou serviços para agendamento online.</p>
-          ) : (
-            <div className="pub-servicos">
-              {servicos.map((s) => {
-                const marcado = servicosIds.includes(s.id);
-                const capa = s.midias.find((m) => m.thumb_url)?.thumb_url;
-                const temVerMais = s.midias.length > 0 || s.descricao.length > 90;
-                return (
-                  <div key={s.id} className="pub-servico service-card">
-                    <button
-                      type="button"
-                      className="pub-servico-marcar"
-                      aria-pressed={marcado}
-                      aria-label={`${marcado ? 'Remover' : 'Escolher'} ${s.nome}`}
-                      onClick={() => toggleServico(s.id)}
-                    >
-                      {marcado && <Check size={18} strokeWidth={3} aria-hidden />}
-                    </button>
-                    <div className="pub-servico-info">
-                      <button type="button" className="pub-servico-nome service-name" onClick={() => toggleServico(s.id)} tabIndex={-1}>
-                        {s.nome}
-                      </button>
-                      {s.descricao && <p className="pub-servico-desc">{s.descricao}</p>}
-                      <p className="pub-servico-meta">
-                        <span><Clock size={14} aria-hidden /> {s.duracao_min} min</span>
-                        {s.midias.length > 0 && <span><Images size={14} aria-hidden /> {s.midias.length} {s.midias.length === 1 ? 'foto ou vídeo' : 'fotos e vídeos'}</span>}
-                      </p>
-                      {temVerMais && (
-                        <button type="button" className="pub-ver-mais service-ver-mais" onClick={() => setDetalheId(s.id)} aria-haspopup="dialog">
-                          Ver mais <ChevronRight size={16} aria-hidden />
-                        </button>
-                      )}
-                    </div>
-                    <div className="pub-servico-direita">
-                      <span className="pub-servico-preco">{fmtBRL(Number(s.preco))}</span>
-                      {capa && <img className="pub-servico-capa" src={capa} alt="" loading="lazy" decoding="async" width={64} height={64} />}
-                    </div>
-                  </div>
-                );
-              })}
+      <div className="pub-corpo">
+        <main className="pub-principal">
+          <section className="secao" aria-labelledby="titulo-servicos">
+            <div className="secao-cab">
+              <h2 id="titulo-servicos">Serviços</h2>
+              {servicos.length > 1 && <span>Escolha um ou mais</span>}
             </div>
-          )}
-        </section>
-
-        {servicosIds.length > 0 && precisaProfissional && (
-          <section className="pub-secao" aria-labelledby="titulo-prof">
-            <h2 id="titulo-prof">Com quem?</h2>
-            <div className="pub-profissionais">
-              {profissionais.map((p) => (
-                <button key={p.id} type="button" className="pub-profissional" aria-pressed={profissionalId === p.id} onClick={() => escolherProfissional(p.id)}>
-                  <span className="profissional-avatar" aria-hidden>{initials(p.nome)}</span>
-                  <span>
-                    <span className="pub-profissional-nome">{p.nome}</span>
-                    {p.especialidade && <span className="pub-profissional-esp"><br />{p.especialidade}</span>}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {dataLiberada && (
-          <section className="pub-secao" aria-labelledby="titulo-quando" ref={quandoRef}>
-            <h2 id="titulo-quando">Quando?</h2>
-            <div className="pub-dias" role="group" aria-label="Próximos dias">
-              {proximosDias.map((d) => {
-                const iso = isoLocal(d);
-                return (
-                  <button key={iso} type="button" className="pub-dia" aria-pressed={dataSelecionada === iso} aria-label={labelDia(iso)} onClick={() => escolherData(iso)}>
-                    <span className="pub-dia-semana">{iso === hoje ? 'hoje' : DIAS_CURTOS[d.getDay()]}</span>
-                    <span className="pub-dia-num">{d.getDate()}</span>
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                className="pub-dia pub-dia--mais"
-                aria-pressed={!!dataForaDaFaixa || mostrarCalendario}
-                aria-expanded={mostrarCalendario}
-                onClick={() => setMostrarCalendario((v) => !v)}
-              >
-                {dataForaDaFaixa ? `${deIso(dataSelecionada).getDate()}/${deIso(dataSelecionada).getMonth() + 1}` : 'Outra data'}
-              </button>
-            </div>
-            {mostrarCalendario && <CalendarPicker value={dataSelecionada} onChange={escolherData} min={hoje} />}
-
-            {/* Horário tomado por outra pessoa: o formulário some junto com o horário, então o aviso fica aqui */}
-            {formError && !slotSelecionado && <p className="form-error" role="alert">{formError}</p>}
-
-            {!dataSelecionada ? (
-              <p className="pub-secao-dica">Escolha um dia para ver os horários livres.</p>
+            {servicos.length === 0 ? (
+              <EstadoVazio icone={Scissors} titulo="Ainda sem serviços online">
+                {empresa.nome_fantasia} ainda não cadastrou serviços para agendamento online. Fale pelo WhatsApp para marcar.
+              </EstadoVazio>
             ) : (
-              <div aria-live="polite" aria-busy={carregandoSlots}>
-                <p className="pub-turno">{labelDia(dataSelecionada)}</p>
+              <div className={modoCartao === 'foto' ? 'cartoes' : 'cartoes cartoes--compactos'}>
+                {servicos.map((s) => (
+                  <CartaoServico key={s.id} servico={s} modo={modoCartao}
+                    selecionado={servicosIds.includes(s.id)}
+                    onToggle={() => toggleServico(s.id)} onVerMais={() => setDetalheId(s.id)} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {servicosIds.length > 0 && precisaProfissional && (
+            <section className="secao" aria-labelledby="titulo-prof">
+              <div className="secao-cab"><h2 id="titulo-prof">Com quem?</h2></div>
+              <div className="equipe">
+                {profissionais.map((p) => (
+                  <button key={p.id} type="button" className="membro" aria-pressed={profissionalId === p.id}
+                    onClick={() => escolherProfissional(p.id)}>
+                    <Avatar nome={p.nome} foto={p.foto_url} tamanho={64} />
+                    <b>{p.nome}</b>
+                    {p.especialidade && <small>{p.especialidade}</small>}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {dataLiberada && (
+            <section className="secao" aria-labelledby="titulo-quando" ref={quandoRef}>
+              <div className="secao-cab">
+                <h2 id="titulo-quando">Quando?</h2>
+                {profAtual && precisaProfissional && <span>Livres de {profAtual.nome.split(' ')[0]}</span>}
+              </div>
+              <div className="dias" role="group" aria-label="Próximos dias">
+                {proximosDias.map((d) => {
+                  const iso = isoLocal(d);
+                  return (
+                    <button key={iso} type="button" className="dia" aria-pressed={dataSelecionada === iso}
+                      aria-label={labelDia(iso)} onClick={() => escolherData(iso)}>
+                      <small>{iso === hoje ? 'Hoje' : DIAS_CURTOS[d.getDay()]}</small>
+                      <b>{d.getDate()}</b>
+                    </button>
+                  );
+                })}
+                <button type="button" className="dia dia--mais" aria-pressed={!!dataForaDaFaixa || mostrarCalendario}
+                  aria-expanded={mostrarCalendario} onClick={() => setMostrarCalendario((v) => !v)}>
+                  {dataForaDaFaixa ? `${deIso(dataSelecionada).getDate()}/${deIso(dataSelecionada).getMonth() + 1}` : 'Outra data'}
+                </button>
+              </div>
+              {mostrarCalendario && <CalendarPicker value={dataSelecionada} onChange={escolherData} min={hoje} />}
+
+              {/* Horário tomado por outra pessoa: o formulário some junto com o horário, então o aviso fica aqui */}
+              {formError && !slotSelecionado && <p className="form-error" role="alert">{formError}</p>}
+
+              <div className="turnos" aria-live="polite" aria-busy={carregandoSlots}>
+                <p className="turnos-dia">{labelDia(dataSelecionada)}</p>
                 {carregandoSlots ? (
-                  <div className="pub-horarios">
-                    {Array.from({ length: 6 }, (_, i) => <div key={i} className="skeleton" style={{ height: 56 }} />)}
+                  <div className="slots">
+                    {Array.from({ length: 8 }, (_, i) => <Skeleton key={i} largura={76} altura={44} className="esqueleto-slot" />)}
                   </div>
                 ) : consultaAtual?.erro ? (
                   <p className="pub-aviso">Não foi possível carregar os horários. Toque no dia de novo para tentar outra vez.</p>
                 ) : consultaAtual?.fechado ? (
-                  <p className="pub-aviso"><strong>{empresa?.nome_fantasia}</strong> não atende neste dia. Escolha outra data.</p>
+                  <p className="pub-aviso"><CalendarX2 size={18} aria-hidden /> <span><strong>{empresa.nome_fantasia}</strong> não atende neste dia. Escolha outra data.</span></p>
                 ) : slots.every((s) => !s.disponivel) ? (
-                  <p className="pub-aviso">Os horários deste dia já foram preenchidos. Escolha outra data.</p>
+                  <p className="pub-aviso"><CalendarX2 size={18} aria-hidden /> Não há horários livres neste dia. Escolha outra data.</p>
                 ) : (
                   porTurno.map(([nome, lista]) => (
-                    <div key={nome}>
-                      <p className="pub-turno">{nome}</p>
-                      <div className="pub-horarios">
+                    <div key={nome} className="turno">
+                      <h3>{nome}</h3>
+                      <div className="slots">
                         {lista.map((slot) => (
-                          <button
-                            key={slot.datetime}
-                            type="button"
-                            className="pub-horario"
-                            disabled={!slot.disponivel}
-                            aria-pressed={slotSelecionado === slot.datetime}
-                            aria-label={slot.disponivel ? slot.hora : `${slot.hora}, ocupado`}
-                            data-dt={slot.datetime}
-                            onClick={escolherSlot}
-                          >
-                            {slot.hora}
-                          </button>
+                          <ChipHorario key={slot.datetime} hora={slot.hora} disabled={!slot.disponivel}
+                            selecionado={slotSelecionado === slot.datetime} data-dt={slot.datetime} onClick={escolherSlot} />
                         ))}
                       </div>
                     </div>
                   ))
                 )}
               </div>
-            )}
-          </section>
-        )}
+            </section>
+          )}
 
-        {slotSelecionado && (
-          <section className="pub-secao" aria-labelledby="titulo-dados" ref={dadosRef}>
-            <h2 id="titulo-dados">Seus dados</h2>
-            <form id="form-agendar" className="pub-form" onSubmit={handleSubmit} noValidate>
-              <div className="form-group">
-                <label htmlFor="pub-nome">Seu nome</label>
-                <input
-                  id="pub-nome"
-                  value={nomeCliente}
-                  onChange={(e) => { setNomeCliente(e.target.value); setErroNome(''); }}
-                  autoComplete="name"
-                  aria-invalid={!!erroNome}
-                  aria-describedby={erroNome ? 'pub-nome-erro' : undefined}
-                  required
-                />
-                {erroNome && <span id="pub-nome-erro" className="form-error">{erroNome}</span>}
-              </div>
-              <div className="form-group">
-                <label htmlFor="pub-zap">WhatsApp</label>
-                <input
-                  id="pub-zap"
-                  value={whatsappCliente}
-                  onChange={(e) => { setWhatsappCliente(formatPhone(e.target.value)); setErroFone(''); }}
-                  inputMode="tel"
-                  autoComplete="tel-national"
-                  placeholder="(85) 98888-7777"
-                  aria-invalid={!!erroFone}
-                  aria-describedby={erroFone ? 'pub-zap-erro' : 'pub-zap-dica'}
-                  required
-                />
-                {erroFone
-                  ? <span id="pub-zap-erro" className="form-error">{erroFone}</span>
-                  : <span id="pub-zap-dica" className="form-hint">A confirmação chega por aqui.</span>}
-              </div>
-              {formError && <p className="form-error" role="alert">{formError}</p>}
-              <p className="pub-privacidade">
-                Seu nome e WhatsApp são usados por {empresa?.nome_fantasia ?? 'esta empresa'} apenas para este
-                atendimento. <Link to="/privacidade" target="_blank">Política de privacidade</Link>
-              </p>
-            </form>
-          </section>
-        )}
+          {slotSelecionado && (
+            <section className="secao" aria-labelledby="titulo-dados" ref={dadosRef}>
+              <div className="secao-cab"><h2 id="titulo-dados">Seus dados</h2></div>
+              <form id="form-agendar" className="pub-form" onSubmit={handleSubmit} noValidate>
+                <Campo id="pub-nome" rotulo="Seu nome" value={nomeCliente} autoComplete="name" required erro={erroNome}
+                  onChange={(e) => { setNomeCliente(e.target.value); setErroNome(''); }} />
+                <Campo id="pub-zap" rotulo="WhatsApp" value={whatsappCliente} inputMode="tel" autoComplete="tel-national"
+                  placeholder="(85) 98888-7777" required erro={erroFone} dica="A confirmação chega por aqui."
+                  onChange={(e) => { setWhatsappCliente(formatPhone(e.target.value)); setErroFone(''); }} />
+                {formError && <p className="form-error" role="alert">{formError}</p>}
+                <p className="pub-privacidade">
+                  Seu nome e WhatsApp são usados por {empresa.nome_fantasia} apenas para este
+                  atendimento. <Link to="/privacidade" target="_blank">Política de privacidade</Link>
+                </p>
+              </form>
+            </section>
+          )}
+        </main>
+
+        <ResumoVisita selecionados={selecionados} profissional={profAtual} data={dataSelecionada}
+          hora={slotAtual?.hora} acao={acao} />
       </div>
-
-      {selecionados.length > 0 && (
-        <div className="pub-barra" role="region" aria-label="Resumo do agendamento">
-          <div className="pub-barra-interna">
-            <div className="pub-barra-resumo">
-              <span className="pub-barra-linha">
-                {selecionados.map((s) => s.nome).join(' + ')}
-                {slotAtual ? `, ${DIAS_CURTOS[deIso(dataSelecionada).getDay()]} ${deIso(dataSelecionada).getDate()} às ${slotAtual.hora}` : ''}
-              </span>
-              <span className="pub-barra-total">{fmtBRL(precoTotal)}<small>{duracaoTotal} min</small></span>
-            </div>
-            {acaoBarra.tipo === 'submit' ? (
-              <button type="submit" form="form-agendar" className="btn" disabled={submitting}>
-                {submitting && <span className="btn-spinner" aria-hidden />}
-                {acaoBarra.rotulo}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => quandoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                disabled={!dataLiberada}
-                title={!dataLiberada ? 'Escolha com quem você quer ser atendido' : undefined}
-              >
-                {dataLiberada ? acaoBarra.rotulo : 'Escolha o profissional'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       <ServicoDetalhes
         servico={servicos.find((x) => x.id === detalheId) ?? null}
