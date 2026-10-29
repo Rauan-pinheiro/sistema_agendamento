@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgendamentoPublico, getHorariosDisponiveis, getPaginaPublica } from '../../../api/public';
 import type { PaginaPublica, ProfissionalPublico } from '../../../types';
+import { ThemeProvider } from '../../../context/ThemeContext';
 import { PublicPage } from '../PublicPage';
 
 vi.mock('../../../api/public', () => ({
@@ -28,9 +29,11 @@ function pagina(profissionais: ProfissionalPublico[] = []): PaginaPublica {
 
 function renderizar() {
   render(
-    <MemoryRouter initialEntries={['/teste']}>
-      <Routes><Route path="/:slug" element={<PublicPage />} /></Routes>
-    </MemoryRouter>,
+    <ThemeProvider>
+      <MemoryRouter initialEntries={['/teste']}>
+        <Routes><Route path="/:slug" element={<PublicPage />} /></Routes>
+      </MemoryRouter>
+    </ThemeProvider>,
   );
 }
 

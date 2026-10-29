@@ -1,66 +1,78 @@
 /*
- * Design tokens — direção "Marca-texto".
- * Agenda de papel bem cuidada: fundo claro levemente esverdeado, tinta
- * verde-escura, verde-pinho como cor de ação e um amarelo marca-texto usado
- * SÓ para destacar a escolha da pessoa (o horário, o item selecionado).
+ * Design tokens do AgendaFácil: um só sistema, duas superfícies.
  *
- * Tema: segue o sistema (prefers-color-scheme). `data-theme="light|dark"` no
- * <html> força um tema quando a pessoa escolhe manualmente no painel.
+ *   .sup-painel  (Direção A, "Calmo")   painel do dono: denso, linhas de 1 px, sem sombra em repouso.
+ *   .sup-vitrine (Direção B, "Vitrine") página pública: raios generosos, pílulas, sombras macias.
  *
- * --destaque é a cor de cada empresa na página pública (Empresa.cor_destaque);
- * --sobre-destaque é o texto legível sobre ela (calculado no front).
+ * Cores, tipografia, espaço, estados e movimento são compartilhados. As superfícies só trocam
+ * os tokens de forma (raios, sombras, corpo do texto). Detalhes em docs/design/sistema.md.
+ *
+ * Tema: segue o sistema (prefers-color-scheme). `data-theme="light|dark"` no <html> força um
+ * tema quando a pessoa escolhe manualmente.
+ *
+ * Cor da empresa: --destaque, --sobre-destaque, --destaque-texto e --destaque-suave. Os valores
+ * abaixo são o padrão (verde do produto); o hook useCorEmpresa recalcula os quatro para a cor de
+ * cada empresa e para o tema atual, mantendo contraste WCAG AA (utils/cor.ts).
  */
+@font-face {
+  font-family: 'Figtree';
+  src: url('../assets/fontes/figtree.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215;
+}
+
 :root {
   color-scheme: light;
 
-  /* Superfícies */
-  --bg: #F6F7F4;
+  /* Superfícies e texto (neutros frios) */
+  --bg: #F7F8FA;
   --surface: #FFFFFF;
-  --surface-2: #EEF1EC;          /* área rebaixada, hover */
-  --border: #DCE1DC;
-  --border-strong: #7C8A89;      /* contorno de campos: 3:1 */
+  --surface-2: #F0F2F5;          /* rebaixado, hover */
+  --border: #E3E6EB;
+  --border-strong: #8A909C;      /* contorno de campos: 3:1 */
+  --text: #16181D;
+  --text-muted: #565C68;         /* 6,6:1 sobre --bg */
+  --text-subtle: #676D79;        /* 5,1:1, informação secundária */
 
-  /* Texto */
-  --text: #17262A;
-  --text-muted: #4F5E62;         /* 6,3:1 sobre --bg */
-  --text-subtle: #5F6E72;        /* 4,8:1 — só para informação secundária */
+  /* Ação neutra do produto (o painel não compete com a cor da empresa) */
+  --acao: #16181D;
+  --acao-hover: #2C3038;
+  --sobre-acao: #FFFFFF;
 
-  /* Ação e marca */
-  --pinho: #165C50;
-  --pinho-hover: #0E4239;
-  --pinho-soft: #E1EEEA;
-  --sobre-pinho: #FFFFFF;
-  --marca: #FFD25E;              /* marca-texto: a escolha da pessoa */
-  --marca-soft: #FFF3CC;
-  --sobre-marca: #17262A;
-
-  /* Estados */
-  --ok: #1D6B45;
-  --ok-soft: #E2F2E8;
-  --aviso: #7A5200;              /* texto âmbar com contraste AA */
-  --aviso-soft: #FFF1C9;
-  --perigo: #A93C33;
-  --perigo-hover: #8A2F28;
-  --perigo-soft: #F8E5E2;
+  /* Estados (texto e fundo suave) */
+  --ok: #1F7A4D;
+  --ok-soft: #E3F3EA;
+  --aviso: #8A5A00;
+  --aviso-soft: #FFF3D6;
+  --perigo: #B3261E;
+  --perigo-hover: #921F18;
+  --perigo-soft: #FBE9E7;
   --sobre-perigo: #FFFFFF;
 
-  /* Destaque por empresa (página pública) */
-  --destaque: var(--pinho);
-  --sobre-destaque: var(--sobre-pinho);
+  /* Cor da empresa (padrão; recalculada em JS) */
+  --destaque: #165C50;
+  --sobre-destaque: #FFFFFF;
+  --destaque-texto: #165C50;
+  --destaque-suave: #DCE7E5;
 
-  --foco: #165C50;
+  --foco: var(--destaque-texto);
+  --veu: rgba(15, 16, 19, .55);  /* fundo de modal */
 
-  /* Tipografia */
-  --fonte-titulo: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
-  --fonte-texto: 'Atkinson Hyperlegible Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Tipografia: uma família (Figtree, 20 KB, variável) */
+  --fonte: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --t-12: 0.75rem;
+  --t-13: 0.8125rem;
   --t-14: 0.875rem;
+  --t-15: 0.9375rem;
   --t-16: 1rem;
-  --t-19: 1.1875rem;
-  --t-23: 1.4375rem;
-  --t-28: 1.75rem;
-  --t-34: 2.125rem;
-  --t-41: 2.5625rem;
+  --t-17: 1.0625rem;
+  --t-20: 1.25rem;
+  --t-22: 1.375rem;
+  --t-26: 1.625rem;
+  --t-32: 2rem;
+  --t-44: 2.75rem;
 
   /* Espaço (base 4) */
   --e-1: 4px;
@@ -69,108 +81,151 @@
   --e-4: 16px;
   --e-5: 20px;
   --e-6: 24px;
+  --e-7: 28px;
   --e-8: 32px;
   --e-10: 40px;
   --e-12: 48px;
 
-  /* Raios por hierarquia: controle < cartão < folha */
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 20px;
+  /* Forma: valores do painel (A); .sup-vitrine sobrescreve */
+  --t-corpo: var(--t-14);
+  --r-controle: 6px;
+  --r-bloco: 10px;
+  --r-destaque: 14px;
+  --r-botao: 6px;
   --r-pill: 999px;
-
-  /* Sombras: só para o que flutua (barra fixa, sheet, menu) */
-  --sombra-1: 0 1px 2px rgba(23, 38, 42, .06);
-  --sombra-flutuante: 0 12px 32px rgba(23, 38, 42, .16);
+  --sombra-bloco: none;
+  --sombra-bloco-alta: none;
+  --borda-bloco: 1px solid var(--border);
+  --sombra-flutuante: 0 8px 24px rgba(22, 24, 29, .12);
+  --altura-botao: 36px;
 
   /* Movimento */
   --t-rapida: 120ms ease;
-  --t-media: 200ms cubic-bezier(.2, .7, .3, 1);
+  --t-media: 180ms cubic-bezier(.2, .7, .3, 1);
+  --t-lenta: 300ms cubic-bezier(.2, .7, .3, 1);
 
   /* Layout */
-  --sidebar-w: 248px;
+  --sidebar-w: 232px;
   --alvo-toque: 44px;
 
-  /* ── Aliases legados (classes antigas ainda referenciam estes nomes) ── */
+  /* ── Aliases legados (classes antigas ainda usam estes nomes) ── */
+  --fonte-titulo: var(--fonte);
+  --fonte-texto: var(--fonte);
+  --pinho: var(--acao);
+  --pinho-hover: var(--acao-hover);
+  --pinho-soft: var(--surface-2);
+  --sobre-pinho: var(--sobre-acao);
+  --marca: var(--destaque-suave);
+  --marca-soft: var(--destaque-suave);
+  --sobre-marca: var(--text);
+  --t-19: var(--t-17);
+  --t-23: var(--t-22);
+  --t-28: var(--t-26);
+  --t-34: var(--t-32);
+  --t-41: var(--t-44);
+  --r-sm: var(--r-controle);
+  --r-md: var(--r-bloco);
+  --r-lg: var(--r-destaque);
+  --sombra-1: var(--sombra-bloco);
   --surface-hover: var(--surface-2);
-  --primary: var(--pinho);
-  --primary-hover: var(--pinho-hover);
-  --primary-soft: var(--pinho-soft);
+  --primary: var(--acao);
+  --primary-hover: var(--acao-hover);
+  --primary-soft: var(--surface-2);
   --success: var(--ok);
-  --success-hover: var(--ok);
   --danger: var(--perigo);
   --danger-hover: var(--perigo-hover);
   --warning: var(--aviso);
-  --accent: var(--pinho);
-  --accent-hover: var(--pinho-hover);
-  --accent-soft: var(--pinho-soft);
-  --radius: var(--r-md);
-  --radius-sm: var(--r-sm);
-  --shadow-sm: var(--sombra-1);
+  --accent: var(--acao);
+  --radius: var(--r-bloco);
+  --radius-sm: var(--r-controle);
+  --shadow-sm: var(--sombra-bloco);
   --shadow-md: var(--sombra-flutuante);
-  --shadow-lg: var(--sombra-flutuante);
   --t: var(--t-rapida);
 }
 
-/* Tema escuro: sistema (salvo escolha manual "claro") ou escolha manual "escuro" */
+/* Tema escuro: sistema (salvo escolha manual "claro") ou escolha manual "escuro".
+   Os dois blocos precisam ficar iguais. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #0F1A1C;
-    --surface: #172427;
-    --surface-2: #1E2F33;
-    --border: #2B3E42;
-    --border-strong: #6A8084;
-    --text: #E6EEEC;
-    --text-muted: #A7B8B6;
-    --text-subtle: #8DA09E;
-    --pinho: #5CC2AA;
-    --pinho-hover: #7BD3BE;
-    --pinho-soft: #173B35;
-    --sobre-pinho: #0F1A1C;
-    --marca: #E7B93E;
-    --marca-soft: #3A3018;
-    --sobre-marca: #0F1A1C;
-    --ok: #6BD39A;
-    --ok-soft: #173627;
-    --aviso: #F0C35A;
-    --aviso-soft: #3A3018;
-    --perigo: #F08A80;
-    --perigo-hover: #F5A79F;
-    --perigo-soft: #3A1F1D;
-    --sobre-perigo: #0F1A1C;
-    --foco: #E7B93E;
-    --sombra-1: 0 1px 2px rgba(0, 0, 0, .3);
-    --sombra-flutuante: 0 12px 32px rgba(0, 0, 0, .5);
+    --bg: #0F1013;
+    --surface: #16181C;
+    --surface-2: #1D2025;
+    --border: #2A2E35;
+    --border-strong: #6B7280;
+    --text: #ECEDF0;
+    --text-muted: #A3A8B2;
+    --text-subtle: #8E94A0;
+    --acao: #ECEDF0;
+    --acao-hover: #D5D7DC;
+    --sobre-acao: #121417;
+    --ok: #5FCB92;
+    --ok-soft: #15291F;
+    --aviso: #E9B949;
+    --aviso-soft: #2C2412;
+    --perigo: #F2867D;
+    --perigo-hover: #F5A39C;
+    --perigo-soft: #31191A;
+    --sobre-perigo: #121417;
+    --destaque: #3E9C8A;
+    --sobre-destaque: #121417;
+    --destaque-texto: #5CC2AA;
+    --destaque-suave: #1A2B2A;
+    --veu: rgba(0, 0, 0, .65);
+    --sombra-flutuante: 0 8px 24px rgba(0, 0, 0, .5);
   }
 }
-
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0F1A1C;
-  --surface: #172427;
-  --surface-2: #1E2F33;
-  --border: #2B3E42;
-  --border-strong: #6A8084;
-  --text: #E6EEEC;
-  --text-muted: #A7B8B6;
-  --text-subtle: #8DA09E;
-  --pinho: #5CC2AA;
-  --pinho-hover: #7BD3BE;
-  --pinho-soft: #173B35;
-  --sobre-pinho: #0F1A1C;
-  --marca: #E7B93E;
-  --marca-soft: #3A3018;
-  --sobre-marca: #0F1A1C;
-  --ok: #6BD39A;
-  --ok-soft: #173627;
-  --aviso: #F0C35A;
-  --aviso-soft: #3A3018;
-  --perigo: #F08A80;
-  --perigo-hover: #F5A79F;
-  --perigo-soft: #3A1F1D;
-  --sobre-perigo: #0F1A1C;
-  --foco: #E7B93E;
-  --sombra-1: 0 1px 2px rgba(0, 0, 0, .3);
-  --sombra-flutuante: 0 12px 32px rgba(0, 0, 0, .5);
+  --bg: #0F1013;
+  --surface: #16181C;
+  --surface-2: #1D2025;
+  --border: #2A2E35;
+  --border-strong: #6B7280;
+  --text: #ECEDF0;
+  --text-muted: #A3A8B2;
+  --text-subtle: #8E94A0;
+  --acao: #ECEDF0;
+  --acao-hover: #D5D7DC;
+  --sobre-acao: #121417;
+  --ok: #5FCB92;
+  --ok-soft: #15291F;
+  --aviso: #E9B949;
+  --aviso-soft: #2C2412;
+  --perigo: #F2867D;
+  --perigo-hover: #F5A39C;
+  --perigo-soft: #31191A;
+  --sobre-perigo: #121417;
+  --destaque: #3E9C8A;
+  --sobre-destaque: #121417;
+  --destaque-texto: #5CC2AA;
+  --destaque-suave: #1A2B2A;
+  --veu: rgba(0, 0, 0, .65);
+  --sombra-flutuante: 0 8px 24px rgba(0, 0, 0, .5);
+}
+
+/* ── Superfície Vitrine (página pública, Direção B) ── */
+.sup-vitrine {
+  --t-corpo: var(--t-15);
+  --r-controle: 12px;
+  --r-bloco: 20px;
+  --r-destaque: 28px;
+  --r-botao: 999px;
+  --altura-botao: 44px;
+  --borda-bloco: 0;
+  --sombra-bloco: 0 1px 2px rgba(22, 24, 29, .05), 0 6px 20px rgba(22, 24, 29, .07);
+  --sombra-bloco-alta: 0 2px 4px rgba(22, 24, 29, .06), 0 16px 40px rgba(22, 24, 29, .14);
+  --sombra-flutuante: var(--sombra-bloco-alta);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sup-vitrine {
+    --sombra-bloco: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .3);
+    --sombra-bloco-alta: 0 2px 4px rgba(0, 0, 0, .4), 0 16px 40px rgba(0, 0, 0, .55);
+    --borda-bloco: 1px solid var(--border);
+  }
+}
+:root[data-theme="dark"] .sup-vitrine {
+  --sombra-bloco: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .3);
+  --sombra-bloco-alta: 0 2px 4px rgba(0, 0, 0, .4), 0 16px 40px rgba(0, 0, 0, .55);
+  --borda-bloco: 1px solid var(--border);
 }

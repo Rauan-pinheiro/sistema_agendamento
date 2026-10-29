@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Check, ChevronRight, Clock, Images, MessageCircle } from 'lucide-react';
 import { createAgendamentoPublico, getHorariosDisponiveis, getPaginaPublica } from '../../api/public';
 import type { Empresa, ProfissionalPublico, ServicoPublico, SlotDisponivel } from '../../types';
-import { estiloDestaque } from '../../utils/cor';
+import { useCorEmpresa } from '../../hooks/useCorEmpresa';
 import { formatPhone, isValidPhone, normalizePhone } from '../../utils/phone';
 import { ServicoDetalhes } from './ServicoDetalhes';
 
@@ -238,7 +238,8 @@ export function PublicPage() {
     setFormError('');
   }
 
-  const estilo = estiloDestaque(empresa?.cor_destaque) as CSSProperties;
+  useCorEmpresa(empresa?.cor_destaque);
+  const estilo = undefined;
 
   if (loading) return <div className="public-loading" role="status">Carregando…</div>;
   if (notFound) {

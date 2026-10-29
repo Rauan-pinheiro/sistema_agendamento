@@ -26,6 +26,10 @@ const TermosPage = lazy(() => import('./pages/legal/PaginasLegais').then((m) => 
 const PrivacidadePage = lazy(() => import('./pages/legal/PaginasLegais').then((m) => ({ default: m.PrivacidadePage })));
 const ConfiguracaoPage = lazy(() =>
   import('./pages/dashboard/ConfiguracaoPage').then((m) => ({ default: m.ConfiguracaoPage })));
+// Catálogo de componentes: só em desenvolvimento (o Vite remove a rota e o chunk do build)
+const CatalogoPage = import.meta.env.DEV
+  ? lazy(() => import('./pages/interno/CatalogoPage').then((m) => ({ default: m.CatalogoPage })))
+  : null;
 
 function App() {
   return (
@@ -39,6 +43,7 @@ function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/termos" element={<TermosPage />} />
               <Route path="/privacidade" element={<PrivacidadePage />} />
+              {CatalogoPage && <Route path="/_catalogo" element={<CatalogoPage />} />}
               <Route element={<PrivateRoute />}>
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<AgendamentosPage />} />

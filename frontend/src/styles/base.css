@@ -2,7 +2,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
-  font-family: var(--fonte-texto);
+  font-family: var(--fonte);
   font-size: 100%;
   line-height: 1.5;
   color: var(--text);
@@ -10,20 +10,21 @@ html {
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
 }
-body { margin: 0; min-height: 100dvh; background: var(--bg); }
+body { margin: 0; min-height: 100dvh; background: var(--bg); font-size: var(--t-corpo); -webkit-font-smoothing: antialiased; }
+.sup-painel, .sup-vitrine { font-size: var(--t-corpo); }
 #root { min-height: 100dvh; }
 
 h1, h2, h3, h4 {
-  font-family: var(--fonte-titulo);
-  font-weight: 700;
-  line-height: 1.15;
+  font-family: var(--fonte);
+  font-weight: 600;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
 p { text-wrap: pretty; }
 
-a { color: var(--pinho); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-a:hover { color: var(--pinho-hover); }
+a { color: var(--destaque-texto); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--text); }
 
 img, video, svg { display: block; max-width: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -32,9 +33,9 @@ button:disabled { cursor: not-allowed; }
 
 /* Foco sempre visível no teclado, nunca no clique */
 :focus { outline: none; }
-:focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 
-::selection { background: var(--marca); color: var(--sobre-marca); }
+::selection { background: var(--destaque-suave); color: var(--text); }
 
 /* Números de horário e dinheiro alinhados em coluna */
 .num { font-variant-numeric: tabular-nums; }
@@ -54,7 +55,8 @@ button:disabled { cursor: not-allowed; }
 .pular-conteudo:focus-visible { top: var(--e-4); }
 
 .text-muted { color: var(--text-muted); }
-.text-sm { font-size: var(--t-14); }
+.text-sm { font-size: var(--t-13); }
+.text-subtle { color: var(--text-subtle); }
 .divider { height: 1px; background: var(--border); margin: var(--e-4) 0; }
 
 /* ── Movimento ───────────────────────────────────────────────────────────── */
@@ -63,6 +65,7 @@ button:disabled { cursor: not-allowed; }
 @keyframes girar     { to { transform: rotate(360deg); } }
 @keyframes brilho    { to { background-position: -200% 0; } }
 @keyframes marcar    { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+@keyframes subir     { from { transform: translateY(110%); } to { transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

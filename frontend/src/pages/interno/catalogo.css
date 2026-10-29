@@ -1,0 +1,11 @@
+/* Só o catálogo interno (desenvolvimento). */
+.catalogo { min-height: 100dvh; padding: var(--e-4); background: var(--bg); color: var(--text); }
+.catalogo-topo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e-3); margin-bottom: var(--e-6); }
+.catalogo-topo h1 { font-size: var(--t-20); margin-right: auto; }
+.catalogo-cores { display: flex; gap: 6px; }
+.catalogo-cores button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border); }
+.catalogo-cores [aria-pressed="true"] { box-shadow: 0 0 0 2px var(--text); }
+.catalogo-grade { display: grid; gap: var(--e-5); grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); align-items: start; }
+.catalogo-linha { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e-2); padding: var(--e-4); }
+.catalogo-pilha { display: grid; gap: var(--e-4); padding: var(--e-4); }
+.catalogo-pilha .catalogo-linha { padding: 0; }

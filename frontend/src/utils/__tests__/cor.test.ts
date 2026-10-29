@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CORES_SUGERIDAS, contraste, corLegivel, estiloDestaque, textoSobre } from '../cor';
+import { CORES_SUGERIDAS, NEUTROS, ajustar, contraste, corLegivel, iniciais, textoSobre, variaveisDestaque } from '../cor';
 
 describe('cor de destaque', () => {
   it('calcula contraste WCAG conhecido', () => {
@@ -23,13 +23,38 @@ describe('cor de destaque', () => {
     for (const c of CORES_SUGERIDAS) expect(corLegivel(c), c).toBe(true);
   });
 
-  it('cai no pinho quando a cor é inválida', () => {
-    expect(estiloDestaque('#808080')['--destaque']).toBe('#165C50');
-    expect(estiloDestaque('#7A2238')).toEqual({ '--destaque': '#7A2238', '--sobre-destaque': '#FFFFFF', '--destaque-texto': '#7A2238' });
+  it('ajustar escurece no fundo claro e clareia no escuro até o alvo', () => {
+    expect(contraste(ajustar('#9FD8C8', '#FFFFFF', 4.5), '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
+    expect(contraste(ajustar('#17262A', '#0F1013', 4.5), '#0F1013')).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('cor clara não vira texto ilegível no fundo claro: usa a tinta', () => {
-    expect(estiloDestaque('#FFD25E')['--destaque-texto']).toBe('#17262A');
-    for (const c of CORES_SUGERIDAS) expect(contraste(estiloDestaque(c)['--destaque-texto'], '#F6F7F4')).toBeGreaterThanOrEqual(4.5);
+  it('cai na cor padrão quando o formato é inválido', () => {
+    expect(variaveisDestaque('red', 'light')['--destaque']).toBe('#165C50');
+    expect(variaveisDestaque(undefined, 'light')['--destaque']).toBe('#165C50');
+  });
+
+  it('mantém a cor original quando ela já tem contraste', () => {
+    expect(variaveisDestaque('#7A2238', 'light')).toMatchObject({ '--destaque': '#7A2238', '--sobre-destaque': '#FFFFFF' });
+  });
+
+  // Inclui cores médias e extremas que a pessoa poderia ter salvo antes da validação
+  const AMOSTRAS = [...CORES_SUGERIDAS, '#808080', '#FFFFFF', '#000000', '#FF0000', '#00B3FF'];
+  for (const tema of ['light', 'dark'] as const) {
+    it(`garante AA para qualquer cor no tema ${tema}`, () => {
+      const { bg, surface } = NEUTROS[tema];
+      for (const c of AMOSTRAS) {
+        const v = variaveisDestaque(c, tema);
+        expect(contraste(v['--destaque'], surface), `${c} preenchimento`).toBeGreaterThanOrEqual(3);
+        expect(contraste(v['--destaque'], v['--sobre-destaque']), `${c} texto sobre`).toBeGreaterThanOrEqual(4.5);
+        expect(contraste(v['--destaque-texto'], bg), `${c} como texto`).toBeGreaterThanOrEqual(4.5);
+        expect(contraste(v['--destaque-texto'], v['--destaque-suave']), `${c} texto no suave`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  }
+
+  it('gera iniciais para logo e avatar sem foto', () => {
+    expect(iniciais('Studio Lume')).toBe('SL');
+    expect(iniciais('Barbearia Canto do Corte')).toBe('BC');
+    expect(iniciais('Zé')).toBe('Z');
   });
 });
