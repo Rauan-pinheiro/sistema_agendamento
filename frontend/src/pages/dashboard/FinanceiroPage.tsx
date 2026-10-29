@@ -402,7 +402,8 @@ export function FinanceiroPage() {
                   </PieChart>
                 </ResponsiveContainer>
 
-                <div className="servico-legend">
+                {/* Rolável quando há muitos serviços: precisa ser alcançável pelo teclado */}
+                <div className="servico-legend" role="region" aria-label="Receita por serviço, em porcentagem" tabIndex={0}>
                   {pieData.map((item, i) => (
                     <div key={i} className="servico-legend-item">
                       <span
