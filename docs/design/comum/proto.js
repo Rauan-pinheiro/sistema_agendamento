@@ -113,11 +113,11 @@
   const STATUS = { concluido: 'Concluído', confirmado: 'Confirmado', pendente: 'Aguardando confirmação', cancelado: 'Cancelado' };
   const AGORA = '13:40';
 
-  function evento([ini, d, cliente, servico, status], ini0, px, extra = '') {
+  function evento([ini, d, cliente, servico, status], ini0, px, extra = '', faixa = '') {
     const top = ((minutos(ini) - ini0 * 60) / 60) * px;
     const fim = hora(minutos(ini) + d);
     const curto = d < 35 ? ' ev--curto' : d < 55 ? ' ev--medio' : '';
-    return `<button type="button" class="ev ev--${status}${curto}${extra}" style="top:${top}px;height:${(d / 60) * px - 2}px" aria-label="${ini} a ${fim}, ${cliente}, ${servico}, ${STATUS[status]}">
+    return `<button type="button" class="ev ev--${status}${curto}${extra}" style="top:${top}px;height:${(d / 60) * px - 2}px;${faixa}" aria-label="${ini} a ${fim}, ${cliente}, ${servico}, ${STATUS[status]}">
       <span class="ev-cliente">${cliente}</span><span class="ev-hora">${ini}–${fim}</span><span class="ev-servico">${servico}</span><span class="ev-status">${STATUS[status]}</span></button>`;
   }
 
@@ -137,7 +137,11 @@
       cols = dias.map((_, di) => {
         const evs = [];
         E.agenda.forEach((lista, pi) => lista.forEach((e, ei) => {
-          if (di === 3 || (ei + di + pi) % 3) evs.push(evento(di < 3 && e[4] !== 'cancelado' ? [...e.slice(0, 4), 'concluido'] : e, ini, px, ` ev--p${pi}`));
+          if (!(di === 3 || (ei + di + pi) % 3)) return;
+          // Semana: cada dia dividido em faixas, uma por profissional
+          const larg = 100 / E.profissionais.length;
+          const faixa = `left:calc(${pi * larg}% + 2px);right:auto;width:calc(${larg}% - 4px)`;
+          evs.push(evento(di < 3 && e[4] !== 'cancelado' ? [...e.slice(0, 4), 'concluido'] : e, ini, px, ` ev--p${pi}`, faixa));
         }));
         return `<div class="cal-col">${evs.join('')}</div>`;
       });

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direções visuais</title>
+<style>
+  :root { color-scheme: light dark; --bg: #F7F8FA; --text: #16181D; --muted: #565C68; --line: #E3E6EB; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0F1013; --text: #ECEDF0; --muted: #A3A8B2; --line: #2A2E35; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, 'Segoe UI', sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  p { color: var(--muted); margin: 0 0 24px; }
+  section { border-top: 1px solid var(--line); padding: 16px 0; display: grid; gap: 4px; }
+  h2 { font-size: 17px; margin: 0; }
+  ul { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 0; margin: 0; list-style: none; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Direções visuais da AgendaFácil</h1>
+  <p>Protótipos estáticos. Redimensione a janela para ver o celular; o botão de lua/sol troca o tema. Comparação completa no README.md.</p>
+  <section><h2>A · Calmo</h2><span>Barbearia Canto do Corte</span>
+    <ul><li><a href="direcao-a/publica.html">Página pública</a></li><li><a href="direcao-a/hoje.html">Hoje</a></li><li><a href="direcao-a/agenda.html">Agenda</a></li><li><a href="direcao-a/financeiro.html">Financeiro</a></li></ul></section>
+  <section><h2>B · Vitrine</h2><span>Studio Lume (salão)</span>
+    <ul><li><a href="direcao-b/publica.html">Página pública</a></li><li><a href="direcao-b/hoje.html">Hoje</a></li><li><a href="direcao-b/agenda.html">Agenda</a></li><li><a href="direcao-b/financeiro.html">Financeiro</a></li></ul></section>
+  <section><h2>C · Marca-texto refinado</h2><span>Página pública do Studio Lume; painel da Canto do Corte</span>
+    <ul><li><a href="direcao-c/publica.html">Página pública</a></li><li><a href="direcao-c/hoje.html">Hoje</a></li><li><a href="direcao-c/agenda.html">Agenda</a></li><li><a href="direcao-c/financeiro.html">Financeiro</a></li></ul></section>
+</main>
+</body>
+</html>

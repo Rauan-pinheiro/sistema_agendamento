@@ -267,8 +267,8 @@ main.painel { padding: 20px 16px 100px; max-width: 1200px; }
 .ev--pendente .ev-servico { display: none; }
 .ev--cancelado { background: transparent; border: 1px dashed var(--line-forte); border-left-width: 4px; }
 .ev--cancelado .ev-cliente { text-decoration: line-through; font-weight: 400; color: var(--muted); }
-.ev--p1:not(.ev--concluido):not(.ev--pendente) { background: color-mix(in srgb, #8A4B12 16%, var(--surface)); border-left-color: #B5651D; }
-.ev--p2:not(.ev--concluido):not(.ev--pendente) { background: color-mix(in srgb, #1F4E8C 16%, var(--surface)); border-left-color: #3B6FB6; }
+.ev--p1:not(.ev--concluido):not(.ev--pendente):not(.ev--cancelado) { background: color-mix(in srgb, #8A4B12 16%, var(--surface)); border-left-color: #B5651D; }
+.ev--p2:not(.ev--concluido):not(.ev--pendente):not(.ev--cancelado) { background: color-mix(in srgb, #1F4E8C 16%, var(--surface)); border-left-color: #3B6FB6; }
 .cal-agora { height: 6px; transform: translateY(-3px); background: var(--marca); opacity: .9; border-radius: 3px; }
 .cal-agora span { font: 700 13px var(--titulo); color: var(--sobre-marca); background: var(--marca); padding: 1px 6px; border-radius: 4px; margin-right: 2px; transform: translateY(-35%); }
 

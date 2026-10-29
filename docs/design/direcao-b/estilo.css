@@ -282,8 +282,8 @@ main.painel { padding: 8px 16px 104px; max-width: 1240px; }
 .ev--pendente .ev-servico { display: none; }
 .ev--cancelado { background: transparent; color: var(--subtle); box-shadow: inset 0 0 0 1px var(--line); }
 .ev--cancelado .ev-cliente { text-decoration: line-through; }
-.ev--p1:not(.ev--concluido):not(.ev--pendente) { background: #5B3A8C; color: #fff; }
-.ev--p2:not(.ev--concluido):not(.ev--pendente) { background: #1F5E73; color: #fff; }
+.ev--p1:not(.ev--concluido):not(.ev--pendente):not(.ev--cancelado) { background: #5B3A8C; color: #fff; }
+.ev--p2:not(.ev--concluido):not(.ev--pendente):not(.ev--cancelado) { background: #1F5E73; color: #fff; }
 .cal-agora { border-top: 2px solid var(--destaque-texto); }
 .cal-agora::before { content: ''; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--destaque-texto); }
 .cal-agora span { font-size: 12px; font-weight: 700; color: var(--destaque-texto); padding-right: 8px; }
