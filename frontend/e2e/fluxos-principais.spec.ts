@@ -22,6 +22,9 @@ test('cliente agenda pela página pública e o dono vê no painel', async ({ pag
   await page.getByLabel(/senha/i).fill('Carga-123!');
   await page.getByRole('button', { name: /entrar/i }).click();
   await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByRole('heading', { name: 'Hoje', level: 1 })).toBeVisible();
+  await page.getByRole('link', { name: 'Agenda' }).first().click();
+  await page.getByRole('group', { name: 'Visão' }).getByRole('button', { name: 'Lista' }).click();
   await page.getByRole('button', { name: 'Pendentes' }).click();
   await expect(page.getByText(nome)).toBeVisible();
 });
@@ -51,7 +54,8 @@ test('cadastro exige aceite dos termos, cria a conta e permite excluí-la', asyn
   await page.getByRole('button', { name: 'Criar conta' }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 
-  await page.goto('/dashboard/configuracoes');
+  await page.goto('/dashboard/configuracoes'); // rota antiga redireciona para Ajustes
+  await expect(page).toHaveURL(/\/dashboard\/ajustes$/);
   await page.getByRole('heading', { name: 'Privacidade e dados' }).scrollIntoViewIfNeeded();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Baixar dados' }).click();

@@ -1,7 +1,8 @@
-/* Design system AgendaFácil — direção "Marca-texto". Ordem importa: tokens → base → componentes → telas. */
+/* Design system AgendaFácil (Direção A no painel, B na página pública). Ordem: tokens → base → componentes → telas. */
 @import './tokens.css';
 @import './base.css';
 @import './componentes.css';
 @import './painel.css';
+@import './agenda.css';
 @import './publico.css';
 @import './midia.css';

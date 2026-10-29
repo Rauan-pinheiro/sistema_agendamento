@@ -7,6 +7,7 @@ test.describe('Painel do dono — anexos do agendamento', () => {
     await page.getByLabel(/senha/i).fill('Carga-123!');
     await page.getByRole('button', { name: /entrar/i }).click();
     await expect(page).toHaveURL(/\/dashboard/);
+    await page.goto('/dashboard/agenda?visao=lista');
   });
 
   test('expande um agendamento e mostra a galeria de fotos e vídeos', async ({ page }) => {

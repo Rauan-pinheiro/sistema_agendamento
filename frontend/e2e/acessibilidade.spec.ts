@@ -43,7 +43,7 @@ for (const tema of ['light', 'dark'] as const) {
       await page.getByLabel(/senha/i).fill('Carga-123!');
       await page.getByRole('button', { name: /entrar/i }).click();
       await expect(page).toHaveURL(/\/dashboard/);
-      for (const rota of ['', '/servicos', '/profissionais', '/horarios', '/financeiro', '/configuracoes']) {
+      for (const rota of ['', '/agenda', '/agenda?visao=semana', '/agenda?visao=lista', '/servicos', '/equipe', '/equipe?aba=horarios', '/financeiro', '/ajustes']) {
         await page.goto(`/dashboard${rota}`);
         await expect(page.locator('.skeleton')).toHaveCount(0);
         await semViolacoes(page);

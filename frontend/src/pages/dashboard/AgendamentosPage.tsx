@@ -8,8 +8,8 @@ import { Badge } from '../../components/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, Phone, DollarSign, Clock, User, ChevronDown, Bell, Paperclip, WifiOff } from 'lucide-react';
 import { AnexosAgendamento } from '../../components/AnexosAgendamento';
-import { formatPhone } from '../../utils/phone';
 import { mensagemDeErro } from '../../utils/erros';
+import { buildWhatsappUrl, displayPhone, openWhatsApp } from '../../utils/whatsapp';
 
 type TabValue = AgendamentoStatus | 'todos' | 'hoje';
 
@@ -45,53 +45,6 @@ function formatHora(iso: string): string {
 
 function formatPreco(preco: string) {
   return parseFloat(preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function formatWhatsapp(numero: string): string {
-  const digits = numero.replace(/\D/g, '');
-  return digits.startsWith('55') ? digits : `55${digits}`;
-}
-
-function displayPhone(numero: string): string {
-  const digits = numero.replace(/\D/g, '');
-  const local = digits.startsWith('55') && digits.length > 11 ? digits.slice(2) : digits;
-  return formatPhone(local);
-}
-
-function buildWhatsappUrl(ag: Agendamento, empresaNome: string): string {
-  const data = new Date(ag.data_hora);
-  const dataFormatada = data.toLocaleDateString('pt-BR', {
-    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
-  });
-  const horario = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const preco = formatPreco(ag.preco_total);
-  const nomesServicos = ag.servicos_info?.length
-    ? ag.servicos_info.map((s) => s.nome).join(', ')
-    : (ag.servico_nome ?? '—');
-
-  const linhas = [
-    `*Agendamento Confirmado!*`,
-    ``,
-    `Olá, *${ag.nome_cliente}*! Tudo certo para o seu horário.`,
-    ``,
-    `*Detalhes do seu agendamento:*`,
-    `*Serviço:* ${nomesServicos}`,
-    ...(ag.profissional_nome ? [`*Profissional:* ${ag.profissional_nome}`] : []),
-    `*Data:* ${dataFormatada}`,
-    `*Horário:* ${horario}`,
-    `*Valor:* ${preco}`,
-    ``,
-    `_Em caso de imprevisto, avise com antecedência._`,
-    ``,
-    `Te esperamos!`,
-    ...(empresaNome ? [`_— ${empresaNome}_`] : []),
-  ];
-
-  return `https://wa.me/${formatWhatsapp(ag.whatsapp_cliente)}?text=${encodeURIComponent(linhas.join('\n'))}`;
-}
-
-function openWhatsApp(url: string) {
-  window.open(url, 'whatsapp_panel');
 }
 
 function getInitials(name: string): string {
@@ -586,12 +539,13 @@ function paramsDaAba(tab: TabValue, periodo: Periodo): ListAgendamentosParams {
   return { status, data_inicio: isoLocal(hoje), page_size: PAGE_SIZE };
 }
 
-export function AgendamentosPage() {
+/** Lista de agendamentos com filtros. `embutida`: dentro da Agenda (sem cabeçalho próprio). */
+export function AgendamentosPage({ embutida = false }: { embutida?: boolean }) {
   const { empresa } = useAuth();
   const [agendamentos, setAgendamentos]       = useState<Agendamento[]>([]);
   const [total, setTotal]                     = useState(0);
   const [pagina, setPagina]                   = useState(1);
-  const [tab, setTab]                         = useState<TabValue>('hoje');
+  const [tab, setTab]                         = useState<TabValue>(embutida ? 'todos' : 'hoje');
   const [periodo, setPeriodo]                 = useState<Periodo>('proximos');
   const [resumo, setResumo]                   = useState<AgendamentosResumo | null>(null);
   const [loading, setLoading]                 = useState(true);
@@ -768,8 +722,8 @@ export function AgendamentosPage() {
   };
 
   return (
-    <div className="page">
-      <div className="focus-header">
+    <div className={embutida ? 'agenda-lista' : 'page'}>
+      {!embutida && <div className="focus-header">
         <div>
           <h2 className="focus-date">{formatDataAtual()}</h2>
           <p className="focus-stats">
@@ -786,13 +740,14 @@ export function AgendamentosPage() {
             <Clock size={12} /> atualizando...
           </span>
         )}
-      </div>
+      </div>}
 
-      <div className="tabs">
+      <div className="tabs" role="group" aria-label="Situação">
         {TABS.map((t) => (
           <button
             key={t.value}
             className={`tab${tab === t.value ? ' active' : ''}`}
+            aria-pressed={tab === t.value}
             onClick={() => { if (t.value !== tab) trocarFiltro(() => setTab(t.value)); }}
           >
             {t.label}

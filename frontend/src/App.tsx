@@ -12,14 +12,11 @@ const RegisterPage = lazy(() => import('./pages/RegisterPage').then((m) => ({ de
 const PublicPage = lazy(() => import('./pages/public/PublicPage').then((m) => ({ default: m.PublicPage })));
 const DashboardLayout = lazy(() =>
   import('./pages/dashboard/DashboardLayout').then((m) => ({ default: m.DashboardLayout })));
-const AgendamentosPage = lazy(() =>
-  import('./pages/dashboard/AgendamentosPage').then((m) => ({ default: m.AgendamentosPage })));
+const HojePage = lazy(() => import('./pages/dashboard/HojePage').then((m) => ({ default: m.HojePage })));
+const AgendaPage = lazy(() => import('./pages/dashboard/AgendaPage').then((m) => ({ default: m.AgendaPage })));
+const EquipePage = lazy(() => import('./pages/dashboard/EquipePage').then((m) => ({ default: m.EquipePage })));
 const ServicosPage = lazy(() =>
   import('./pages/dashboard/ServicosPage').then((m) => ({ default: m.ServicosPage })));
-const ProfissionaisPage = lazy(() =>
-  import('./pages/dashboard/ProfissionaisPage').then((m) => ({ default: m.ProfissionaisPage })));
-const HorariosPage = lazy(() =>
-  import('./pages/dashboard/HorariosPage').then((m) => ({ default: m.HorariosPage })));
 const FinanceiroPage = lazy(() =>
   import('./pages/dashboard/FinanceiroPage').then((m) => ({ default: m.FinanceiroPage })));
 const TermosPage = lazy(() => import('./pages/legal/PaginasLegais').then((m) => ({ default: m.TermosPage })));
@@ -46,12 +43,16 @@ function App() {
               {CatalogoPage && <Route path="/_catalogo" element={<CatalogoPage />} />}
               <Route element={<PrivateRoute />}>
                 <Route path="/dashboard" element={<DashboardLayout />}>
-                  <Route index element={<AgendamentosPage />} />
+                  <Route index element={<HojePage />} />
+                  <Route path="agenda" element={<AgendaPage />} />
                   <Route path="servicos" element={<ServicosPage />} />
-                  <Route path="profissionais" element={<ProfissionaisPage />} />
-                  <Route path="horarios" element={<HorariosPage />} />
+                  <Route path="equipe" element={<EquipePage />} />
                   <Route path="financeiro" element={<FinanceiroPage />} />
-                  <Route path="configuracoes" element={<ConfiguracaoPage />} />
+                  <Route path="ajustes" element={<ConfiguracaoPage />} />
+                  {/* Rotas antigas (fase 10 e anteriores) continuam funcionando */}
+                  <Route path="profissionais" element={<Navigate to="/dashboard/equipe" replace />} />
+                  <Route path="horarios" element={<Navigate to="/dashboard/equipe?aba=horarios" replace />} />
+                  <Route path="configuracoes" element={<Navigate to="/dashboard/ajustes" replace />} />
                 </Route>
               </Route>
               <Route path="/:slug" element={<PublicPage />} />

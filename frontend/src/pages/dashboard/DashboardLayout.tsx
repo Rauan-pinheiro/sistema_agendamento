@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Calendar, CalendarDays, Check, Clock, Copy, ExternalLink, LogOut, Menu, Monitor, Moon,
-  Scissors, Settings, Sun, TrendingUp, Users,
+  CalendarDays, Check, Copy, ExternalLink, House, LogOut, Monitor, Moon, MoreHorizontal,
+  Scissors, SlidersHorizontal, Sun, Users, Wallet,
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, type PreferenciaTema } from '../../context/ThemeContext';
+import { useCorEmpresa } from '../../hooks/useCorEmpresa';
+import { iniciais } from '../../utils/cor';
 
 function CopyLinkButton({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false);
@@ -22,50 +24,49 @@ function CopyLinkButton({ slug }: { slug: string }) {
   }
 
   return (
-    <button
-      type="button"
-      className={`sidebar-copy-btn${copied ? ' sidebar-copy-btn--copied' : ''}`}
-      onClick={handleClick}
-    >
-      <Copy className="icon-default" size={14} aria-hidden />
-      <Check className="icon-copied" size={14} aria-hidden />
-      <span aria-live="polite">{copied ? 'Link copiado' : 'Copiar link'}</span>
+    <button type="button" className={`nav-item nav-item--sec${copied ? ' is-copiado' : ''}`} onClick={handleClick}>
+      {copied ? <Check size={17} aria-hidden /> : <Copy size={17} aria-hidden />}
+      <span aria-live="polite">{copied ? 'Link copiado' : 'Copiar link da página'}</span>
     </button>
   );
 }
 
+/** Menu enxuto (Direção A). "Equipe" junta profissionais e horários. */
 const NAV_ITEMS = [
-  { to: '/dashboard',               end: true,  icon: Calendar,   label: 'Agenda',        principal: true },
-  { to: '/dashboard/servicos',      end: false, icon: Scissors,   label: 'Serviços',      principal: true },
-  { to: '/dashboard/financeiro',    end: false, icon: TrendingUp, label: 'Financeiro',    principal: true },
-  { to: '/dashboard/horarios',      end: false, icon: Clock,      label: 'Horários',      principal: true },
-  { to: '/dashboard/profissionais', end: false, icon: Users,      label: 'Profissionais', principal: false },
-  { to: '/dashboard/configuracoes', end: false, icon: Settings,   label: 'Configurações', principal: false },
+  { to: '/dashboard',            end: true,  icon: House,             label: 'Hoje',       aba: true },
+  { to: '/dashboard/agenda',     end: false, icon: CalendarDays,      label: 'Agenda',     aba: true },
+  { to: '/dashboard/servicos',   end: false, icon: Scissors,          label: 'Serviços',   aba: true },
+  { to: '/dashboard/equipe',     end: false, icon: Users,             label: 'Equipe',     aba: false },
+  { to: '/dashboard/financeiro', end: false, icon: Wallet,            label: 'Financeiro', aba: false },
+  { to: '/dashboard/ajustes',    end: false, icon: SlidersHorizontal, label: 'Ajustes',    aba: false },
 ];
 
 const OPCOES_TEMA: { valor: PreferenciaTema; rotulo: string; icone: typeof Sun }[] = [
-  { valor: 'system', rotulo: 'Usar o do aparelho', icone: Monitor },
+  { valor: 'system', rotulo: 'Do aparelho', icone: Monitor },
   { valor: 'light', rotulo: 'Claro', icone: Sun },
   { valor: 'dark', rotulo: 'Escuro', icone: Moon },
 ];
 
-function SeletorTema({ onEscolher }: { onEscolher?: () => void }) {
+function SeletorTema() {
   const { preferencia, definirPreferencia } = useTheme();
   return (
-    <div role="radiogroup" aria-label="Tema" className="menu-mais">
+    <div className="segmento seletor-tema" role="radiogroup" aria-label="Tema">
       {OPCOES_TEMA.map(({ valor, rotulo, icone: Icone }) => (
-        <button
-          key={valor}
-          type="button"
-          role="radio"
-          aria-checked={preferencia === valor}
-          className={`theme-toggle-btn${preferencia === valor ? ' nav-link active' : ''}`}
-          onClick={() => { definirPreferencia(valor); onEscolher?.(); }}
-        >
-          <Icone size={18} aria-hidden /> {rotulo}
+        <button key={valor} type="button" role="radio" aria-checked={preferencia === valor}
+          onClick={() => definirPreferencia(valor)} title={rotulo}>
+          <Icone size={15} aria-hidden /><span>{rotulo}</span>
         </button>
       ))}
     </div>
+  );
+}
+
+function MarcaEmpresa({ nome, logo }: { nome: string; logo?: string | null }) {
+  return (
+    <span className="marca-empresa">
+      {logo ? <img src={logo} alt="" width={28} height={28} /> : <span className="marca-sigla" aria-hidden>{iniciais(nome)}</span>}
+      <span className="marca-nome">{nome}</span>
+    </span>
   );
 }
 
@@ -74,96 +75,71 @@ export function DashboardLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [maisAberto, setMaisAberto] = useState(false);
-  const [temaAberto, setTemaAberto] = useState(false);
+  useCorEmpresa(empresa?.cor_destaque);
 
   function handleLogout() {
     logout();
     navigate('/login');
   }
 
-  const secundarioAtivo = NAV_ITEMS.some((i) => !i.principal && pathname.startsWith(i.to));
+  const nome = empresa?.nome_fantasia ?? 'Minha empresa';
+  const secundarioAtivo = NAV_ITEMS.some((i) => !i.aba && pathname.startsWith(i.to));
+  const link = (i: typeof NAV_ITEMS[number], onClick?: () => void) => (
+    <NavLink key={i.to} to={i.to} end={i.end} onClick={onClick} className="nav-item">
+      <i.icon size={17} aria-hidden /><span>{i.label}</span>
+    </NavLink>
+  );
 
   return (
-    <div className="dashboard">
+    <div className="dashboard sup-painel">
       <a href="#conteudo" className="pular-conteudo">Pular para o conteúdo</a>
 
-      <aside className="sidebar" aria-label="Menu do painel">
-        <div className="sidebar-header">
-          <div className="sidebar-logo" aria-hidden><CalendarDays size={18} /></div>
-          <div className="sidebar-company-info">
-            <span className="sidebar-brand">AgendaFácil</span>
-            <p className="sidebar-company">{empresa?.nome_fantasia}</p>
-            <a href={`/${empresa?.slug}`} target="_blank" rel="noopener noreferrer" className="sidebar-slug">
-              Ver minha página <ExternalLink size={12} aria-hidden />
-            </a>
-            {empresa?.slug && <CopyLinkButton slug={empresa.slug} />}
-          </div>
-        </div>
-
-        <nav className="sidebar-nav" aria-label="Seções">
-          {NAV_ITEMS.map(({ to, end, icon: Icon, label }) => (
-            <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-              <Icon size={18} aria-hidden />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="sidebar-bottom">
-          <button type="button" className="theme-toggle-btn" onClick={() => setTemaAberto(true)} aria-haspopup="dialog">
-            <Sun size={18} aria-hidden /> Tema
-          </button>
-          <button type="button" className="sidebar-logout" onClick={handleLogout}>
-            <LogOut size={18} aria-hidden /> Sair
+      <aside className="lateral" aria-label="Menu do painel">
+        <MarcaEmpresa nome={nome} logo={empresa?.logo_url} />
+        <nav className="lateral-nav" aria-label="Seções">{NAV_ITEMS.map((i) => link(i))}</nav>
+        <div className="lateral-rodape">
+          <a href={`/${empresa?.slug}`} target="_blank" rel="noopener noreferrer" className="nav-item nav-item--sec">
+            <ExternalLink size={17} aria-hidden /><span>Ver minha página</span>
+          </a>
+          {empresa?.slug && <CopyLinkButton slug={empresa.slug} />}
+          <SeletorTema />
+          <button type="button" className="nav-item nav-item--sec" onClick={handleLogout}>
+            <LogOut size={17} aria-hidden /><span>Sair</span>
           </button>
         </div>
       </aside>
+
+      <header className="topo-movel">
+        <MarcaEmpresa nome={nome} logo={empresa?.logo_url} />
+        <a href={`/${empresa?.slug}`} target="_blank" rel="noopener noreferrer" className="btn-icon" aria-label="Ver minha página">
+          <ExternalLink size={18} aria-hidden />
+        </a>
+      </header>
 
       <main id="conteudo" className="main-content" tabIndex={-1}>
         <Outlet />
       </main>
 
-      <nav className="mobile-nav" aria-label="Seções">
-        {NAV_ITEMS.filter((i) => i.principal).map(({ to, end, icon: Icon, label }) => (
-          <NavLink key={to} to={to} end={end} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-            <Icon size={22} aria-hidden />
-            {label}
-          </NavLink>
-        ))}
-        <button
-          type="button"
-          className={`mobile-nav-item${secundarioAtivo ? ' active' : ''}`}
-          onClick={() => setMaisAberto(true)}
-          aria-haspopup="dialog"
-        >
-          <Menu size={22} aria-hidden />
-          Mais
+      <nav className="abas-movel" aria-label="Seções">
+        {NAV_ITEMS.filter((i) => i.aba).map((i) => link(i))}
+        <button type="button" className={`nav-item${secundarioAtivo ? ' active' : ''}`}
+          onClick={() => setMaisAberto(true)} aria-haspopup="dialog">
+          <MoreHorizontal size={17} aria-hidden /><span>Mais</span>
         </button>
       </nav>
 
-      <Modal open={maisAberto} onClose={() => setMaisAberto(false)} title={empresa?.nome_fantasia ?? 'Mais'} sheet>
+      <Modal open={maisAberto} onClose={() => setMaisAberto(false)} title={nome} sheet superficie="sup-painel">
         <div className="menu-mais">
-          {NAV_ITEMS.filter((i) => !i.principal).map(({ to, icon: Icon, label }) => (
-            <NavLink key={to} to={to} onClick={() => setMaisAberto(false)} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-              <Icon size={20} aria-hidden /> {label}
-            </NavLink>
-          ))}
-          <a href={`/${empresa?.slug}`} target="_blank" rel="noopener noreferrer" className="nav-link">
-            <ExternalLink size={20} aria-hidden /> Ver minha página
-          </a>
-          {empresa?.slug && <CopyLinkButton slug={empresa.slug} />}
+          {NAV_ITEMS.filter((i) => !i.aba).map((i) => link(i, () => setMaisAberto(false)))}
           <div className="menu-mais-separador" />
-          <p className="expanded-section-label">Tema</p>
+          {empresa?.slug && <CopyLinkButton slug={empresa.slug} />}
+          <p className="menu-mais-rotulo">Tema</p>
           <SeletorTema />
           <div className="menu-mais-separador" />
-          <button type="button" className="sidebar-logout" onClick={handleLogout}>
-            <LogOut size={20} aria-hidden /> Sair
+          <button type="button" className="nav-item nav-item--sec" onClick={handleLogout}>
+            <LogOut size={17} aria-hidden /><span>Sair</span>
           </button>
         </div>
-      </Modal>
-
-      <Modal open={temaAberto} onClose={() => setTemaAberto(false)} title="Tema">
-        <SeletorTema onEscolher={() => setTemaAberto(false)} />
       </Modal>
     </div>
   );

@@ -1,0 +1,140 @@
+/*
+ * Painel, Direção A: Hoje, Agenda (dia e semana por profissional) e o detalhe do horário.
+ * Tudo é linha de 1 px; a cor da empresa só marca o "agora".
+ */
+
+/* ── Hoje ────────────────────────────────────────────────────────────────── */
+.hoje-carregando { display: grid; gap: var(--e-4); }
+.metricas-dia { display: grid; grid-template-columns: repeat(2, 1fr); margin: 0 0 var(--e-5); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bloco); }
+.metricas-dia > div { padding: var(--e-3) var(--e-4); border-left: 1px solid var(--border); border-top: 1px solid var(--border); }
+.metricas-dia > div:nth-child(-n+2) { border-top: 0; }
+.metricas-dia > div:nth-child(odd) { border-left: 0; }
+.metricas-dia dt { font-size: var(--t-12); color: var(--text-muted); }
+.metricas-dia dd { margin: 0; font-size: var(--t-20); font-weight: 600; letter-spacing: -0.01em; }
+@media (min-width: 720px) {
+  .metricas-dia { grid-template-columns: repeat(4, 1fr); }
+  .metricas-dia > div { border-top: 0; }
+  .metricas-dia > div:nth-child(odd) { border-left: 1px solid var(--border); }
+  .metricas-dia > div:first-child { border-left: 0; }
+}
+.hoje-grade { display: grid; gap: var(--e-5); }
+.hoje-grade > *, .hoje-lado > * { min-width: 0; }
+.hoje-lado { display: grid; gap: var(--e-5); align-content: start; }
+@media (min-width: 1100px) { .hoje-grade { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; } }
+.bloco-vazio .empty-state { border: 0; padding: var(--e-8) var(--e-4); }
+.bloco-texto { display: flex; align-items: center; gap: var(--e-2); padding: var(--e-4); color: var(--text-muted); }
+
+.fila li { display: flex; align-items: center; gap: var(--e-2); padding-right: var(--e-3); border-top: 1px solid var(--border); }
+.fila li:first-child { border-top: 0; }
+.fila-abrir {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--e-3); align-items: center;
+  padding: var(--e-3) var(--e-4); border: 0; background: none; text-align: left; color: inherit;
+  transition: background-color var(--t-rapida);
+}
+.fila-abrir:hover { background: var(--surface-2); }
+.fila-h { font-weight: 600; }
+.fila-h small { display: block; font-weight: 400; color: var(--text-subtle); font-size: var(--t-12); white-space: nowrap; }
+.fila-quem { min-width: 0; }
+.fila-quem b { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fila-quem span { display: block; color: var(--text-muted); font-size: var(--t-13); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fila-lado { display: flex; align-items: center; gap: var(--e-1); flex: none; }
+.fila li.agora { background: var(--destaque-suave); }
+.fila li.agora .fila-h, .fila li.agora .fila-h small { color: var(--destaque-texto); }
+.fila li.agora .fila-abrir:hover { background: transparent; }
+
+.pendencias li { display: flex; align-items: center; gap: var(--e-2); padding: var(--e-2) var(--e-4) var(--e-2) 0; border-top: 1px solid var(--border); }
+.pendencias li:first-child { border-top: 0; }
+.pendencia-abrir { flex: 1; min-width: 0; padding: var(--e-1) var(--e-4); border: 0; background: none; text-align: left; color: inherit; border-radius: var(--r-controle); }
+.pendencia-abrir:hover b { text-decoration: underline; }
+.pendencia-abrir b { display: block; font-weight: 600; }
+.pendencia-abrir small { display: block; color: var(--text-muted); font-size: var(--t-12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.semana { padding: var(--e-4); display: grid; gap: var(--e-4); }
+.semana dl { display: grid; grid-template-columns: 1fr 1fr; gap: var(--e-3) var(--e-4); }
+.semana dt { font-size: var(--t-12); color: var(--text-muted); }
+.semana dd { margin: 0; font-size: var(--t-17); font-weight: 600; }
+.barras-semana { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--e-2); align-items: end; }
+.barras-semana li { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; height: 104px; font-size: var(--t-12); color: var(--text-muted); }
+.barras-semana i { display: block; width: 100%; border-radius: 3px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); }
+.barras-semana .hoje i { background: var(--text); box-shadow: none; }
+.barras-semana .hoje { color: var(--text); font-weight: 600; }
+
+/* ── Agenda ──────────────────────────────────────────────────────────────── */
+.agenda-barra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e-2) var(--e-3); margin-bottom: var(--e-4); }
+.agenda-barra h1 { font-size: var(--t-20); font-weight: 600; margin-right: var(--e-2); }
+.agenda-nav { display: flex; align-items: center; gap: 2px; }
+.agenda-direita { margin-left: auto; }
+@media (max-width: 600px) { .agenda-barra h1 { width: 100%; } .agenda-direita { margin-left: 0; } }
+.agenda-vazia { margin-top: var(--e-3); color: var(--text-muted); font-size: var(--t-13); }
+.agenda-lista .tabs { margin-top: 0; }
+
+.cal-bloco { border: 1px solid var(--border); border-radius: var(--r-bloco); background: var(--surface); overflow: hidden; }
+.cal-rolagem { overflow-x: auto; overscroll-behavior-x: contain; }
+.cal-rolagem:focus-visible { outline-offset: -2px; }
+.cal { --gutter: 52px; min-width: calc(var(--gutter) + var(--cols) * 116px); }
+.cal--semana { min-width: calc(var(--gutter) + 7 * 120px); }
+.cal-cab, .cal-corpo { display: grid; grid-template-columns: var(--gutter) repeat(var(--cols), minmax(116px, 1fr)); }
+.cal-cab { position: sticky; top: 0; z-index: 3; background: var(--surface); border-bottom: 1px solid var(--border); }
+.cal-pro { display: flex; align-items: center; gap: var(--e-2); min-width: 0; padding: var(--e-2); border-left: 1px solid var(--border); }
+.cal-pro > span:not(.avatar) { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.cal-pro b { font-size: var(--t-13); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-pro small { font-size: var(--t-12); color: var(--text-muted); white-space: nowrap; }
+.cal--semana .cal-pro { justify-content: center; }
+.cal-pro--hoje b { color: var(--destaque-texto); }
+.cal-corpo { position: relative; }
+.cal-horas { position: relative; }
+.cal-horas span { position: absolute; right: var(--e-2); transform: translateY(-50%); font-size: var(--t-12); color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+.cal-col { position: relative; border-left: 1px solid var(--border); background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px); background-size: 100% var(--px-hora); }
+.cal-col--hoje { background-color: color-mix(in srgb, var(--destaque-suave) 35%, transparent); }
+
+.ev {
+  --cor: var(--destaque);
+  position: absolute; z-index: 2; left: 3px; right: 3px; overflow: hidden;
+  display: flex; flex-direction: column; align-items: flex-start; padding: 3px 7px;
+  border: 0; border-left: 3px solid var(--cor); border-radius: 5px; text-align: left;
+  background: color-mix(in srgb, var(--cor) 14%, var(--surface)); color: var(--text);
+  font-size: var(--t-12); line-height: 1.3; transition: filter var(--t-rapida);
+}
+.ev:hover { filter: brightness(.96); }
+.ev > span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-cliente { font-weight: 600; }
+.ev-hora, .ev-servico { color: var(--text-muted); }
+.ev--curto { flex-direction: row; align-items: center; gap: 6px; }
+.ev--curto .ev-servico, .ev--curto .ev-status, .ev--medio .ev-servico { display: none; }
+.ev--passado { background: var(--surface-2); }
+.ev--passado .ev-cliente { color: var(--text-muted); }
+.ev--pendente { background: var(--surface); outline: 1px dashed var(--aviso); outline-offset: -1px; border-left-color: var(--aviso); }
+.ev-status { color: var(--aviso); font-weight: 600; }
+.ev--cancelado { background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--surface) 6px 12px); border-left-color: var(--border-strong); }
+.ev--cancelado .ev-cliente { text-decoration: line-through; color: var(--text-muted); }
+.cal--semana .ev { padding: 2px 5px; }
+.cal-agora { position: absolute; z-index: 4; left: var(--gutter); right: 0; height: 0; border-top: 2px solid var(--perigo); pointer-events: none; }
+.cal-agora span { position: absolute; right: 100%; transform: translateY(-50%); padding: 0 4px; background: var(--surface); color: var(--perigo); font-size: var(--t-12); font-weight: 600; }
+
+.legenda { display: flex; flex-wrap: wrap; gap: var(--e-2) var(--e-4); margin-top: var(--e-3); font-size: var(--t-12); color: var(--text-muted); }
+.legenda li { display: inline-flex; align-items: center; gap: 6px; }
+.legenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legenda-pendente { background: var(--surface); outline: 1px dashed var(--aviso); outline-offset: -1px; }
+.legenda-cancelado { background: repeating-linear-gradient(135deg, var(--surface-2) 0 3px, var(--surface) 3px 6px); box-shadow: inset 0 0 0 1px var(--border); }
+
+/* ── Detalhe do horário ──────────────────────────────────────────────────── */
+.detalhe-ag { display: grid; gap: var(--e-4); }
+.detalhe-ag-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--e-3); }
+.detalhe-ag-quando { display: flex; align-items: center; gap: var(--e-2); color: var(--text-muted); }
+.detalhe-ag-quando b { color: var(--text); font-weight: 600; }
+.detalhe-ag-servicos { border: 1px solid var(--border); border-radius: var(--r-bloco); }
+.detalhe-ag-servicos li { display: grid; grid-template-columns: 1fr auto auto; gap: var(--e-3); padding: var(--e-2) var(--e-3); border-top: 1px solid var(--border); font-size: var(--t-14); }
+.detalhe-ag-servicos li:first-child { border-top: 0; }
+.detalhe-ag-total { font-weight: 600; background: var(--surface-2); }
+.detalhe-ag-dados { display: grid; grid-template-columns: 1fr 1fr; gap: var(--e-3); }
+.detalhe-ag-dados dt { display: flex; align-items: center; gap: 4px; font-size: var(--t-12); color: var(--text-muted); }
+.detalhe-ag-dados dd { margin: 2px 0 0; }
+.detalhe-ag-dados a { color: var(--text); }
+.detalhe-ag-pro { display: inline-flex; align-items: center; gap: var(--e-2); }
+.detalhe-acoes { display: flex; flex-wrap: wrap; gap: var(--e-2); width: 100%; }
+.detalhe-acoes .btn-whatsapp { margin-right: auto; }
+@media (max-width: 640px) { .detalhe-acoes .btn { flex: 1; } .detalhe-acoes .btn-whatsapp { margin-right: 0; flex-basis: 100%; } }
+
+/* Equipe: as telas de profissionais e horários entram sem o próprio recuo de página */
+.equipe-page .page { padding: 0; max-width: none; }
+.equipe-page .page .page-header { display: none; }
