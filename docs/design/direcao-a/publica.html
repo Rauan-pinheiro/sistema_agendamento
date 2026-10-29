@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR" data-empresa="barbearia">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canto do Corte · Direção A</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<div class="pub">
+  <header class="pub-topo">
+    <div class="logo" aria-hidden="true">CC</div>
+    <div>
+      <h1 data-nome></h1>
+      <p><span data-nota></span><span data-endereco></span></p>
+    </div>
+    <button type="button" class="btn btn--icone" data-tema></button>
+  </header>
+
+  <div class="pub-grade">
+    <aside class="resumo" aria-label="Sua reserva">
+      <h2>Sua reserva</h2>
+      <p class="frase" data-frase aria-live="polite"></p>
+      <div class="linhas" data-linhas></div>
+      <button type="button" class="btn btn--destaque btn--grande">Continuar para seus dados</button>
+      <p class="nota">Sem cadastro. Você confirma pelo WhatsApp.</p>
+    </aside>
+
+    <main>
+      <p class="frase frase-movel" data-frase style="margin-bottom:24px"></p>
+
+      <section class="passo passo--feito" aria-labelledby="p1">
+        <div class="passo-cab"><span class="passo-n" aria-hidden="true">1</span><h2 id="p1">Escolha os serviços</h2><span class="muted">Pode escolher mais de um</span></div>
+        <div class="servicos" data-servicos></div>
+      </section>
+
+      <section class="passo passo--feito" aria-labelledby="p2">
+        <div class="passo-cab"><span class="passo-n" aria-hidden="true">2</span><h2 id="p2">Com quem?</h2></div>
+        <div class="pros" data-pros></div>
+      </section>
+
+      <section class="passo" aria-labelledby="p3">
+        <div class="passo-cab"><span class="passo-n" aria-hidden="true">3</span><h2 id="p3">Quando?</h2><span class="muted">Horários livres de Davi</span></div>
+        <div class="dias" data-dias></div>
+        <div data-turnos></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="carrinho" role="region" aria-label="Resumo da reserva">
+  <div class="carrinho-txt"><b data-total></b><span data-qtd></span></div>
+  <button type="button" class="btn btn--destaque btn--grande">Continuar</button>
+</div>
+
+<script src="../comum/dados.js"></script>
+<script src="../comum/proto.js"></script>
+<script>
+const { E, foto, brl, dur, icone } = P;
+const sel = new Set(E.selecionados);
+let pro = E.profissionalEscolhido, hora = E.horarioEscolhido;
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+$('[data-nome]').textContent = E.nome;
+$('[data-nota]').innerHTML = `${icone('estrela')} ${E.nota.toLocaleString('pt-BR')} (${E.avaliacoes})`;
+$('[data-endereco]').innerHTML = `${icone('pin')} ${E.bairro}`;
+
+$('[data-servicos]').innerHTML = E.servicos.map((s) => `
+  <button type="button" class="servico" data-id="${s.id}" aria-pressed="${sel.has(s.id)}">
+    <img src="${foto(s.foto)}" alt="" width="64" height="64" loading="lazy">
+    <span><span class="titulo">${s.nome}</span><span class="desc">${s.desc}</span><span class="meta">${dur(s.dur)} · <b>${brl(s.preco)}</b></span></span>
+    <span class="marcador">${icone('check')}</span>
+  </button>`).join('');
+
+$('[data-pros]').innerHTML = `<button type="button" class="pro" data-pro="-1" aria-pressed="false"><span class="sem">${icone('pessoas')}</span>Sem preferência</button>` +
+  E.profissionais.map((p, i) => `<button type="button" class="pro" data-pro="${i}" aria-pressed="${i === pro}"><img src="${foto(p.foto)}" alt="" width="32" height="32">${p.nome.split(' ')[0]}</button>`).join('');
+
+const dias = [['Qui', 29], ['Sex', 30], ['Sáb', 31], ['Dom', 1], ['Seg', 2], ['Ter', 3], ['Qua', 4]];
+$('[data-dias]').innerHTML = dias.map(([d, n], i) => `<button type="button" class="dia" aria-pressed="${i === 0}" ${d === 'Dom' ? 'disabled aria-label="Domingo, fechado"' : ''}><small>${i === 0 ? 'Hoje' : d}</small><b>${n}</b></button>`).join('');
+
+const turnos = [['Manhã', E.horarios.manha], ['Tarde', E.horarios.tarde], ['Noite', E.horarios.noite]];
+$('[data-turnos]').innerHTML = turnos.map(([t, hs]) => `<div class="turno"><h3>${t}</h3><div class="slots">${hs.map((h) => `<button type="button" class="slot" data-hora="${h}" aria-pressed="${h === hora}">${h}</button>`).join('')}</div></div>`).join('');
+
+function atualizar() {
+  const itens = E.servicos.filter((s) => sel.has(s.id));
+  const total = itens.reduce((a, s) => a + s.preco, 0);
+  const tempo = itens.reduce((a, s) => a + s.dur, 0);
+  const nomes = itens.map((s) => s.nome);
+  const lista = nomes.length > 1 ? nomes.slice(0, -1).join(', ') + ' e ' + nomes.at(-1) : nomes[0];
+  const quem = pro < 0 ? 'qualquer barbeiro' : E.profissionais[pro].nome;
+  const frase = `${lista ? `<b>${lista}</b>` : '<span class="falta">escolha um serviço</span>'} com <b>${quem}</b>, ${hora ? `<b>hoje às ${hora}</b>` : '<span class="falta">escolha o horário</span>'}.`;
+  $$('[data-frase]').forEach((el) => (el.innerHTML = frase));
+  $('[data-linhas]').innerHTML = itens.map((s) => `<div><span>${s.nome}</span><span class="num">${brl(s.preco)}</span></div>`).join('') +
+    `<div class="total"><span>Total · ${dur(tempo)}</span><span class="num">${brl(total)}</span></div>`;
+  $('[data-total]').textContent = brl(total);
+  $('[data-qtd]').textContent = `${itens.length} ${itens.length === 1 ? 'serviço' : 'serviços'} · ${dur(tempo)}${hora ? ' · hoje ' + hora : ''}`;
+}
+document.addEventListener('click', (ev) => {
+  const s = ev.target.closest('.servico'), p = ev.target.closest('.pro'), h = ev.target.closest('.slot');
+  if (s) { sel.has(s.dataset.id) ? sel.delete(s.dataset.id) : sel.add(s.dataset.id); s.setAttribute('aria-pressed', sel.has(s.dataset.id)); }
+  if (p) { pro = +p.dataset.pro; $$('.pro').forEach((x) => x.setAttribute('aria-pressed', x === p)); }
+  if (h) { hora = h.dataset.hora; $$('.slot').forEach((x) => x.setAttribute('aria-pressed', x === h)); }
+  if (s || p || h) atualizar();
+});
+atualizar();
+</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR" data-empresa="barbearia">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hoje · Direção A</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body data-painel="hoje">
+<div class="app">
+  <aside class="lateral">
+    <div class="empresa"><span class="logo" aria-hidden="true">CC</span>Canto do Corte</div>
+    <nav data-lateral aria-label="Painel"></nav>
+    <div class="rodape"><img src="../comum/fotos/ze.webp" alt="">Zé Ricardo</div>
+  </aside>
+  <div>
+    <header class="topo">
+      <div class="empresa"><span class="logo" aria-hidden="true">CC</span>Canto do Corte</div>
+      <div class="acoes"><button type="button" class="btn btn--icone" data-tema></button></div>
+    </header>
+    <main class="painel">
+      <div class="cab">
+        <h1>Quinta, 29 de outubro</h1>
+        <div class="direita"><a class="btn" href="#">Ver página pública</a><button type="button" class="btn btn--acao" data-novo></button></div>
+        <p data-resumo></p>
+      </div>
+      <dl class="metricas-dia" data-metricas></dl>
+      <div class="hoje-grade">
+        <section class="bloco" aria-labelledby="t-fila">
+          <div class="bloco-cab"><h2 id="t-fila">A seguir</h2><a href="agenda.html">Abrir agenda</a></div>
+          <ol class="fila" data-fila></ol>
+        </section>
+        <div style="display:grid;gap:20px">
+          <section class="bloco" aria-labelledby="t-pend">
+            <div class="bloco-cab"><h2 id="t-pend">Esperando sua confirmação</h2></div>
+            <ul class="pendencias" data-pendencias></ul>
+          </section>
+          <section class="bloco" aria-labelledby="t-sem">
+            <div class="bloco-cab"><h2 id="t-sem">Esta semana</h2><span class="subtle" style="font-size:13px">26 a 31/10</span></div>
+            <div class="semana">
+              <dl data-semana></dl>
+              <div class="barras-semana" data-barras aria-hidden="true"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+  <nav class="abas" data-abas aria-label="Painel"></nav>
+</div>
+<script src="../comum/dados.js"></script>
+<script src="../comum/proto.js"></script>
+<script>
+const { E, brl, icone, minutos, hora, STATUS } = P;
+const $ = (s) => document.querySelector(s);
+const preco = (nome) => (E.servicos.find((s) => s.nome === nome) || { preco: 0 }).preco;
+const todos = E.agenda.flatMap((l, pi) => l.map(([ini, d, cliente, servico, status]) => ({ ini, d, cliente, servico, status, pro: E.profissionais[pi].nome.split(' ')[0] })))
+  .sort((a, b) => minutos(a.ini) - minutos(b.ini));
+const AGORA = minutos('13:40');
+const validos = todos.filter((e) => e.status !== 'cancelado');
+const seguir = validos.filter((e) => minutos(e.ini) + e.d > AGORA);
+
+$('[data-novo]').innerHTML = `${icone('mais1')} Novo agendamento`;
+$('[data-resumo]').textContent = `Faltam ${seguir.length} atendimentos hoje. O próximo começa às ${seguir.find((e) => minutos(e.ini) >= AGORA).ini}.`;
+const m = [
+  ['Agendados hoje', validos.length],
+  ['Já atendidos', validos.filter((e) => e.status === 'concluido').length],
+  ['Previsto hoje', brl(validos.reduce((a, e) => a + preco(e.servico), 0))],
+  ['Cancelados', todos.length - validos.length]
+];
+$('[data-metricas]').innerHTML = m.map(([t, v]) => `<div><dt>${t}</dt><dd>${v}</dd></div>`).join('');
+
+const quando = (n) => (n < 60 ? `em ${n} min` : `em ${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60}` : ''}`);
+const selo = (s) => ({ confirmado: '<span class="selo selo--ok">Confirmado</span>', pendente: '<span class="selo selo--aviso">Aguardando</span>' }[s] || '');
+$('[data-fila]').innerHTML = seguir.slice(0, 7).map((e) => {
+  const agora = minutos(e.ini) <= AGORA;
+  return `<li class="${agora ? 'agora' : ''}">
+    <span class="h">${e.ini}<small>${agora ? 'agora' : quando(minutos(e.ini) - AGORA)}</small></span>
+    <span class="quem"><b>${e.cliente}</b><span>${e.servico} · ${e.pro}</span></span>
+    <span class="lado">${agora ? '<span class="selo selo--agora">Em atendimento</span>' : selo(e.status)}
+      <a class="btn btn--icone" href="#" aria-label="Mandar mensagem para ${e.cliente} no WhatsApp">${icone('mensagem')}</a></span>
+  </li>`;
+}).join('');
+
+$('[data-pendencias]').innerHTML = validos.filter((e) => e.status === 'pendente').map((e) =>
+  `<li><span><b>${e.cliente}</b><small>${e.ini} · ${e.servico} · ${e.pro}</small></span><button type="button" class="btn">Confirmar</button></li>`).join('');
+
+const S = E.semana;
+$('[data-semana]').innerHTML = [['Agendamentos', S.agendamentos], ['Receita prevista', brl(S.receita)], ['Agenda ocupada', S.ocupacao + '%'], ['Clientes novos', S.novos]]
+  .map(([t, v]) => `<div><dt>${t}</dt><dd>${v}</dd></div>`).join('');
+const max = Math.max(...S.porDia);
+$('[data-barras]').innerHTML = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d, i) =>
+  `<div class="${i === 3 ? 'hoje' : ''}"><i style="height:${(S.porDia[i] / max) * 72}px"></i>${d}</div>`).join('');
+</script>
+</body>
+</html>

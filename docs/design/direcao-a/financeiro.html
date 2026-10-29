@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR" data-empresa="barbearia">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financeiro · Direção A</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body data-painel="financeiro">
+<div class="app">
+  <aside class="lateral">
+    <div class="empresa"><span class="logo" aria-hidden="true">CC</span>Canto do Corte</div>
+    <nav data-lateral aria-label="Painel"></nav>
+    <div class="rodape"><img src="../comum/fotos/ze.webp" alt="">Zé Ricardo</div>
+  </aside>
+  <div>
+    <header class="topo">
+      <div class="empresa"><span class="logo" aria-hidden="true">CC</span>Canto do Corte</div>
+      <div class="acoes"><button type="button" class="btn btn--icone" data-tema></button></div>
+    </header>
+    <main class="painel">
+      <div class="cab">
+        <h1>Financeiro</h1>
+        <div class="direita">
+          <div class="segmento" role="group" aria-label="Período">
+            <button type="button" aria-pressed="true">Outubro</button>
+            <button type="button" aria-pressed="false">Setembro</button>
+            <button type="button" aria-pressed="false">Ano</button>
+          </div>
+        </div>
+      </div>
+
+      <section class="bloco" aria-label="Resumo de outubro">
+        <div class="fin-topo">
+          <h2 class="rotulo">Recebido em outubro, até hoje</h2>
+          <p class="linha"><span class="valor" data-receita></span><span class="variacao" data-variacao></span></p>
+          <div class="grafico" data-grafico></div>
+          <div class="eixo" aria-hidden="true"><span>1 out</span><span>15 out</span><span>Hoje</span></div>
+        </div>
+        <dl class="metricas" data-metricas></dl>
+      </section>
+
+      <div class="fin-grade">
+        <section class="bloco" aria-labelledby="t-serv">
+          <div class="bloco-cab"><h2 id="t-serv">Por serviço</h2></div>
+          <table class="tabela"><thead><tr><th>Serviço</th><th class="dir">Vezes</th><th class="dir">Receita</th></tr></thead><tbody data-servicos></tbody></table>
+        </section>
+        <section class="bloco" aria-labelledby="t-pro">
+          <div class="bloco-cab"><h2 id="t-pro">Por profissional</h2></div>
+          <table class="tabela"><thead><tr><th>Profissional</th><th class="dir">Receita</th></tr></thead><tbody data-pros></tbody></table>
+        </section>
+      </div>
+
+      <section class="bloco" style="margin-top:20px" aria-labelledby="t-rec">
+        <div class="bloco-cab"><h2 id="t-rec">Atendimentos concluídos</h2><a href="#">Exportar planilha</a></div>
+        <table class="tabela tabela--cartoes"><thead><tr><th>Quando</th><th>Cliente</th><th>Serviço</th><th>Profissional</th><th class="dir">Valor</th></tr></thead><tbody data-recentes></tbody></table>
+      </section>
+    </main>
+  </div>
+  <nav class="abas" data-abas aria-label="Painel"></nav>
+</div>
+<script src="../comum/dados.js"></script>
+<script src="../comum/proto.js"></script>
+<script>
+const { E, brl, icone } = P;
+const F = E.financeiro;
+const $ = (s) => document.querySelector(s);
+const pct = Math.round(((F.receita - F.anterior) / F.anterior) * 100);
+$('[data-receita]').textContent = brl(F.receita);
+$('[data-variacao]').innerHTML = `${icone('sobe')} ${pct}% sobre setembro no mesmo período`;
+P.grafico($('[data-grafico]'), P.serieMes(F.receita), 'Receita por dia em outubro; maior movimento às sextas e sábados');
+$('[data-metricas]').innerHTML = [
+  ['Atendimentos', F.atendimentos, ''],
+  ['Ticket médio', brl(Math.round((F.receita / F.atendimentos) * 100) / 100), ''],
+  ['A receber até 31/10', brl(F.aReceber), 'agendados e confirmados'],
+  ['Cancelamentos', F.cancelamentos, brl(F.perdido) + ' que deixaram de entrar']
+].map(([t, v, s]) => `<div><dt>${t}</dt><dd>${v}${s ? `<small>${s}</small>` : ''}</dd></div>`).join('');
+const maxS = F.porServico[0][1];
+$('[data-servicos]').innerHTML = F.porServico.map(([n, v, q]) =>
+  `<tr><td>${n}<span class="prop"><i style="width:${(v / maxS) * 100}%"></i></span></td><td class="dir">${q}</td><td class="dir">${brl(v)}</td></tr>`).join('');
+$('[data-pros]').innerHTML = F.porProfissional.map(([n, v]) =>
+  `<tr><td>${n}<span class="prop"><i style="width:${(v / F.receita) * 100}%"></i></span></td><td class="dir">${brl(v)}</td></tr>`).join('');
+$('[data-recentes]').innerHTML = F.recentes.map(([q, c, s, p, v]) =>
+  `<tr><td>${q}</td><td>${c}</td><td>${s}</td><td>${p}</td><td class="dir">${brl(v)}</td></tr>`).join('');
+</script>
+</body>
+</html>
