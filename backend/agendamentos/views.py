@@ -20,7 +20,7 @@ from .models import (
 )
 from .serializers import (
     AnexoSerializer, ConfirmarAnexoSerializer, PedidoAssinaturaSerializer,
-    MidiaServicoDonoSerializer, YoutubeSerializer,
+    MidiaServicoDonoSerializer, YoutubeSerializer, PedidoImagemSerializer, ConfirmarImagemSerializer,
     EmpresaSerializer, EmpresaPublicSerializer,
     ProfissionalSerializer, ProfissionalPublicSerializer,
     ServicoSerializer, ServicoPublicSerializer, AgendamentoSerializer,
@@ -79,14 +79,79 @@ def _inicio_do_dia(d):
 
 # ── Dashboard (autenticado) ───────────────────────────────────────────────────
 
-class EmpresaViewSet(viewsets.ModelViewSet):
+def _assinar_imagem(request, pasta: str) -> Response:
+    """Assinatura de upload de uma imagem pública (capa, logo, foto de profissional)."""
+    pedido = PedidoImagemSerializer(data=request.data)
+    pedido.is_valid(raise_exception=True)
+    try:
+        # Chega privada; só vira pública depois de validada em _trocar_imagem()
+        assinatura = midia.gerar_assinatura_upload(pasta=pasta, tipo='imagem')
+    except midia.MidiaIndisponivel:
+        return Response({'erro': 'Armazenamento de mídia não configurado.'},
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    return Response({**assinatura, 'tipo': 'imagem', 'nome': pedido.validated_data['nome']})
+
+
+def _trocar_imagem(request, obj, campo: str, pasta: str, serializer_cls) -> Response:
+    """
+    POST {public_id}: confere o arquivo enviado (formato pelo conteúdo e tamanho), torna
+    público e substitui a imagem anterior. DELETE: remove. O arquivo antigo é apagado
+    só depois do commit.
+    """
+    antigo = getattr(obj, campo)
+    if request.method == 'DELETE':
+        novo = ''
+    else:
+        dados = ConfirmarImagemSerializer(data=request.data)
+        dados.is_valid(raise_exception=True)
+        novo = dados.validated_data['public_id']
+        if not midia.public_id_valido(novo, pasta):
+            return Response({'erro': 'Upload inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+        if novo != antigo:
+            try:
+                meta = midia.obter_metadados(novo, 'imagem')
+                if meta is None:
+                    return Response({'erro': 'Arquivo não encontrado. Envie de novo.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                erro = midia.validar_metadados(meta, 'imagem')
+                if erro:
+                    midia.apagar(novo, 'imagem')
+                    return Response({'erro': erro}, status=status.HTTP_400_BAD_REQUEST)
+                midia.promover_para_publico(novo, 'imagem')
+            except midia.MidiaIndisponivel:
+                return Response({'erro': 'Armazenamento de mídia indisponível. Tente de novo.'},
+                                status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    setattr(obj, campo, novo)
+    obj.save(update_fields=[campo])
+    if antigo and antigo != novo:
+        transaction.on_commit(lambda: midia.apagar(antigo, 'imagem', entrega=midia.ENTREGA_PUBLICA))
+    return Response(serializer_cls(obj).data)
+
+
+class EmpresaViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin,
+                     viewsets.GenericViewSet):
+    """A empresa do dono: ler e editar (sem criar nem excluir por aqui; exclusão em /conta/)."""
     serializer_class = EmpresaSerializer
     permission_classes = [permissions.IsAuthenticated]
-    http_method_names = ['get', 'put', 'patch', 'head', 'options']
     pagination_class = None
 
     def get_queryset(self):
         return Empresa.objects.filter(owner=self.request.user)
+
+    CAMPOS_IMAGEM = {'capa': 'capa_public_id', 'logo': 'logo_public_id'}
+
+    @action(detail=True, methods=['post'], url_path=r'(?P<campo>capa|logo)/assinatura')
+    def imagem_assinatura(self, request, pk=None, campo=None):
+        """POST /empresa/{id}/capa/assinatura/ (ou logo) — body: {nome, mime, tamanho}"""
+        empresa = self.get_object()
+        return _assinar_imagem(request, midia.pasta_da_empresa(empresa.pk))
+
+    @action(detail=True, methods=['post', 'delete'], url_path=r'(?P<campo>capa|logo)')
+    def imagem(self, request, pk=None, campo=None):
+        """POST /empresa/{id}/capa/ {public_id} confirma o upload; DELETE remove."""
+        empresa = self.get_object()
+        return _trocar_imagem(request, empresa, self.CAMPOS_IMAGEM[campo],
+                              midia.pasta_da_empresa(empresa.pk), EmpresaSerializer)
 
 
 class ProfissionalViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
@@ -97,6 +162,19 @@ class ProfissionalViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Profissional.objects.filter(empresa=self._empresa())
+
+    @action(detail=True, methods=['post'], url_path='foto/assinatura')
+    def foto_assinatura(self, request, pk=None):
+        """POST /profissionais/{id}/foto/assinatura/ — body: {nome, mime, tamanho}"""
+        pro = self.get_object()
+        return _assinar_imagem(request, midia.pasta_do_profissional(pro.empresa_id, pro.pk))
+
+    @action(detail=True, methods=['post', 'delete'], url_path='foto')
+    def foto(self, request, pk=None):
+        """POST /profissionais/{id}/foto/ {public_id} confirma o upload; DELETE remove."""
+        pro = self.get_object()
+        return _trocar_imagem(request, pro, 'foto_public_id',
+                              midia.pasta_do_profissional(pro.empresa_id, pro.pk), ProfissionalSerializer)
 
 
 class ServicoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
@@ -525,7 +603,13 @@ class PaginaPublicaView(APIView):
         chave = chave_cache_pagina_publica(slug)
         dados = cache.get(chave)
         if dados is None:
-            empresa = get_object_or_404(EMPRESAS_PUBLICAS, slug=slug)
+            empresa = EMPRESAS_PUBLICAS.filter(slug=slug).first()
+            if empresa is None:
+                if Empresa.objects.filter(slug=slug).exists():
+                    return Response({'codigo': 'empresa_suspensa',
+                                     'detail': 'Agendamento online temporariamente indisponível.'},
+                                    status=status.HTTP_410_GONE)
+                return Response({'detail': 'Não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
             dados = {
                 'empresa': EmpresaPublicSerializer(empresa).data,
                 'servicos': ServicoPublicSerializer(

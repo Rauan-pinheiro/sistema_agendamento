@@ -37,8 +37,13 @@ class SuspensaoTests(APITestCase):
     def test_conta_suspensa_some_da_pagina_publica_e_nao_recebe_reservas(self):
         self.assertEqual(self.client.get('/api/v1/public/studio/pagina/').status_code, 200)  # entra no cache
         self._suspender()
-        self.assertEqual([r.status_code for r in self._publicas()], [404] * 6)
+        respostas = self._publicas()
+        # A página diz "temporariamente indisponível" (410 + código); o resto continua 404
+        self.assertEqual([r.status_code for r in respostas], [410] + [404] * 5)
+        self.assertEqual(respostas[0].data['codigo'], 'empresa_suspensa')
+        self.assertNotIn('empresa', respostas[0].data)  # não expõe dados da empresa suspensa
         self.assertFalse(Agendamento.objects.exists())
+        self.assertEqual(self.client.get('/api/v1/public/nao-existe/pagina/').status_code, 404)
 
     def test_conta_suspensa_nao_entra_no_painel(self):
         token = self.client.post('/api/v1/auth/token/', {'username': self.dono.username, 'password': SENHA}).data['access']
@@ -66,7 +71,7 @@ class AdminSuspensaoTests(APITestCase):
         self.assertEqual(r.status_code, 302)
         emp.owner.refresh_from_db()
         self.assertFalse(emp.owner.is_active)
-        self.assertEqual(self.client.get('/api/v1/public/studio/pagina/').status_code, 404)
+        self.assertEqual(self.client.get('/api/v1/public/studio/pagina/').status_code, 410)
         self.client.post(url, {'action': 'reativar', '_selected_action': [emp.pk]})
         emp.owner.refresh_from_db()
         self.assertTrue(emp.owner.is_active)

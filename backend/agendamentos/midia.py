@@ -95,6 +95,7 @@ class ProvedorMidia(Protocol):
     def apagar(self, public_id: str, tipo: str, resource_type: str | None, entrega: str) -> None: ...
     def tornar_publico(self, public_id: str, tipo: str) -> None: ...
     def urls(self, public_id: str, tipo: str, entrega: str) -> dict: ...
+    def url_imagem(self, public_id: str, largura: int, altura: int | None) -> str: ...
     def listar(self, prefixo: str) -> Iterator[ArquivoArmazenado]: ...
     def uso(self) -> UsoArmazenamento: ...
 
@@ -153,6 +154,15 @@ def pasta_do_agendamento(empresa_id: int, agendamento_id: int) -> str:
 
 def pasta_do_servico(empresa_id: int, servico_id: int) -> str:
     return f'{settings.MIDIA_PASTA_RAIZ}/e{empresa_id}/sv{servico_id}'
+
+
+def pasta_da_empresa(empresa_id: int) -> str:
+    """Capa e logo da página pública."""
+    return f'{settings.MIDIA_PASTA_RAIZ}/e{empresa_id}/marca'
+
+
+def pasta_do_profissional(empresa_id: int, profissional_id: int) -> str:
+    return f'{settings.MIDIA_PASTA_RAIZ}/e{empresa_id}/pr{profissional_id}'
 
 
 _TOKEN_LEN = 12  # bytes → 16 caracteres em token_urlsafe
@@ -214,6 +224,24 @@ def urls_assinadas(public_id: str, tipo: str, entrega: str = TIPO_ENTREGA) -> di
     if not configurado():
         return {'url': None, 'thumb_url': None}
     return provedor().urls(public_id, tipo, entrega)
+
+
+LARGURAS_CAPA = (640, 1024, 1600)
+
+
+def imagem_publica(public_id: str, largura: int, altura: int | None = None) -> str | None:
+    """URL de uma imagem pública redimensionada (altura → recorte centrado no assunto)."""
+    if not public_id or not configurado():
+        return None
+    return provedor().url_imagem(public_id, largura, altura)
+
+
+def capa_publica(public_id: str) -> dict | None:
+    """Capa em srcset (LCP rápido no celular sem perder nitidez no desktop)."""
+    if not public_id or not configurado():
+        return None
+    urls = [(w, provedor().url_imagem(public_id, w, round(w * 9 / 16))) for w in LARGURAS_CAPA]
+    return {'url': urls[-1][1], 'srcset': ', '.join(f'{u} {w}w' for w, u in urls)}
 
 
 def listar_arquivos(prefixo: str | None = None) -> Iterator[ArquivoArmazenado]:

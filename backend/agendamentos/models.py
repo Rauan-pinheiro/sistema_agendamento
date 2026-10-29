@@ -11,6 +11,9 @@ class Empresa(models.Model):
     whatsapp_contato = models.CharField(max_length=20)
     # Cor de destaque da página pública (botões e seleção), escolhida pelo dono
     cor_destaque = models.CharField(max_length=7, default='#165C50')
+    # Capa e logo da página pública (public_id no armazenamento de mídia, entrega pública)
+    capa_public_id = models.CharField(max_length=255, blank=True)
+    logo_public_id = models.CharField(max_length=255, blank=True)
     # LGPD: prova do aceite dos Termos de Uso e da Política de Privacidade
     termos_aceitos_em = models.DateTimeField(null=True, blank=True)
     termos_versao = models.CharField(max_length=20, blank=True)
@@ -37,6 +40,7 @@ class Profissional(BaseModel):
     nome = models.CharField(max_length=100)
     especialidade = models.CharField(max_length=100, blank=True)
     ativo = models.BooleanField(default=True)
+    foto_public_id = models.CharField(max_length=255, blank=True)
 
     class Meta:
         ordering = ['nome']

@@ -115,6 +115,9 @@ class ProvedorLocal:
             url += f'?exp={exp}&sig={_assinar(entrega, public_id, exp)}'
         return {'url': url, 'thumb_url': url if tipo == 'imagem' else None}
 
+    def url_imagem(self, public_id: str, largura: int, altura: int | None) -> str:
+        return self.urls(public_id, 'imagem', ENTREGA_PUBLICA)['url']  # sem redimensionamento local
+
     def listar(self, prefixo: str) -> Iterator[ArquivoArmazenado]:
         for entrega in (TIPO_ENTREGA, ENTREGA_PUBLICA):
             pasta = _raiz() / entrega

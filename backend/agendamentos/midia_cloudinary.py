@@ -111,6 +111,15 @@ class ProvedorCloudinary:
             )
         return {'url': url, 'thumb_url': thumb}
 
+    def url_imagem(self, public_id: str, largura: int, altura: int | None) -> str:
+        t = {'width': largura, 'crop': 'limit', 'quality': 'auto', 'fetch_format': 'auto'}
+        if altura:
+            t.update(height=altura, crop='fill', gravity='auto')
+        url, _ = cloudinary.utils.cloudinary_url(
+            public_id, resource_type='image', type=ENTREGA_PUBLICA, secure=True, transformation=[t],
+        )
+        return url
+
     def listar(self, prefixo: str) -> Iterator[ArquivoArmazenado]:
         # 'raw' cobre uploads feitos para o endpoint errado com uma assinatura válida
         varreduras = [

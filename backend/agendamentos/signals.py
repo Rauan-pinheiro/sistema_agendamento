@@ -57,6 +57,15 @@ def _apagar_arquivo_do_anexo(sender, instance, **kwargs):
     transaction.on_commit(lambda: midia.apagar(public_id, tipo))
 
 
+@receiver(post_delete, sender=Empresa)
+@receiver(post_delete, sender=Profissional)
+def _apagar_imagens(sender, instance, **kwargs):
+    """Capa, logo e foto de profissional são públicas: apaga junto com o dono."""
+    ids = [getattr(instance, c, '') for c in ('capa_public_id', 'logo_public_id', 'foto_public_id')]
+    for public_id in filter(None, ids):
+        transaction.on_commit(lambda p=public_id: midia.apagar(p, 'imagem', entrega=midia.ENTREGA_PUBLICA))
+
+
 @receiver(post_delete, sender=MidiaServico)
 def _apagar_arquivo_da_midia(sender, instance, **kwargs):
     if instance.tipo == 'youtube' or not instance.public_id:

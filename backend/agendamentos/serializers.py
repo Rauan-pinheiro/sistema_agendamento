@@ -94,10 +94,29 @@ def _validar_slug_reservado(valor: str) -> str:
     return valor
 
 
-class EmpresaSerializer(serializers.ModelSerializer):
+class ImagensEmpresaMixin(serializers.Serializer):
+    """Capa (srcset) e logo da página pública; null quando a empresa não enviou."""
+    capa = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
+
+    def get_capa(self, obj) -> dict | None:
+        return midia.capa_publica(obj.capa_public_id)
+
+    def get_logo_url(self, obj) -> str | None:
+        return midia.imagem_publica(obj.logo_public_id, 160, 160)
+
+
+class FotoProfissionalMixin(serializers.Serializer):
+    foto_url = serializers.SerializerMethodField()
+
+    def get_foto_url(self, obj) -> str | None:
+        return midia.imagem_publica(obj.foto_public_id, 192, 192)
+
+
+class EmpresaSerializer(ImagensEmpresaMixin, serializers.ModelSerializer):
     class Meta:
         model = Empresa
-        fields = ['id', 'nome_fantasia', 'slug', 'whatsapp_contato', 'cor_destaque']
+        fields = ['id', 'nome_fantasia', 'slug', 'whatsapp_contato', 'cor_destaque', 'capa', 'logo_url']
         read_only_fields = ['id']
 
     def validate_cor_destaque(self, value: str) -> str:
@@ -118,18 +137,18 @@ class EmpresaSerializer(serializers.ModelSerializer):
         return _validar_telefone_br(value)
 
 
-class EmpresaPublicSerializer(serializers.ModelSerializer):
+class EmpresaPublicSerializer(ImagensEmpresaMixin, serializers.ModelSerializer):
     class Meta:
         model = Empresa
-        fields = ['id', 'nome_fantasia', 'slug', 'whatsapp_contato', 'cor_destaque']
+        fields = ['id', 'nome_fantasia', 'slug', 'whatsapp_contato', 'cor_destaque', 'capa', 'logo_url']
 
 
 # ── Profissional ──────────────────────────────────────────────────────────────
 
-class ProfissionalSerializer(serializers.ModelSerializer):
+class ProfissionalSerializer(FotoProfissionalMixin, serializers.ModelSerializer):
     class Meta:
         model = Profissional
-        fields = ['id', 'empresa', 'nome', 'especialidade', 'ativo', 'criado_em', 'atualizado_em']
+        fields = ['id', 'empresa', 'nome', 'especialidade', 'ativo', 'foto_url', 'criado_em', 'atualizado_em']
         read_only_fields = ['id', 'empresa', 'criado_em', 'atualizado_em']
 
     def validate_nome(self, value: str) -> str:
@@ -144,10 +163,10 @@ class ProfissionalSerializer(serializers.ModelSerializer):
         return value.strip()
 
 
-class ProfissionalPublicSerializer(serializers.ModelSerializer):
+class ProfissionalPublicSerializer(FotoProfissionalMixin, serializers.ModelSerializer):
     class Meta:
         model = Profissional
-        fields = ['id', 'nome', 'especialidade']
+        fields = ['id', 'nome', 'especialidade', 'foto_url']
 
 
 # ── Servico ───────────────────────────────────────────────────────────────────
@@ -530,6 +549,19 @@ class YoutubeSerializer(serializers.Serializer):
                 'Link do YouTube inválido. Use youtube.com/watch?v=… ou youtu.be/…'
             )
         return video_id
+
+
+class PedidoImagemSerializer(PedidoAssinaturaSerializer):
+    """Capa, logo ou foto de profissional: só imagem."""
+    def validate(self, data):
+        data = super().validate(data)
+        if data['tipo'] != 'imagem':
+            raise serializers.ValidationError({'nome': 'Envie uma foto (JPG, PNG ou WEBP).'})
+        return data
+
+
+class ConfirmarImagemSerializer(serializers.Serializer):
+    public_id = serializers.CharField(max_length=255)
 
 
 class ConfirmarAnexoSerializer(serializers.Serializer):
