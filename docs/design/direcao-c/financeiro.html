@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR" data-empresa="barbearia">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financeiro · Direção C</title>
+<link rel="preload" href="../comum/fontes/bricolage.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body data-painel="financeiro">
+<div class="app">
+  <aside class="lateral">
+    <div class="empresa"><span class="logo-p" aria-hidden="true">CC</span>Canto do Corte</div>
+    <nav data-lateral aria-label="Painel"></nav>
+    <div class="rodape"><img src="../comum/fotos/ze.webp" alt="">Zé Ricardo</div>
+  </aside>
+  <div>
+    <header class="topo">
+      <div class="empresa"><span class="logo-p" aria-hidden="true">CC</span>Canto do Corte</div>
+      <div class="acoes"><button type="button" class="btn btn--icone" data-tema></button></div>
+    </header>
+    <main class="painel">
+      <div class="cab">
+        <h1>Financeiro</h1>
+        <div class="direita">
+          <div class="abas-seg" role="group" aria-label="Período">
+            <button type="button" aria-pressed="true">Outubro</button>
+            <button type="button" aria-pressed="false">Setembro</button>
+            <button type="button" aria-pressed="false">Ano</button>
+          </div>
+        </div>
+      </div>
+
+      <section class="folha-p" aria-labelledby="t-rec">
+        <div class="fin-cab">
+          <h2 id="t-rec" class="rotulo">Entrou no caixa em outubro, até hoje</h2>
+          <span class="valor" data-receita></span>
+          <span class="variacao" data-variacao></span>
+          <div class="grafico" data-grafico></div>
+          <div class="eixo" aria-hidden="true"><span>1 out</span><span>15 out</span><span>Hoje</span></div>
+        </div>
+        <dl class="numeros-p" data-numeros></dl>
+      </section>
+
+      <div class="fin-grade">
+        <section class="folha-p" aria-labelledby="t-serv">
+          <h2 id="t-serv">Por serviço</h2>
+          <ul class="lista-precos" data-servicos></ul>
+        </section>
+        <section class="folha-p" aria-labelledby="t-pro">
+          <h2 id="t-pro">Por profissional</h2>
+          <ul class="lista-precos" data-pros></ul>
+        </section>
+      </div>
+
+      <section class="folha-p" style="margin-top:20px" aria-labelledby="t-con">
+        <h2 id="t-con">Atendimentos concluídos</h2>
+        <table class="tabela tabela--cartoes"><thead><tr><th>Quando</th><th>Cliente</th><th>Serviço</th><th>Profissional</th><th class="dir">Valor</th></tr></thead><tbody data-recentes></tbody></table>
+      </section>
+    </main>
+  </div>
+  <nav class="abas" data-abas aria-label="Painel"></nav>
+</div>
+<script src="../comum/dados.js"></script>
+<script src="../comum/proto.js"></script>
+<script>
+const { E, brl, icone } = P;
+const F = E.financeiro;
+const $ = (s) => document.querySelector(s);
+$('[data-receita]').textContent = brl(F.receita);
+$('[data-variacao]').innerHTML = `${icone('sobe')} ${Math.round(((F.receita - F.anterior) / F.anterior) * 100)}% a mais que setembro no mesmo período`;
+P.grafico($('[data-grafico]'), P.serieMes(F.receita), 'Receita por dia em outubro; sextas e sábados são os dias mais fortes');
+$('[data-numeros]').innerHTML = [
+  ['Atendimentos', F.atendimentos, ''], ['Ticket médio', brl(Math.round((F.receita / F.atendimentos) * 100) / 100), ''],
+  ['A receber até 31/10', brl(F.aReceber), 'agendado e confirmado'], ['Cancelamentos', F.cancelamentos, brl(F.perdido) + ' deixaram de entrar']
+].map(([t, v, s]) => `<div><dt>${t}</dt><dd>${v}${s ? `<small>${s}</small>` : ''}</dd></div>`).join('');
+const linha = (n, v, sub) => `<li><span class="linha"><b>${n}</b><span class="pontos" aria-hidden="true"></span><span class="v">${brl(v)}</span></span><small>${sub}</small></li>`;
+$('[data-servicos]').innerHTML = F.porServico.map(([n, v, q]) => linha(n, v, `${q} vezes · ${Math.round((v / F.receita) * 100)}% da receita`)).join('');
+$('[data-pros]').innerHTML = F.porProfissional.map(([n, v]) => linha(n, v, `${Math.round((v / F.receita) * 100)}% da receita`)).join('');
+$('[data-recentes]').innerHTML = F.recentes.map(([q, c, s, p, v]) => `<tr><td>${q}</td><td>${c}</td><td>${s}</td><td>${p}</td><td class="dir">${brl(v)}</td></tr>`).join('');
+</script>
+</body>
+</html>

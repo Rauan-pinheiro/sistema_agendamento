@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR" data-empresa="salao" data-destaque="#5B3A8C">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio Lume · Direção C</title>
+<link rel="preload" href="../comum/fontes/bricolage.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../comum/fontes/atkinson-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<div class="pub">
+  <header class="cartao-visita">
+    <div class="cv-linha">
+      <div class="logo" aria-hidden="true">SL</div>
+      <div>
+        <h1 data-nome></h1>
+        <p><span data-nota></span><span data-endereco></span></p>
+      </div>
+      <button type="button" class="btn btn--icone" data-tema></button>
+    </div>
+    <div class="galeria" aria-hidden="true">
+      <img src="../comum/fotos/capa-salao.webp" alt=""><img src="../comum/fotos/escova.webp" alt=""><img src="../comum/fotos/unhas.webp" alt="">
+    </div>
+  </header>
+
+  <div class="pub-grade">
+    <main>
+      <section class="bloco-pub" aria-labelledby="t-serv">
+        <h2 id="t-serv">Serviços e preços</h2>
+        <p class="muted">Toque para escolher. Pode ser mais de um.</p>
+        <ul class="precos" data-servicos></ul>
+      </section>
+      <section class="bloco-pub" aria-labelledby="t-eq">
+        <h2 id="t-eq">Com quem?</h2>
+        <p class="muted">Cada profissional tem a própria agenda.</p>
+        <div class="equipe" data-equipe></div>
+      </section>
+      <section class="bloco-pub" aria-labelledby="t-hora">
+        <h2 id="t-hora">Quando?</h2>
+        <p class="muted">Horários livres de Carla para 1 h 50 min de atendimento.</p>
+        <div class="dias" data-dias></div>
+        <div data-turnos></div>
+      </section>
+    </main>
+
+    <aside class="comanda" aria-labelledby="t-com">
+      <h2 id="t-com">Sua comanda</h2>
+      <p class="sub" data-sub></p>
+      <ul data-itens></ul>
+      <div class="total"><span>Total</span><b data-total-d></b></div>
+      <button type="button" class="btn btn--destaque">Continuar</button>
+      <p class="nota">Sem cadastro. A confirmação chega no WhatsApp.</p>
+    </aside>
+  </div>
+</div>
+
+<div class="folha" role="region" aria-label="Sua comanda">
+  <div class="alca" aria-hidden="true"></div>
+  <div class="folha-linha">
+    <div class="folha-txt"><b data-total></b><span data-qtd></span></div>
+    <button type="button" class="btn btn--destaque">Continuar</button>
+  </div>
+</div>
+
+<script src="../comum/dados.js"></script>
+<script src="../comum/proto.js"></script>
+<script>
+const { E, foto, brl, dur, icone } = P;
+const sel = new Set(E.selecionados);
+let pro = E.profissionalEscolhido, hora = E.horarioEscolhido;
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+$('[data-nome]').textContent = E.nome;
+$('[data-nota]').innerHTML = `${icone('estrela')} ${E.nota.toLocaleString('pt-BR')} de 5 (${E.avaliacoes})`;
+$('[data-endereco]').innerHTML = `${icone('pin')} ${E.endereco}`;
+
+$('[data-servicos]').innerHTML = E.servicos.map((s) => `<li>
+  <button type="button" class="preco-item" data-id="${s.id}" aria-pressed="${sel.has(s.id)}">
+    <img src="${foto(s.foto)}" alt="" width="72" height="72" loading="lazy">
+    <span>
+      <span class="preco-linha"><span class="nome">${s.nome}</span><span class="pontos" aria-hidden="true"></span><span class="valor">${s.aPartir ? '<small>a partir de </small>' : ''}${brl(s.preco)}</span></span>
+      <span class="desc">${s.desc}</span>
+      <span class="meta">${icone('relogio')} ${dur(s.dur)}<span class="check">${icone('check')} Escolhido</span></span>
+    </span>
+  </button></li>`).join('');
+
+$('[data-equipe]').innerHTML = `<button type="button" class="pessoa" data-pro="-1" aria-pressed="false"><span class="sem">${icone('pessoas')}</span><span>Tanto faz<small>mais horários</small></span></button>` +
+  E.profissionais.map((p, i) => `<button type="button" class="pessoa" data-pro="${i}" aria-pressed="${i === pro}"><img src="${foto(p.foto)}" alt="" width="36" height="36"><span><span class="n">${p.nome.split(' ')[0]}</span><small>${p.papel}</small></span></button>`).join('');
+
+const dias = [['Hoje', 29], ['Sex', 30], ['Sáb', 31], ['Dom', 1], ['Seg', 2], ['Ter', 3], ['Qua', 4]];
+$('[data-dias]').innerHTML = dias.map(([d, n], i) => `<button type="button" class="dia" aria-pressed="${i === 0}" ${d === 'Dom' ? 'disabled aria-label="Domingo, fechado"' : ''}><small>${d}</small><b>${n}</b></button>`).join('');
+$('[data-turnos]').innerHTML = [['Manhã', E.horarios.manha], ['Tarde', E.horarios.tarde], ['Noite', E.horarios.noite]].map(([t, hs]) =>
+  `<div class="turno"><h3>${t}</h3><div class="slots">${hs.map((h) => `<button type="button" class="slot" data-hora="${h}" aria-pressed="false"><span>${h}</span></button>`).join('')}</div></div>`).join('');
+
+/* O marca-texto pinta só a escolha atual: nome do serviço, profissional e horário. */
+function pintar() {
+  $$('.preco-item').forEach((b) => { const on = sel.has(b.dataset.id); b.setAttribute('aria-pressed', on); b.querySelector('.nome').classList.toggle('realce', on); });
+  $$('.pessoa').forEach((b) => { const on = +b.dataset.pro === pro; b.setAttribute('aria-pressed', on); b.querySelector('.n')?.classList.toggle('realce', on); });
+  $$('.slot').forEach((b) => { const on = b.dataset.hora === hora; b.setAttribute('aria-pressed', on); b.firstChild.classList.toggle('realce', on); });
+}
+function atualizar() {
+  pintar();
+  const itens = E.servicos.filter((s) => sel.has(s.id));
+  const total = itens.reduce((a, s) => a + s.preco, 0);
+  const tempo = itens.reduce((a, s) => a + s.dur, 0);
+  const quem = pro < 0 ? 'quem estiver livre' : E.profissionais[pro].nome;
+  $('[data-sub]').textContent = `Com ${quem}, hoje${hora ? ' às ' + hora : ''}. ${dur(tempo)} no total.`;
+  $('[data-itens]').innerHTML = itens.map((s) => `<li><span>${s.nome}</span><span class="pontos" aria-hidden="true"></span><span class="num">${brl(s.preco)}</span></li>`).join('');
+  $('[data-total-d]').textContent = brl(total);
+  $('[data-total]').textContent = brl(total);
+  $('[data-qtd]').textContent = `${itens.map((s) => s.nome).join(' + ')} · hoje ${hora || ''}`;
+}
+document.addEventListener('click', (ev) => {
+  const s = ev.target.closest('.preco-item'), p = ev.target.closest('.pessoa'), h = ev.target.closest('.slot');
+  if (s) sel.has(s.dataset.id) ? sel.delete(s.dataset.id) : sel.add(s.dataset.id);
+  if (p) pro = +p.dataset.pro;
+  if (h) hora = h.dataset.hora;
+  if (s || p || h) atualizar();
+});
+atualizar();
+</script>
+</body>
+</html>
