@@ -6,6 +6,9 @@ import {
 import { getFinanceiroResumo } from '../../api/profissionais';
 import type { FinanceiroResumo } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { variaveisDestaque } from '../../utils/cor';
+import { PALETA_SERVICOS } from './agenda/util';
 import { Tooltip } from '../../components/Tooltip';
 import {
   DollarSign, CheckCircle, TrendingUp, Calendar,
@@ -19,10 +22,8 @@ const MESES_NOMES = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 
-const CHART_COLORS = [
-  '#60a5fa', '#a78bfa', '#4ade80', '#f87171',
-  '#fbbf24', '#2dd4bf', '#fb923c', '#f472b6',
-];
+// Mesma paleta de serviços da Agenda: um serviço tem a mesma cor em todo o painel
+const CHART_COLORS = PALETA_SERVICOS;
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 
@@ -151,8 +152,11 @@ export function FinanceiroPage() {
   const meses = useMemo(() => getMesesDisponiveis(), []);
 
   // Cores de eixo dependem do tema
-  const axisColor  = theme === 'dark' ? '#64748b' : '#94a3b8';
-  const gridColor  = theme === 'dark' ? '#334155' : '#e8edf2';
+  // Cores do gráfico vêm dos tokens (SVG não herda variáveis CSS em todos os navegadores)
+  const { empresa } = useAuth();
+  const axisColor  = theme === 'dark' ? '#8E94A0' : '#676D79';
+  const gridColor  = theme === 'dark' ? '#2A2E35' : '#E3E6EB';
+  const corBarra   = variaveisDestaque(empresa?.cor_destaque, theme)['--destaque'];
 
   useEffect(() => {
     getFinanceiroResumo(mes)
@@ -300,7 +304,7 @@ export function FinanceiroPage() {
                   style={{
                     height: '100%',
                     width: `${resumo.taxa_confirmacao}%`,
-                    background: 'var(--success-hover)',
+                    background: 'var(--ok)',
                     borderRadius: 99,
                     transition: 'width .5s ease',
                   }}
@@ -353,10 +357,10 @@ export function FinanceiroPage() {
                     tickFormatter={fmtMoedaShort}
                     width={52}
                   />
-                  <ChartTooltip content={<BarTooltip />} cursor={{ fill: 'rgba(96,165,250,.07)' }} />
+                  <ChartTooltip content={<BarTooltip />} cursor={{ fill: gridColor, fillOpacity: 0.5 }} />
                   <Bar
                     dataKey="receita_num"
-                    fill="#60a5fa"
+                    fill={corBarra}
                     radius={[5, 5, 0, 0]}
                     maxBarSize={44}
                   />

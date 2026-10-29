@@ -36,6 +36,9 @@ export interface Servico {
   descricao: string;
   duracao_min: number;
   preco: string;
+  /** Miniatura da primeira foto da vitrine (só no painel). */
+  capa_url?: string | null;
+  total_midias?: number;
   criado_em: string;
   atualizado_em: string;
 }

@@ -59,9 +59,9 @@ export function nomesServicos(ag: Agendamento): string {
 }
 
 /** Paleta de serviços: tons distintos que funcionam nos dois temas (usados misturados à superfície). */
-const CORES = ['#3B6FD8', '#8A4FD1', '#2E8A6E', '#C2671D', '#C23B6B', '#1F8FA8', '#7A7F2A', '#A0522D'];
+export const PALETA_SERVICOS = ['#3B6FD8', '#8A4FD1', '#2E8A6E', '#C2671D', '#C23B6B', '#1F8FA8', '#7A7F2A', '#A0522D'];
 export function corDoServico(servicoId: number | null | undefined): string {
-  return CORES[Math.abs(servicoId ?? 0) % CORES.length];
+  return PALETA_SERVICOS[Math.abs(servicoId ?? 0) % PALETA_SERVICOS.length];
 }
 
 /** Todos os agendamentos do intervalo (inclusivo), percorrendo as páginas da API. */

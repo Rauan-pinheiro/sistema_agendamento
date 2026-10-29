@@ -117,6 +117,15 @@ class MidiasServicoTests(APITestCase):
         self.assertEqual([m['id'] for m in r.data], [b, a])
         self.assertEqual(self.client.patch(f'{self.base}ordem/', {'ids': [a]}, format='json').status_code, 400)
 
+    def test_lista_do_painel_traz_miniatura_e_quantidade(self):
+        lista = self.client.get('/api/v1/servicos/').data['results']
+        self.assertEqual((lista[0]['total_midias'], lista[0]['capa_url']), (0, None))
+        self.confirmar(self.pid('a'))
+        self.client.post(self.base, {'youtube_url': f'youtu.be/{YT}'}, format='json')
+        item = self.client.get('/api/v1/servicos/').data['results'][0]
+        self.assertEqual(item['total_midias'], 2)
+        self.assertIn(self.pid('a'), item['capa_url'])  # a foto, não o YouTube
+
     def test_remover_apaga_arquivo(self):
         mid = self.confirmar(self.pid('a'))[0].data['id']
         with mock.patch.object(midia, 'apagar') as apagar, self.captureOnCommitCallbacks(execute=True):

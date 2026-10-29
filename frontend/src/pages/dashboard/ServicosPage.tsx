@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { listServicos, createServico, updateServico, deleteServico } from '../../api/servicos';
 import type { Servico } from '../../types';
-import { Plus, Pencil, Trash2, Scissors } from 'lucide-react';
+import { ImageOff, Plus, Pencil, Trash2, Scissors } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { VitrineServico } from '../../components/VitrineServico';
@@ -128,11 +128,11 @@ export function ServicosPage() {
       ) : servicos.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon"><Scissors size={28} /></div>
-          <h3>Nenhum serviço cadastrado ainda</h3>
+          <h3>Cadastre seu primeiro serviço</h3>
           <p className="empty-hint">
-            Adicione os serviços que você oferece com nome, duração e preço para que os clientes possam agendar.
+            Comece pelo mais pedido: nome, duração e preço. Depois, adicione fotos para ele aparecer em destaque na sua página.
           </p>
-          <Button onClick={openCreate}><Plus size={15} /> Adicionar serviço</Button>
+          <Button onClick={openCreate}><Plus size={15} /> Cadastrar serviço</Button>
         </div>
       ) : (
         <div className="table-wrapper">
@@ -149,8 +149,18 @@ export function ServicosPage() {
               {servicos.map((s) => (
                 <tr key={s.id}>
                   <td data-label="Nome">
-                    <span style={{ fontWeight: 600 }}>{s.nome}</span>
-                    {s.descricao && <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{s.descricao}</p>}
+                    <div className="servico-linha">
+                      <span className="servico-miniatura" aria-hidden>
+                        {s.capa_url ? <img src={s.capa_url} alt="" width={44} height={44} loading="lazy" /> : <ImageOff size={16} />}
+                      </span>
+                      <span className="servico-linha-texto">
+                        <b>{s.nome}</b>
+                        {s.descricao && <small>{s.descricao}</small>}
+                        <small className={s.total_midias ? 'servico-vitrine' : 'servico-vitrine servico-vitrine--vazia'}>
+                          {s.total_midias ? `${s.total_midias} ${s.total_midias === 1 ? 'foto ou vídeo' : 'fotos e vídeos'} na vitrine` : 'Sem fotos na vitrine'}
+                        </small>
+                      </span>
+                    </div>
                   </td>
                   <td data-label="Duração">{s.duracao_min} min</td>
                   <td data-label="Preço">{Number(s.preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>

@@ -350,3 +350,20 @@
 .legal a { color: var(--text); font-weight: 600; text-decoration: underline; }
 .legal-versao, .legal-voltar { color: var(--text-muted); }
 .legal-rodape { margin-top: var(--e-8); padding-top: var(--e-4); border-top: 1px solid var(--border); color: var(--text-muted); }
+
+/* ── Campo de imagem (capa, logo, foto do profissional) ──────────────────── */
+.campo-imagem { display: flex; align-items: center; gap: var(--e-4); }
+.campo-imagem-previa {
+  position: relative; flex: none; display: grid; place-items: center; overflow: hidden;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted);
+}
+.campo-imagem--redonda .campo-imagem-previa { width: 72px; height: 72px; border-radius: 50%; }
+.campo-imagem--capa { flex-wrap: wrap; align-items: flex-start; }
+.campo-imagem--capa .campo-imagem-previa { width: min(100%, 320px); aspect-ratio: 16 / 9; border-radius: var(--r-bloco); }
+.campo-imagem-previa img { width: 100%; height: 100%; object-fit: cover; }
+.campo-imagem-progresso {
+  position: absolute; inset: 0; display: grid; place-items: center; gap: 4px; align-content: center;
+  background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--text); font-size: var(--t-12); font-weight: 600;
+}
+.campo-imagem-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.campo-imagem-acoes { display: flex; flex-wrap: wrap; gap: var(--e-2); margin-top: var(--e-1); }

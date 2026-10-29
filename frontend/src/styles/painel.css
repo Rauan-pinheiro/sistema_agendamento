@@ -308,3 +308,46 @@
 .config-privacidade > * + * { padding-top: var(--e-6); border-top: 1px solid var(--border); }
 .config-privacidade h4 { font-size: var(--t-16); margin-bottom: var(--e-1); }
 .config-privacidade .config-section-desc { margin-bottom: var(--e-3); }
+
+/* Ajustes → Sua página pública */
+.cor-destaque-opcao { display: grid; place-items: center; }
+.cor-destaque-outra {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 var(--e-3) 0 var(--e-2);
+  border: 1px solid var(--border); border-radius: var(--r-pill); font-size: var(--t-13); font-weight: 600; cursor: pointer;
+}
+.cor-destaque-outra input { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.capa-previa-vazia, .logo-previa-vazia {
+  width: 100%; height: 100%; display: grid; place-items: center; font-weight: 800; letter-spacing: -0.03em;
+  background: linear-gradient(140deg, var(--destaque), var(--destaque-profundo)); color: var(--sobre-destaque);
+}
+.capa-previa-vazia { font-size: var(--t-32); }
+.logo-previa-vazia { font-size: var(--t-20); }
+
+/* Serviços: linha com miniatura da vitrine */
+.servico-linha { display: flex; align-items: center; gap: var(--e-3); min-width: 0; }
+.servico-miniatura {
+  flex: none; width: 44px; height: 44px; border-radius: var(--r-controle); overflow: hidden;
+  display: grid; place-items: center; background: var(--surface-2); color: var(--text-subtle);
+}
+.servico-miniatura img { width: 100%; height: 100%; object-fit: cover; }
+.servico-linha-texto { display: flex; flex-direction: column; min-width: 0; }
+.servico-linha-texto b { font-weight: 600; }
+.servico-linha-texto small { font-size: var(--t-12); color: var(--text-muted); }
+.servico-vitrine { color: var(--text-subtle) !important; }
+.servico-vitrine--vazia { font-style: italic; }
+
+/* Tabelas: a célula de ações continua célula (borda alinhada com a linha) */
+.table td.table-actions { display: table-cell; text-align: right; white-space: nowrap; }
+.table td.table-actions > * { vertical-align: middle; }
+@media (max-width: 640px) { .table-responsive tbody td.table-actions { display: flex; } }
+
+/* Celular: cada linha da tabela vira um cartão compacto (1ª célula inteira, demais em 2 colunas) */
+@media (max-width: 640px) {
+  .table-responsive tbody tr { display: grid; grid-template-columns: 1fr 1fr; }
+  .table-responsive tbody td { border-bottom: 0; border-top: 1px solid var(--border); flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: var(--e-2) var(--e-4); }
+  .table-responsive tbody td:first-child { grid-column: 1 / -1; border-top: 0; padding: var(--e-3) var(--e-4); }
+  .table-responsive tbody td:first-child::before { display: none; }
+  .table-responsive tbody td[data-label]::before { font-size: var(--t-12); font-weight: 500; }
+  .table-responsive tbody td:nth-child(odd):not(:first-child):not(.table-actions) { border-left: 1px solid var(--border); }
+  .table-responsive tbody td.table-actions { grid-column: 1 / -1; flex-direction: row; justify-content: flex-end; }
+}

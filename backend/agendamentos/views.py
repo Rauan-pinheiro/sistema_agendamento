@@ -183,7 +183,9 @@ class ServicoViewSet(EmpresaDoUsuarioMixin, viewsets.ModelViewSet):
     pagination_class = StandardPagination
 
     def get_queryset(self):
-        return Servico.objects.filter(empresa=self._empresa())
+        qs = Servico.objects.filter(empresa=self._empresa())
+        # Só na lista (miniatura da vitrine): nas ações de mídia o cache do prefetch ficaria velho
+        return qs.prefetch_related('midias') if self.action == 'list' else qs
 
     # ── Vitrine do serviço (fotos, vídeos e YouTube exibidos no "Ver mais") ──
 

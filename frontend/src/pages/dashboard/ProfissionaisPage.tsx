@@ -6,6 +6,8 @@ import {
 import type { Profissional } from '../../types';
 import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { Modal } from '../../components/Modal';
+import { Avatar, CampoImagem } from '../../components/ui';
+import { enviarFotoProfissional, removerFotoProfissional } from '../../api/imagens';
 import { Button } from '../../components/Button';
 import { useFeedback } from '../../context/FeedbackContext';
 import { mensagemDeErro } from '../../utils/erros';
@@ -27,6 +29,12 @@ export function ProfissionaisPage() {
   const [form, setForm] = useState<FormData>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  /** Foto salva no servidor: atualiza o modal e a lista sem fechar. */
+  function trocarFoto(atualizado: Profissional) {
+    setEditing(atualizado);
+    setProfissionais((lista) => lista.map((x) => (x.id === atualizado.id ? atualizado : x)));
+  }
 
   const fetchProfissionais = useCallback(() =>
     listProfissionais()
@@ -94,10 +102,6 @@ export function ProfissionaisPage() {
     }
   }
 
-  function initials(nome: string) {
-    return nome.split(' ').slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase();
-  }
-
   return (
     <div className="page">
       <div className="page-header">
@@ -153,9 +157,7 @@ export function ProfissionaisPage() {
                 <tr key={p.id}>
                   <td data-label="Profissional">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="profissional-avatar" style={{ width: 32, height: 32, fontSize: '0.75rem' }}>
-                        {initials(p.nome)}
-                      </div>
+                      <Avatar nome={p.nome} foto={p.foto_url} tamanho={32} />
                       <span style={{ fontWeight: 600 }}>{p.nome}</span>
                     </div>
                   </td>
@@ -203,6 +205,15 @@ export function ProfissionaisPage() {
           </>
         }
       >
+        {editing ? (
+          <CampoImagem rotulo="Foto" url={editing.foto_url}
+            dica="Aparece na sua página para o cliente escolher com quem agendar."
+            vazio={<Avatar nome={editing.nome} tamanho={72} />}
+            onEnviar={async (f, prog) => trocarFoto(await enviarFotoProfissional(editing.id, f, prog))}
+            onRemover={async () => trocarFoto(await removerFotoProfissional(editing.id))} />
+        ) : (
+          <p className="form-hint">Depois de salvar, você pode adicionar a foto do profissional.</p>
+        )}
         <div className="form-group">
           <label htmlFor="profissionais-1">Nome</label>
           <input

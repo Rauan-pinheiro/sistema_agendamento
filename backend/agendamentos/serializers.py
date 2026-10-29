@@ -172,10 +172,25 @@ class ProfissionalPublicSerializer(FotoProfissionalMixin, serializers.ModelSeria
 # ── Servico ───────────────────────────────────────────────────────────────────
 
 class ServicoSerializer(serializers.ModelSerializer):
+    # Resumo da vitrine para a lista do painel (miniatura e quantidade de fotos/vídeos)
+    capa_url = serializers.SerializerMethodField()
+    total_midias = serializers.SerializerMethodField()
+
     class Meta:
         model = Servico
-        fields = ['id', 'empresa', 'nome', 'descricao', 'duracao_min', 'preco', 'criado_em', 'atualizado_em']
-        read_only_fields = ['id', 'empresa', 'criado_em', 'atualizado_em']
+        fields = ['id', 'empresa', 'nome', 'descricao', 'duracao_min', 'preco', 'capa_url', 'total_midias',
+                  'criado_em', 'atualizado_em']
+        read_only_fields = ['id', 'empresa', 'capa_url', 'total_midias', 'criado_em', 'atualizado_em']
+
+    def _midias(self, obj):
+        return list(obj.midias.all())  # usa o prefetch da view
+
+    def get_capa_url(self, obj) -> str | None:
+        m = next((m for m in self._midias(obj) if m.tipo != 'youtube' and m.public_id), None)
+        return midia.urls_assinadas(m.public_id, m.tipo, midia.ENTREGA_PUBLICA)['thumb_url'] if m else None
+
+    def get_total_midias(self, obj) -> int:
+        return len(self._midias(obj))
 
     def validate_nome(self, value: str) -> str:
         value = value.strip()

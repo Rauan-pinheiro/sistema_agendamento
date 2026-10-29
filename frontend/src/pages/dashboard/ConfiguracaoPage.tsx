@@ -2,6 +2,7 @@ import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
 import { Building2, User, Lock, CheckCircle, AlertCircle, Save } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { updateEmpresa } from '../../api/empresa';
+import { PaginaPublicaAjustes } from './ajustes/PaginaPublicaAjustes';
 import { getPerfilUsuario, updatePerfilUsuario } from '../../api/usuario';
 import { formatPhone, normalizePhone, isValidPhone } from '../../utils/phone';
 import type { PerfilUsuario } from '../../types';
@@ -162,6 +163,14 @@ export function ConfiguracaoPage() {
 
   return (
     <div className="page config-page">
+      <div className="page-header">
+        <div>
+          <h1>Ajustes</h1>
+          <p className="page-subtitle">Sua página pública, empresa, conta, privacidade e dados.</p>
+        </div>
+      </div>
+      <PaginaPublicaAjustes />
+
       {/* Profile header */}
       <div className="config-profile-header">
         <div className="config-avatar">{initials}</div>
