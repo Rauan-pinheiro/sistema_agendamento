@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR" data-empresa="salao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio Lume · Direção B</title>
+<link rel="preload" href="../comum/fontes/figtree.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<header class="capa">
+  <img src="../comum/fotos/capa-salao.webp" alt="Salão do Studio Lume, com cadeiras e espelhos redondos" fetchpriority="high">
+  <div class="capa-barra">
+    <span></span>
+    <button type="button" class="btn btn--icone btn--vidro" data-tema></button>
+  </div>
+  <div class="capa-info">
+    <div class="logo" aria-hidden="true">SL</div>
+    <h1 data-nome></h1>
+    <p><span data-nota></span><span data-endereco></span><span>Aberto hoje até 19:00</span></p>
+  </div>
+</header>
+
+<div class="pub">
+  <main>
+    <section class="secao" aria-labelledby="t-serv">
+      <div class="secao-cab"><h2 id="t-serv">Serviços</h2><span>Escolha um ou mais</span></div>
+      <div class="filtros" role="group" aria-label="Categoria">
+        <button type="button" aria-pressed="true">Todos</button>
+        <button type="button" aria-pressed="false">Cabelo</button>
+        <button type="button" aria-pressed="false">Coloração</button>
+        <button type="button" aria-pressed="false">Unhas</button>
+      </div>
+      <div class="cartoes" data-servicos></div>
+    </section>
+
+    <section class="secao" aria-labelledby="t-eq">
+      <div class="secao-cab"><h2 id="t-eq">Com quem?</h2></div>
+      <div class="equipe" data-equipe></div>
+    </section>
+
+    <section class="secao" aria-labelledby="t-hora">
+      <div class="secao-cab"><h2 id="t-hora">Quando?</h2><span>Livres de Carla</span></div>
+      <div class="dias" data-dias></div>
+      <div data-turnos></div>
+    </section>
+  </main>
+
+  <aside class="sacola" aria-labelledby="t-sacola">
+    <h2 id="t-sacola">Sua visita</h2>
+    <ul data-itens></ul>
+    <div class="quando" data-quando></div>
+    <div class="total"><span>Total</span><span data-total-d></span></div>
+    <button type="button" class="btn btn--destaque">Continuar</button>
+    <p class="nota">Sem cadastro. Você recebe a confirmação no WhatsApp.</p>
+  </aside>
+</div>
+
+<div class="carrinho" role="region" aria-label="Sua visita">
+  <div class="miniaturas" data-miniaturas></div>
+  <div class="carrinho-txt"><b data-total></b><span data-qtd></span></div>
+  <button type="button" class="btn btn--destaque">Continuar</button>
+</div>
+
+<script src="../comum/dados.js"></script>
+<script src="../comum/proto.js"></script>
+<script>
+const { E, foto, brl, dur, icone } = P;
+const sel = new Set(E.selecionados);
+let pro = E.profissionalEscolhido, hora = E.horarioEscolhido;
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+$('[data-nome]').textContent = E.nome;
+$('[data-nota]').innerHTML = `${icone('estrela', 'ic estrela')} ${E.nota.toLocaleString('pt-BR')} · ${E.avaliacoes} avaliações`;
+$('[data-endereco]').innerHTML = `${icone('pin')} ${E.bairro}`;
+
+$('[data-servicos]').innerHTML = E.servicos.map((s) => `
+  <article class="cartao">
+    <figure><img src="${foto(s.foto)}" alt="" loading="lazy" width="320" height="240"><span class="duracao">${icone('relogio')} ${dur(s.dur)}</span></figure>
+    <div class="cartao-corpo">
+      <h3>${s.nome}</h3><p class="desc">${s.desc}</p>
+      <div class="rodape">
+        <span class="preco">${s.aPartir ? '<small>a partir de</small>' : ''}${brl(s.preco)}</span>
+        <button type="button" class="adicionar" data-id="${s.id}" aria-pressed="${sel.has(s.id)}" aria-label="Adicionar ${s.nome}"></button>
+      </div>
+    </div>
+  </article>`).join('');
+
+$('[data-equipe]').innerHTML = `<button type="button" class="membro" data-pro="-1" aria-pressed="false"><span class="sem">${icone('pessoas')}</span><b>Qualquer uma</b><small>mais horários</small></button>` +
+  E.profissionais.map((p, i) => `<button type="button" class="membro" data-pro="${i}" aria-pressed="${i === pro}"><img src="${foto(p.foto)}" alt="" width="64" height="64"><b>${p.nome.split(' ')[0]}</b><small>${p.papel}</small></button>`).join('');
+
+const dias = [['Hoje', 29], ['Sex', 30], ['Sáb', 31], ['Dom', 1], ['Seg', 2], ['Ter', 3], ['Qua', 4]];
+$('[data-dias]').innerHTML = dias.map(([d, n], i) => `<button type="button" class="dia" aria-pressed="${i === 0}" ${d === 'Dom' ? 'disabled aria-label="Domingo, fechado"' : ''}><small>${d}</small><b>${n}</b></button>`).join('');
+$('[data-turnos]').innerHTML = [['Manhã', E.horarios.manha], ['Tarde', E.horarios.tarde], ['Noite', E.horarios.noite]].map(([t, hs]) =>
+  `<div class="turno"><h3>${t}</h3><div class="slots">${hs.map((h) => `<button type="button" class="slot" data-hora="${h}" aria-pressed="${h === hora}">${h}</button>`).join('')}</div></div>`).join('');
+
+function pintarBotoes() {
+  $$('.adicionar').forEach((b) => {
+    const on = sel.has(b.dataset.id);
+    b.setAttribute('aria-pressed', on);
+    b.innerHTML = icone(on ? 'check' : 'mais1') + `<span class="rot">${on ? 'Adicionado' : 'Adicionar'}</span>`;
+  });
+}
+function atualizar() {
+  const itens = E.servicos.filter((s) => sel.has(s.id));
+  const total = itens.reduce((a, s) => a + s.preco, 0);
+  const tempo = itens.reduce((a, s) => a + s.dur, 0);
+  const p = E.profissionais[pro];
+  $('[data-itens]').innerHTML = itens.map((s) => `<li><img src="${foto(s.foto)}" alt=""><span><b>${s.nome}</b><small>${dur(s.dur)}</small></span><span class="num">${brl(s.preco)}</span></li>`).join('');
+  $('[data-quando]').innerHTML = p ? `<img src="${foto(p.foto)}" alt=""><span><b>${p.nome}</b><br><small class="muted">Hoje, 29/10${hora ? ' às ' + hora : ''} · ${dur(tempo)}</small></span>` : '';
+  $('[data-total-d]').textContent = brl(total);
+  $('[data-total]').textContent = brl(total);
+  $('[data-qtd]').textContent = `${itens.length} ${itens.length === 1 ? 'serviço' : 'serviços'} · ${p ? p.nome.split(' ')[0] : 'qualquer uma'}${hora ? ', hoje ' + hora : ''}`;
+  $('[data-miniaturas]').innerHTML = itens.map((s) => `<img src="${foto(s.foto)}" alt="">`).join('');
+  pintarBotoes();
+}
+document.addEventListener('click', (ev) => {
+  const s = ev.target.closest('.adicionar'), m = ev.target.closest('.membro'), h = ev.target.closest('.slot');
+  if (s) sel.has(s.dataset.id) ? sel.delete(s.dataset.id) : sel.add(s.dataset.id);
+  if (m) { pro = +m.dataset.pro; $$('.membro').forEach((x) => x.setAttribute('aria-pressed', x === m)); }
+  if (h) { hora = h.dataset.hora; $$('.slot').forEach((x) => x.setAttribute('aria-pressed', x === h)); }
+  if (s || m || h) atualizar();
+});
+atualizar();
+</script>
+</body>
+</html>

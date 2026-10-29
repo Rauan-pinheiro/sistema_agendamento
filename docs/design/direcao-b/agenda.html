@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR" data-empresa="salao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agenda · Direção B</title>
+<link rel="preload" href="../comum/fontes/figtree.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body data-painel="agenda">
+<div class="app">
+  <aside class="lateral">
+    <div class="empresa"><span class="logo-p" aria-hidden="true">SL</span>Studio Lume</div>
+    <nav data-lateral aria-label="Painel"></nav>
+    <div class="convite"><b>Sua página está no ar</b>studio-lume na AgendaFácil. Compartilhe no Instagram.</div>
+  </aside>
+  <div>
+    <header class="topo">
+      <div class="empresa"><span class="logo-p" aria-hidden="true">SL</span>Studio Lume</div>
+      <div class="acoes"><button type="button" class="btn btn--icone" data-tema></button><img class="eu" src="../comum/fotos/carla.webp" alt="Carla Menezes"></div>
+    </header>
+    <main class="painel">
+      <div class="agenda-barra">
+        <h1>Quinta, 29 de outubro</h1>
+        <button type="button" class="btn btn--icone" aria-label="Dia anterior" data-ic="esq"></button>
+        <button type="button" class="btn btn--icone" aria-label="Próximo dia" data-ic="dir"></button>
+        <div class="direita">
+          <div class="segmento" role="group" aria-label="Visualização">
+            <button type="button" data-visao="dia" aria-pressed="true">Dia</button>
+            <button type="button" data-visao="semana" aria-pressed="false">Semana</button>
+          </div>
+          <button type="button" class="btn btn--destaque btn--icone" aria-label="Agendar" data-ic="mais1"></button>
+        </div>
+      </div>
+      <div class="cal-bloco"><div class="cal-rolagem" data-agenda='{"ini":8,"fim":20,"px":68}'></div></div>
+    </main>
+  </div>
+  <nav class="abas" data-abas aria-label="Painel"></nav>
+</div>
+<script src="../comum/dados.js"></script>
+<script src="../comum/proto.js"></script>
+<script>
+document.querySelectorAll('[data-ic]').forEach((b) => (b.innerHTML = P.icone(b.dataset.ic)));
+const alvo = document.querySelector('[data-agenda]');
+P.agenda(alvo, JSON.parse(alvo.dataset.agenda));
+</script>
+</body>
+</html>

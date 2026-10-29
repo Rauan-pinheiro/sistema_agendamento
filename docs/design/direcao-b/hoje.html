@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR" data-empresa="salao">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hoje · Direção B</title>
+<link rel="preload" href="../comum/fontes/figtree.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body data-painel="hoje">
+<div class="app">
+  <aside class="lateral">
+    <div class="empresa"><span class="logo-p" aria-hidden="true">SL</span>Studio Lume</div>
+    <nav data-lateral aria-label="Painel"></nav>
+    <div class="convite"><b>Sua página está no ar</b>studio-lume na AgendaFácil. Compartilhe no Instagram.</div>
+  </aside>
+  <div>
+    <header class="topo">
+      <div class="empresa"><span class="logo-p" aria-hidden="true">SL</span>Studio Lume</div>
+      <div class="acoes"><button type="button" class="btn btn--icone" data-tema></button><img class="eu" src="../comum/fotos/carla.webp" alt="Carla Menezes"></div>
+    </header>
+    <main class="painel">
+      <div class="cab">
+        <h1>Boa tarde, Carla</h1>
+        <div class="direita"><button type="button" class="btn btn--destaque" data-novo></button></div>
+        <p>Quinta, 29 de outubro · <span data-resumo></span></p>
+      </div>
+      <div class="hoje-grade">
+        <div>
+          <section class="proxima" aria-labelledby="t-prox" data-proxima></section>
+          <section class="painel-cartao depois" aria-labelledby="t-dep">
+            <h2 id="t-dep">Ainda hoje</h2>
+            <ol data-depois></ol>
+          </section>
+        </div>
+        <div style="display:grid;gap:20px">
+          <section class="painel-cartao" aria-labelledby="t-sem">
+            <h2 id="t-sem">Esta semana</h2>
+            <div class="semana-card">
+              <div class="anel" data-anel></div>
+              <dl class="numeros" data-numeros></dl>
+            </div>
+          </section>
+          <section class="painel-cartao" aria-labelledby="t-pend">
+            <h2 id="t-pend" style="padding-bottom:12px">Confirme estas clientes</h2>
+            <ul class="pendente-lista" data-pendentes></ul>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+  <nav class="abas" data-abas aria-label="Painel"></nav>
+</div>
+<script src="../comum/dados.js"></script>
+<script src="../comum/proto.js"></script>
+<script>
+const { E, foto, brl, icone, minutos, iniciais } = P;
+const $ = (s) => document.querySelector(s);
+const servico = (nome) => E.servicos.find((s) => s.nome === nome);
+const todos = E.agenda.flatMap((l, pi) => l.map(([ini, d, cliente, nome, status]) => ({ ini, d, cliente, nome, status, p: E.profissionais[pi] })))
+  .filter((e) => e.status !== 'cancelado').sort((a, b) => minutos(a.ini) - minutos(b.ini));
+const AGORA = minutos('13:40');
+const seguir = todos.filter((e) => minutos(e.ini) + e.d > AGORA);
+const prox = seguir.find((e) => minutos(e.ini) >= AGORA);
+
+$('[data-novo]').innerHTML = `${icone('mais1')} Agendar`;
+$('[data-resumo]').textContent = `${seguir.length} clientes até o fim do dia`;
+$('[data-proxima]').innerHTML = `
+  <figure><img src="${foto(servico(prox.nome).foto)}" alt=""><span class="quando"><small>Próxima, em ${minutos(prox.ini) - AGORA} min</small><b>${prox.ini}</b></span></figure>
+  <div class="proxima-corpo">
+    <h2 id="t-prox" class="sr-only">Próxima cliente</h2>
+    <div class="cliente"><span class="avatar">${iniciais(prox.cliente)}</span><span><b>${prox.cliente}</b><span>${prox.nome} · ${P.dur(prox.d)} · ${brl(servico(prox.nome).preco)}</span></span></div>
+    <span class="com"><img src="${foto(prox.p.foto)}" alt="">com ${prox.p.nome}</span>
+    <div class="acoes"><a class="btn btn--destaque btn--pequeno" href="#">${icone('mensagem')} Mandar WhatsApp</a><button type="button" class="btn btn--pequeno">Remarcar</button></div>
+  </div>`;
+
+$('[data-depois]').innerHTML = seguir.filter((e) => e !== prox).map((e) => {
+  const agora = minutos(e.ini) < AGORA;
+  return `<li><img class="servico" src="${foto(servico(e.nome).foto)}" alt="">
+    <span><span class="h">${e.ini}</span> · <b>${e.cliente}</b><span class="quem">${e.nome}</span></span>
+    <span style="display:flex;align-items:center;gap:8px">${agora ? '<span class="selo selo--destaque">Agora</span>' : e.status === 'pendente' ? '<span class="selo selo--aviso">Aguardando</span>' : ''}<img class="pro" src="${foto(e.p.foto)}" alt="${e.p.nome}"></span></li>`;
+}).join('');
+
+const S = E.semana, r = 40, c = 2 * Math.PI * r;
+$('[data-anel]').innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="fundo" cx="50" cy="50" r="${r}"/><circle class="valor" cx="50" cy="50" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - S.ocupacao / 100)}"/></svg>
+  <span><b>${S.ocupacao}%</b><span>da agenda da semana já está ocupada</span></span>`;
+$('[data-numeros]').innerHTML = [['Agendamentos', S.agendamentos], ['Receita prevista', brl(S.receita)], ['Clientes novas', S.novos], ['Hoje', todos.length + ' horários']]
+  .map(([t, v]) => `<div><dt>${t}</dt><dd>${v}</dd></div>`).join('');
+$('[data-pendentes]').innerHTML = todos.filter((e) => e.status === 'pendente').map((e) =>
+  `<li><span class="avatar" style="width:40px;height:40px;font-size:14px">${iniciais(e.cliente)}</span><span><b>${e.cliente}</b><small>${e.ini} · ${e.nome}</small></span><button type="button" class="btn btn--pequeno">Confirmar</button></li>`).join('');
+</script>
+</body>
+</html>
