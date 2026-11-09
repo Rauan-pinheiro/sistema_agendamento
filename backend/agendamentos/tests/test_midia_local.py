@@ -132,3 +132,24 @@ class GuardaRenderTests(SimpleTestCase):
                            env=env, capture_output=True, text=True)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn('MIDIA_PROVEDOR=local', r.stderr)
+
+
+class ProvedorPadraoTests(SimpleTestCase):
+    """Sem MIDIA_PROVEDOR: desenvolvimento sem Cloudinary usa disco local em vez de responder 503."""
+
+    def test_desenvolvimento_sem_credencial_usa_local(self):
+        from config.settings import provedor_midia_padrao
+        self.assertEqual(provedor_midia_padrao({}, debug=True), 'local')
+
+    def test_com_credencial_usa_cloudinary(self):
+        from config.settings import provedor_midia_padrao
+        self.assertEqual(provedor_midia_padrao({'CLOUDINARY_URL': 'cloudinary://k:s@c'}, debug=True), 'cloudinary')
+
+    def test_producao_e_render_nunca_caem_no_local(self):
+        from config.settings import provedor_midia_padrao
+        self.assertEqual(provedor_midia_padrao({}, debug=False), 'cloudinary')
+        self.assertEqual(provedor_midia_padrao({'RENDER': 'true'}, debug=True), 'cloudinary')
+
+    def test_variavel_explicita_vence(self):
+        from config.settings import provedor_midia_padrao
+        self.assertEqual(provedor_midia_padrao({'MIDIA_PROVEDOR': 'cloudinary'}, debug=True), 'cloudinary')

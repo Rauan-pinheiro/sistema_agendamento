@@ -55,6 +55,8 @@
 }
 .nav-item:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
 .nav-item.active, .nav-item[aria-current="page"] { background: var(--surface-2); color: var(--text); font-weight: 600; }
+/* 10%: o carmesim marca onde a pessoa está, sem pintar o item inteiro */
+.lateral .nav-item.active { box-shadow: inset 3px 0 0 var(--destaque-texto); }
 .nav-item--sec { font-size: var(--t-13); }
 .nav-item.is-copiado { color: var(--ok); }
 
@@ -94,7 +96,7 @@
   .dashboard { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
   .lateral {
     display: flex; flex-direction: column; gap: var(--e-4); position: sticky; top: 0; height: 100dvh;
-    padding: var(--e-4) 10px; border-right: 1px solid var(--border); background: var(--bg);
+    padding: var(--e-4) 10px; border-right: 1px solid var(--border); background: var(--surface); /* 30% */
   }
   .lateral .marca-empresa { padding: 2px 8px var(--e-2); }
   .topo-movel, .abas-movel { display: none; }

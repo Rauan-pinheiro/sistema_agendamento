@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { RegistroPayload } from '../types';
 import { CalendarDays } from 'lucide-react';
+import { useTemaPainel } from '../hooks/useTemaPainel';
 import { formatPhone, normalizePhone, isValidPhone } from '../utils/phone';
 
 const EMPTY: RegistroPayload = {
@@ -45,6 +46,7 @@ function validateLocal(form: RegistroPayload): string {
 }
 
 export function RegisterPage() {
+  useTemaPainel();
   const { registrar } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState<RegistroPayload>(EMPTY);

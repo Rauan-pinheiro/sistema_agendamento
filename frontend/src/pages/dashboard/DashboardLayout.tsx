@@ -7,7 +7,7 @@ import {
 import { Modal } from '../../components/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, type PreferenciaTema } from '../../context/ThemeContext';
-import { useCorEmpresa } from '../../hooks/useCorEmpresa';
+import { useTemaPainel } from '../../hooks/useTemaPainel';
 import { iniciais } from '../../utils/cor';
 
 function CopyLinkButton({ slug }: { slug: string }) {
@@ -75,7 +75,8 @@ export function DashboardLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [maisAberto, setMaisAberto] = useState(false);
-  useCorEmpresa(empresa?.cor_destaque);
+  // Paleta 60-30-10 do painel; a cor da empresa vale só na página pública (e na prévia em Ajustes)
+  useTemaPainel();
 
   function handleLogout() {
     logout();

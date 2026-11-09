@@ -6,8 +6,6 @@ import {
 import { getFinanceiroResumo } from '../../api/profissionais';
 import type { FinanceiroResumo } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
-import { variaveisDestaque } from '../../utils/cor';
 import { PALETA_SERVICOS } from './agenda/util';
 import { Tooltip } from '../../components/Tooltip';
 import {
@@ -153,10 +151,11 @@ export function FinanceiroPage() {
 
   // Cores de eixo dependem do tema
   // Cores do gráfico vêm dos tokens (SVG não herda variáveis CSS em todos os navegadores)
-  const { empresa } = useAuth();
-  const axisColor  = theme === 'dark' ? '#8E94A0' : '#676D79';
-  const gridColor  = theme === 'dark' ? '#2A2E35' : '#E3E6EB';
-  const corBarra   = variaveisDestaque(empresa?.cor_destaque, theme)['--destaque'];
+  // Paleta do painel (tokens.css, html.tema-painel): --text-subtle, --border e o carmesim legível
+  // (o #A31C1B puro tem 2,5:1 sobre o verde escuro, abaixo dos 3:1 exigidos para gráficos)
+  const axisColor  = theme === 'dark' ? '#8E9792' : '#676D79';
+  const gridColor  = theme === 'dark' ? '#263A30' : '#E3E6EB';
+  const corBarra   = theme === 'dark' ? '#E85D55' : '#A31C1B';
 
   useEffect(() => {
     getFinanceiroResumo(mes)

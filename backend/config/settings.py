@@ -262,7 +262,20 @@ AGENDAMENTO_MAX_DIAS_ANTECEDENCIA = int(os.environ.get('AGENDAMENTO_MAX_DIAS_ANT
 # (lida automaticamente pelo SDK). Limites do plano Free do Cloudinary: imagem
 # até 10 MB e vídeo até 100 MB por arquivo.
 # Provedor atrás da interface de agendamentos/midia.py ('cloudinary'; futuro: 'r2')
-MIDIA_PROVEDOR = os.environ.get('MIDIA_PROVEDOR', 'cloudinary')
+def provedor_midia_padrao(env, debug: bool) -> str:
+    """
+    MIDIA_PROVEDOR explícito sempre vence. Sem ele: Cloudinary quando há credencial, em
+    produção ou no Render; 'local' só em desenvolvimento sem credencial — antes o padrão
+    era Cloudinary sem credencial e todo upload (capa, logo, fotos) respondia 503.
+    """
+    if env.get('MIDIA_PROVEDOR'):
+        return env['MIDIA_PROVEDOR']
+    if env.get('CLOUDINARY_URL') or not debug or env.get('RENDER'):
+        return 'cloudinary'
+    return 'local'
+
+
+MIDIA_PROVEDOR = provedor_midia_padrao(os.environ, DEBUG)
 # 'local' guarda os arquivos em disco: só para desenvolvimento e simulação na própria máquina.
 # No Render o disco é apagado a cada deploy, então lá ele é recusado.
 if MIDIA_PROVEDOR == 'local' and os.environ.get('RENDER'):

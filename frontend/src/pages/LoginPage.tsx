@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CalendarDays } from 'lucide-react';
+import { useTemaPainel } from '../hooks/useTemaPainel';
 
 export function LoginPage() {
+  useTemaPainel();
   const { login } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');

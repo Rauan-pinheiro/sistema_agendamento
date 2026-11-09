@@ -207,6 +207,84 @@
   --sombra-flutuante: 0 8px 24px rgba(0, 0, 0, .5);
 }
 
+/*
+ * ── Paleta do painel: regra 60-30-10 ──────────────────────────────────────────────────────────
+ * Vale no painel, no login e no cadastro: o <html> recebe .tema-painel (hook useTemaPainel e
+ * public/tema-inicial.js, antes da primeira pintura). Por estar no <html>, alcança também os
+ * modais, toasts e confirmações que abrem em portal. A página pública nunca recebe a classe e
+ * continua com os neutros acima e a cor de cada empresa.
+ *
+ *   60%  Preto Carvão     #171717  fundo da página (--bg)
+ *   30%  Verde Floresta   #06110C  cartões, tabelas, barra lateral, modais (--surface)
+ *   10%  Vermelho Carmesim #A31C1B CTA principal, item ativo, alertas críticos (--acao, --destaque)
+ *
+ * O verde é mais escuro que o carvão (1,07:1), então as superfícies se separam por bordas
+ * verdes de 1 px (--border). O carmesim puro tem 2,3:1 sobre o carvão: serve de fundo de botão
+ * (texto branco a 7,7:1), mas texto, ícone e foco em carmesim usam #E85D55 (≥ 4,8:1 em todas
+ * as superfícies). O tema claro mantém os neutros e usa o carmesim como cor de ação.
+ */
+html.tema-painel {
+  --acao: #A31C1B;
+  --acao-hover: #861716;
+  --sobre-acao: #FFFFFF;
+  --destaque: #A31C1B;
+  --sobre-destaque: #FFFFFF;
+  --destaque-texto: #A31C1B;      /* 7,2:1 sobre --bg claro */
+  --destaque-suave: #F6E3E2;
+  --destaque-profundo: #6E1312;
+  --perigo: #A31C1B;
+  --perigo-hover: #861716;
+  --perigo-soft: #F6E3E2;
+}
+@media (prefers-color-scheme: dark) {
+  html.tema-painel:not([data-theme="light"]) {
+    --bg: #171717;
+    --surface: #06110C;
+    --surface-2: #10221A;          /* hover e áreas rebaixadas sobre o verde */
+    --border: #263A30;
+    --border-strong: #6B7A72;      /* contorno de campo: 4,2:1 sobre --surface */
+    --text: #ECEDEA;
+    --text-muted: #A3ACA7;         /* 7,7:1 sobre --bg */
+    --text-subtle: #8E9792;        /* 5,5:1 sobre --surface-2 */
+    --acao: #A31C1B;
+    --acao-hover: #B8221F;
+    --sobre-acao: #FFFFFF;
+    --destaque: #A31C1B;
+    --sobre-destaque: #FFFFFF;
+    --destaque-texto: #E85D55;     /* carmesim legível: 4,8:1 a 5,6:1 nas superfícies */
+    --destaque-suave: #2A1414;
+    --destaque-profundo: #6E1312;
+    --perigo: #E85D55;
+    --perigo-hover: #F07A72;
+    --perigo-soft: #2A1414;
+    --sobre-perigo: #FFFFFF;
+    --veu: rgba(0, 0, 0, .7);
+  }
+}
+html.tema-painel[data-theme="dark"] {
+  --bg: #171717;
+  --surface: #06110C;
+  --surface-2: #10221A;
+  --border: #263A30;
+  --border-strong: #6B7A72;
+  --text: #ECEDEA;
+  --text-muted: #A3ACA7;
+  --text-subtle: #8E9792;
+  --acao: #A31C1B;
+  --acao-hover: #B8221F;
+  --sobre-acao: #FFFFFF;
+  --destaque: #A31C1B;
+  --sobre-destaque: #FFFFFF;
+  --destaque-texto: #E85D55;
+  --destaque-suave: #2A1414;
+  --destaque-profundo: #6E1312;
+  --perigo: #E85D55;
+  --perigo-hover: #F07A72;
+  --perigo-soft: #2A1414;
+  --sobre-perigo: #FFFFFF;
+  --veu: rgba(0, 0, 0, .7);
+}
+
 /* ── Superfície Vitrine (página pública, Direção B) ── */
 .sup-vitrine {
   --t-corpo: var(--t-15);

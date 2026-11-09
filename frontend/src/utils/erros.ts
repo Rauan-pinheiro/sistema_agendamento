@@ -24,6 +24,12 @@ export function mensagemDeErro(err: unknown, padrao = PADRAO): string {
     const status = e.response?.status;
     if (!e.response) return 'Sem conexão com o servidor. Verifique sua internet e tente novamente.';
     if (status === 429) return 'Muitas tentativas em pouco tempo. Aguarde um minuto e tente de novo.';
+    // 503 com JSON é recusa intencional da API (ex.: armazenamento de mídia indisponível) e a
+    // mensagem dela diz o que fazer; HTML de proxy cai no texto genérico abaixo.
+    if (status === 503) {
+      const msg = primeiraMensagem(e.response.data);
+      if (msg) return msg;
+    }
     if (status && status >= 500) {
       // `codigo` = X-Request-ID: o suporte busca nos logs (docs/06, "Deu erro")
       const codigo = (e.response.data as { codigo?: unknown } | undefined)?.codigo;

@@ -73,3 +73,29 @@ test('cadastro exige aceite dos termos, cria a conta e permite excluí-la', asyn
   await page.getByRole('button', { name: /entrar/i }).click();
   await expect(page.getByRole('alert')).toBeVisible();
 });
+
+test('painel: digitar no formulário de serviço não perde o foco e a Equipe permite cadastrar', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel(/usu[aá]rio/i).fill('dono_carga_1');
+  await page.getByLabel(/senha/i).fill('Carga-123!');
+  await page.getByRole('button', { name: /entrar/i }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+
+  // Serviços: a página inteira re-renderiza a cada tecla e o campo precisa manter o foco
+  await page.goto('/dashboard/servicos');
+  await page.getByRole('button', { name: 'Novo serviço' }).click();
+  const nome = page.getByRole('dialog').getByLabel('Nome');
+  await expect(nome).toBeFocused();
+  await page.keyboard.type('Corte degradê');
+  await expect(nome).toHaveValue('Corte degradê');
+  await expect(nome).toBeFocused();
+  await page.keyboard.press('Escape');
+
+  // Equipe: botões de cadastro visíveis nas duas abas e abrindo o formulário
+  await page.goto('/dashboard/equipe');
+  await page.getByRole('button', { name: 'Novo profissional' }).click();
+  await expect(page.getByRole('dialog', { name: 'Novo profissional' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.goto('/dashboard/equipe?aba=horarios');
+  await expect(page.getByRole('button', { name: 'Adicionar dia' })).toBeVisible();
+});

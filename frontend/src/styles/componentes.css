@@ -33,6 +33,10 @@
 
 .btn-danger { background: var(--perigo); color: var(--sobre-perigo); border-color: var(--perigo); }
 .btn-danger:not(:disabled):hover { background: var(--perigo-hover); border-color: var(--perigo-hover); color: var(--sobre-perigo); }
+/* No painel o carmesim sólido é do CTA ("Salvar", "Cadastrar"): a ação destrutiva fica contornada,
+   para "Excluir" nunca parecer o botão principal. */
+.tema-painel .btn-danger { background: transparent; color: var(--perigo); border-color: var(--perigo); }
+.tema-painel .btn-danger:not(:disabled):hover { background: var(--perigo-soft); border-color: var(--perigo); color: var(--perigo); }
 
 /* Verde escuro do WhatsApp: reconhecível e com contraste AA para texto branco */
 .btn-whatsapp { background: #075E54; color: #fff; border-color: #075E54; }

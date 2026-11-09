@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Check, Palette } from 'lucide-react';
 import { updateEmpresa } from '../../../api/empresa';
 import { enviarImagemEmpresa, removerImagemEmpresa } from '../../../api/imagens';
 import { CampoImagem } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
 import { useFeedback } from '../../../context/FeedbackContext';
-import { CORES_SUGERIDAS, corLegivel, iniciais } from '../../../utils/cor';
+import { useTheme } from '../../../context/ThemeContext';
+import { CORES_SUGERIDAS, corLegivel, iniciais, variaveisDestaque } from '../../../utils/cor';
 import { mensagemDeErro } from '../../../utils/erros';
 
 /** Aparência da página pública: cor da empresa, capa e logo (fotos vão para o Cloudinary da empresa). */
 export function PaginaPublicaAjustes() {
   const { empresa, atualizarEmpresa } = useAuth();
   const { toast } = useFeedback();
+  const { theme } = useTheme();
   const [salvandoCor, setSalvandoCor] = useState<string | null>(null);
   if (!empresa) return null;
 
@@ -33,6 +35,8 @@ export function PaginaPublicaAjustes() {
   }
 
   const sigla = iniciais(empresa.nome_fantasia);
+  // O painel usa a paleta própria; a prévia sem foto mostra a cor que o cliente verá na página
+  const corDaPagina = variaveisDestaque(empresa.cor_destaque, theme) as CSSProperties;
   return (
     <section className="config-section" aria-labelledby="titulo-pagina-publica">
       <div className="config-section-header">
@@ -65,12 +69,12 @@ export function PaginaPublicaAjustes() {
 
         <CampoImagem rotulo="Capa" formato="capa" url={empresa.capa?.url}
           dica="Foto do salão na horizontal (16:9). Sem capa, a página usa um gradiente da sua cor."
-          vazio={<span className="capa-previa-vazia">{sigla}</span>}
+          vazio={<span className="capa-previa-vazia" style={corDaPagina}>{sigla}</span>}
           onEnviar={async (f, p) => atualizarEmpresa(await enviarImagemEmpresa(empresa.id, 'capa', f, p))}
           onRemover={async () => atualizarEmpresa(await removerImagemEmpresa(empresa.id, 'capa'))} />
 
         <CampoImagem rotulo="Logo" url={empresa.logo_url} dica="Quadrada, de preferência com fundo. Aparece sobre a capa."
-          vazio={<span className="logo-previa-vazia">{sigla}</span>}
+          vazio={<span className="logo-previa-vazia" style={corDaPagina}>{sigla}</span>}
           onEnviar={async (f, p) => atualizarEmpresa(await enviarImagemEmpresa(empresa.id, 'logo', f, p))}
           onRemover={async () => atualizarEmpresa(await removerImagemEmpresa(empresa.id, 'logo'))} />
       </div>

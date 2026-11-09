@@ -27,6 +27,15 @@ describe('mensagemDeErro', () => {
     expect(msg).toBe('O servidor teve um problema. Tente de novo em instantes. (código 5a9eadda9ea74ad7)');
   });
 
+  it('503 da API (ex.: armazenamento de mídia fora do ar) mostra a mensagem do servidor', () => {
+    expect(mensagemDeErro(resposta(503, { erro: 'Armazenamento de mídia não configurado.' })))
+      .toBe('Armazenamento de mídia não configurado.');
+  });
+
+  it('503 sem corpo útil (ex.: proxy) vira mensagem amigável', () => {
+    expect(mensagemDeErro(resposta(503, '<html>Service Unavailable</html>'))).toMatch(/servidor/i);
+  });
+
   it('500 sem corpo útil vira mensagem amigável', () => {
     const msg = mensagemDeErro(resposta(500, '<html>Server Error</html>'));
     expect(msg).toMatch(/servidor/i);

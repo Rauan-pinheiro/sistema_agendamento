@@ -137,4 +137,7 @@
 
 /* Equipe: as telas de profissionais e horários entram sem o próprio recuo de página */
 .equipe-page .page { padding: 0; max-width: none; }
-.equipe-page .page .page-header { display: none; }
+/* O cabeçalho interno vira barra da seção: o "Equipe" de cima já é o título da página, mas a
+   contagem e os botões "Novo profissional" / "Adicionar dia" precisam continuar visíveis. */
+.equipe-page .page .page-header { margin-bottom: var(--e-4); padding-bottom: var(--e-3); border-bottom: 1px solid var(--border); }
+.equipe-page .page .page-header h2 { font-size: var(--t-17); }
